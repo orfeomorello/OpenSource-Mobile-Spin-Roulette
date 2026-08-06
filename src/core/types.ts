@@ -19,6 +19,9 @@ export interface Seat {
   id: string;
   name: string;
   bankroll: number;
+  profileId: "cautious" | "normal" | "aggressive" | "superstitious";
+  favoritePocket: string;
+  avatarSeed: number;
   bets: PlacedBet[];
 }
 

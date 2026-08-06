@@ -1,10 +1,11 @@
 import "./styles.css";
+import "./v03.css";
 import controlsConfig from "../config/controls.json" with { type: "json" };
-import wheelConfig from "../config/wheel-spin.json" with { type: "json" };
 import europeanBets from "../config/bets-european.json" with { type: "json" };
 import americanBets from "../config/bets-american.json" with { type: "json" };
-import { closeBets, createGame, finishRound, getPreset, markSpinning, openBetting, pay, payoutTimeout, resolveSpin, snapshot, type GameState } from "./core/game.ts";
-import type { BetDefinition, GameMode, Seat, TableVariant } from "./core/types.ts";
+import { closeBets, createGame, finishRound, getPreset, markSpinning, openBetting, pay, payoutTimeout, resolveSpin, selectPayment, snapshot, type GameState } from "./core/game.ts";
+import type { BetDefinition, GameMode, Seat, SpinResult, TableVariant } from "./core/types.ts";
+import { animateWheel, drawStaticWheel, getSpinEndAngle, type WheelAnimationHandle } from "./wheel/canvasWheel.ts";
 import { spin } from "./spin/spinEngine.ts";
 import { isMuted, playSound, setMuted } from "./audio.ts";
 
@@ -15,6 +16,10 @@ let selectedMode: GameMode = "dealer";
 let lastFx = "";
 let fxTimer: number | null = null;
 let spinTickTimers: number[] = [];
+let activeSpinPlan: SpinResult | null = null;
+let spinDurationMs = 0;
+let wheelRestAngle = 0;
+let wheelAnimation: WheelAnimationHandle | null = null;
 
 function showMenu(): void {
   stopTimer();
@@ -59,8 +64,12 @@ function showMenu(): void {
 
 function renderTable(): void {
   if (!game) return;
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
   const preset = getPreset(game.presetId);
-  const current = game.payments[game.paymentIndex];
+  const selectedPayment = game.payments[game.paymentIndex];
+  const current = selectedPayment?.paid < selectedPayment?.due ? selectedPayment : undefined;
+  const allPaid = game.payments.length > 0 && game.payments.every((payment) => payment.paid >= payment.due);
   const dueLeft = current ? current.due - current.paid : 0;
   const clicksTotal = current ? Math.ceil(current.due / preset.chipValue) : 0;
   const clicksDone = current ? Math.ceil(current.paid / preset.chipValue) : 0;
@@ -74,7 +83,7 @@ function renderTable(): void {
       <header class="arcade-strip">
         <div class="metric"><span>LEVEL</span><strong>${pad(game.level)}</strong></div>
         <div class="metric"><span>ENERGY</span><strong class="energy">${game.mode === "autoplay" ? "∞" : energyBar(game.energy, game.energyMax)}</strong></div>
-        <div class="metric score"><span>SCORE</span><strong>${format(game.score)}<small> u</small></strong></div>
+        <div class="metric score" title="Losing stakes collected minus winning profits paid"><span>HOUSE SCORE</span><strong>${format(game.score)}<small> u</small></strong></div>
         <div class="meta"><b>${game.variant === "european" ? "EU" : "US"}</b> · ${game.presetId.toUpperCase()} · ROUND ${game.round}${game.mode === "autoplay" ? `<em>AUTOPLAY</em>` : ""}</div>
         <nav><button id="sound" class="chrome-button" aria-label="Toggle sound">${isMuted() ? "SOUND OFF" : "SOUND ON"}</button>${saveButton}<button id="exit" class="chrome-button danger">EXIT</button></nav>
       </header>
@@ -87,7 +96,7 @@ function renderTable(): void {
       <section class="phase-row"><span>${phaseTitle(game)}</span><b>${phaseHelp(game)}</b>${game.bonus ? `<mark>BONUS! ${game.bonus}</mark>` : ""}<time class="${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time></section>
       <section class="table-grid">
         <aside class="wheel-panel">
-          ${buildWheel(game.variant, game.result, game.phase === "SPINNING" && game.animationEnabled)}
+          ${buildWheel(game.variant, game.phase === "SPINNING")}
           <div class="last-result ${resultClass}">${displayResult ?? "—"}</div>
           <div class="history"><span>LAST NUMBERS</span><div>${game.history.length ? game.history.slice(0, 12).map(numberChip).join("") : `<i>First spin awaits</i>`}</div></div>
         </aside>
@@ -95,19 +104,26 @@ function renderTable(): void {
           <div class="felt-heading"><span>LIVE TABLE / ${game.variant.toUpperCase()}</span><small>CHIPS SHOW WHERE EACH CUSTOMER BET</small></div>
           <div class="felt-grid">${buildFelt(game.variant, game.result, game.seats)}</div>
           <div class="payout-card ${game.phase === "PAYOUT" ? "visible" : ""}">
-            <span class="kicker">${current ? `PAY → ${current.seatName}` : game.phase === "PAYOUT" ? "TABLE CLEAR" : "CROUPIER CONTROL"}</span>
-            <strong>${current ? `${dueLeft} units left` : phaseInstruction(game)}</strong>
-            ${current ? `<div class="click-count">CLICKS <b>${clicksDone} / ${clicksTotal}</b><span>LEFT ${clicksTotal - clicksDone}</span></div><div class="pay-progress"><i style="width:${progress}%"></i></div><small>EACH PRESS SENDS ${preset.chipValue} u / STOP AT ZERO</small><i class="flying-chip">${preset.chipValue}</i>` : `<small>${game.mode === "autoplay" ? "AI RUNNING THE TABLE" : "SPACE = PRIMARY ACTION"}</small>`}
+            <span class="kicker">${current ? `PAY -> ${current.seatName}` : game.phase === "PAYOUT" && !allPaid ? "SELECT A WINNER" : game.phase === "PAYOUT" ? "TABLE CLEAR" : "CROUPIER CONTROL"}</span>
+            <strong>${current ? `${dueLeft} units left` : game.phase === "PAYOUT" && !allPaid ? "Click a glowing customer below" : phaseInstruction(game)}</strong>
+            ${current ? `<div class="click-count">CLICKS <b>${clicksDone} / ${clicksTotal}</b><span>LEFT ${clicksTotal - clicksDone}</span></div><div class="pay-progress"><i style="width:${progress}%"></i></div><small>EACH PRESS SENDS ${preset.chipValue} u / STOP AT ZERO</small><i class="flying-chip">${preset.chipValue}</i>` : `<small>${game.mode === "autoplay" ? "AI CHOOSES EACH WINNER" : game.phase === "PAYOUT" && !allPaid ? "YOU DECIDE WHO TO PAY - SPACE WORKS AFTER SELECTION" : "SPACE = PRIMARY ACTION"}</small>`}
             <button id="primary" class="primary-action" ${primaryDisabled(game) ? "disabled" : ""}>${primaryLabel(game)}</button>
           </div>
         </section>
       </section>
-      <section class="seats">${game.seats.map((seat, index) => `<article class="seat seat-${index + 1} ${current?.seatId === seat.id ? "current" : ""}"><i>${seat.name.slice(0, 1)}</i><span>${seat.name}</span><strong>${format(seat.bankroll)} u</strong><small>${betSummary(seat, game!.variant)}</small></article>`).join("")}</section>
+      <section class="seats" aria-label="Customers">${game.seats.map((seat, index) => buildSeatCard(seat, index, game!, selectedPayment?.seatId === seat.id)).join("")}</section>
       <footer class="table-footer"><span>BITCROUPIER · HOUSE FLOOR 01</span><span>${game.mode === "autoplay" ? "DEMO — NO WALLET EARNINGS" : "LOCAL AUTOSAVE ON"}</span></footer>
       ${game.phase === "RESULT" || (game.phase === "PAYOUT" && game.result) ? `<div class="result-burst ${resultClass}"><small>WINNING NUMBER</small><b>${game.result}</b></div>` : ""}
     </main>`;
   app.querySelector<HTMLButtonElement>("#primary")?.addEventListener("click", primaryAction);
   app.querySelector<HTMLButtonElement>("#save")?.addEventListener("click", saveGame);
+  mountWheel();
+  app.querySelectorAll<HTMLButtonElement>("[data-pay-seat]").forEach((seatButton) => seatButton.addEventListener("click", () => {
+    if (!game || !selectPayment(game, seatButton.dataset.paySeat ?? "")) return;
+    playSound("bet");
+    triggerFx("select", 360);
+    renderTable();
+  }));
   app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => { setMuted(!isMuted()); if (!isMuted()) playSound("bet"); renderTable(); });
   app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", () => {
     if (game?.mode === "dealer") saveLocal();
@@ -121,8 +137,8 @@ function primaryAction(): void {
   else if (game.phase === "BETTING_CLOSED") performSpin();
   else if (game.phase === "PAYOUT") {
     const outcome = pay(game);
-    playSound(outcome === "overpay" ? "error" : "pay");
-    triggerFx(outcome === "overpay" ? "overpay" : outcome === "complete" ? "perfect" : "pay");
+    playSound(outcome === "overpay" || outcome === "invalid" ? "error" : "pay");
+    triggerFx(outcome === "overpay" ? "overpay" : outcome === "invalid" ? "select" : outcome === "complete" ? "perfect" : "pay");
     renderTable();
     if (outcome === "complete") window.setTimeout(completeRound, 650);
   }
@@ -142,25 +158,33 @@ function performSpin(): void {
   if (!game || !markSpinning(game)) return;
   stopTimer();
   const plan = spin({ spinPower: 6, consistency: 6, releaseStyle: "snap_clockwise" }, game.variant);
+  activeSpinPlan = plan;
+  spinDurationMs = game.animationEnabled ? Math.min(6200, Math.max(5000, plan.durationMs * 0.68)) : 160;
   playSound("spin");
-  triggerFx("spin", game.animationEnabled ? 4200 : 180);
-  scheduleSpinTicks(game.animationEnabled ? 4200 : 0);
+  triggerFx("spin", spinDurationMs);
+  scheduleSpinTicks(game.animationEnabled ? spinDurationMs : 0);
   renderTable();
-  const delay = game.animationEnabled ? 4200 : 180;
   window.setTimeout(() => {
     if (!game) return;
+    wheelRestAngle = getSpinEndAngle(wheelRestAngle, game.variant, plan.winningNumber, plan.turns);
+    activeSpinPlan = null;
     resolveSpin(game, plan.winningNumber);
     clearSpinTicks();
     playSound("settle");
     triggerFx("result", 900);
     renderTable();
-    if (game.payments.length === 0) window.setTimeout(completeRound, 900);
+    if (game.payments.length === 0 || game.payments.every((payment) => payment.paid >= payment.due)) window.setTimeout(completeRound, 900);
     else { startTimer("payout"); if (game.mode === "autoplay") autoplayPay(); }
-  }, delay);
+  }, spinDurationMs);
 }
 
 function autoplayPay(): void {
   if (!game || game.mode !== "autoplay" || game.phase !== "PAYOUT") return;
+  const current = game.payments[game.paymentIndex];
+  if (!current || current.paid >= current.due) {
+    const next = game.payments.find((payment) => payment.paid < payment.due);
+    if (next) selectPayment(game, next.seatId);
+  }
   const outcome = pay(game);
   playSound(outcome === "overpay" ? "error" : "pay");
   triggerFx(outcome === "complete" ? "perfect" : "pay");
@@ -190,15 +214,22 @@ function startTimer(kind: "betting" | "payout"): void {
     if (kind === "betting" && game.phase === "BETTING_OPEN") {
       game.bettingSeconds = Math.max(0, game.bettingSeconds - 1);
       if (game.bettingSeconds === 0) { closeBets(game); playSound("close"); triggerFx("close"); stopTimer(); renderTable(); if (game.mode === "autoplay") window.setTimeout(performSpin, 650); }
-      else renderTable();
+      else updateTimerDisplay();
     } else if (kind === "payout" && game.phase === "PAYOUT") {
       game.paySeconds = Math.max(0, game.paySeconds - 1);
       if (game.paySeconds === 0) { payoutTimeout(game); playSound("error"); triggerFx("timeout", 900); stopTimer(); renderTable(); if (game.energy > 0 || game.mode === "autoplay") window.setTimeout(completeRound, 900); }
-      else renderTable();
+      else updateTimerDisplay();
     }
   }, 1000);
 }
 
+function updateTimerDisplay(): void {
+  if (!game) return;
+  const display = app.querySelector<HTMLTimeElement>(".phase-row time");
+  if (!display) return;
+  display.textContent = phaseTime(game);
+  display.classList.toggle("critical", phaseCritical(game));
+}
 function stopTimer(): void { if (timer !== null) window.clearInterval(timer); timer = null; }
 
 function saveLocal(): void {
@@ -225,14 +256,20 @@ function primaryLabel(state: GameState): string {
   if (state.phase === "BETTING_CLOSED") return "LAUNCH BALL";
   if (state.phase === "PAYOUT") {
     const current = state.payments[state.paymentIndex];
-    const piece = current ? Math.min(getPreset(state.presetId).chipValue, current.due - current.paid) : 0;
-    return current ? `PAY ${piece} u` : "PAYOUT COMPLETE";
+    if (!current || current.paid >= current.due) return state.payments.every((payment) => payment.paid >= payment.due) ? "PAYOUT COMPLETE" : "SELECT A WINNER";
+    const piece = Math.min(getPreset(state.presetId).chipValue, current.due - current.paid);
+    return `PAY ${piece} u TO ${current.seatName.toUpperCase()}`;
   }
   if (state.phase === "GAME_OVER") return "SHIFT OVER";
   return "STAND BY";
 }
 
-function primaryDisabled(state: GameState): boolean { return state.mode === "autoplay" || !["BETTING_OPEN", "BETTING_CLOSED", "PAYOUT"].includes(state.phase); }
+function primaryDisabled(state: GameState): boolean {
+  if (state.mode === "autoplay" || !["BETTING_OPEN", "BETTING_CLOSED", "PAYOUT"].includes(state.phase)) return true;
+  if (state.phase !== "PAYOUT") return false;
+  const current = state.payments[state.paymentIndex];
+  return !current || current.paid >= current.due;
+}
 function phaseInstruction(state: GameState): string { return state.phase === "BETTING_OPEN" ? "Customers are choosing their bets" : state.phase === "BETTING_CLOSED" ? "Bets locked - launch the ball" : state.phase === "SPINNING" ? "Wheel clockwise / ball counter-clockwise" : state.phase === "GAME_OVER" ? `LEVEL ${state.level} / SCORE ${state.score}` : "Ready for the next call"; }
 function phaseTime(state: GameState): string { return state.phase === "BETTING_OPEN" ? `00:${String(Math.ceil(state.bettingSeconds)).padStart(2, "0")}` : state.phase === "PAYOUT" ? `00:${String(Math.ceil(state.paySeconds)).padStart(2, "0")}` : "—"; }
 function guideItem(step: number, title: string, copy: string, activeStep: number): string {
@@ -253,7 +290,7 @@ function phaseHelp(state: GameState): string {
   if (state.phase === "BETTING_OPEN") return "Customers are placing chips. Close betting now or wait for the timer.";
   if (state.phase === "BETTING_CLOSED") return "All chips are locked. Press LAUNCH BALL to spin.";
   if (state.phase === "SPINNING") return "Wheel and ball rotate in opposite directions, then slow into a pocket.";
-  if (state.phase === "PAYOUT") return "Press PAY once per chip shown. A press after zero costs ENERGY.";
+  if (state.phase === "PAYOUT") return "Choose a glowing winning customer, then pay one chip per press before time expires.";
   if (state.phase === "RESULT") return "Read the result, then get ready to pay every winning customer.";
   return state.message;
 }
@@ -276,23 +313,55 @@ function energyBar(value: number, max: number): string { return Array.from({ len
 const redNumbers = new Set(["1","3","5","7","9","12","14","16","18","19","21","23","25","27","30","32","34","36"]);
 function isRed(value: string | null): boolean { return value ? redNumbers.has(value) : false; }
 function numberChip(value: string): string { const color = value === "0" || value === "00" ? "green" : isRed(value) ? "red" : "black"; return `<b class="number ${color}">${value}</b>`; }
-function buildWheel(variant: TableVariant, result: string | null, spinning: boolean): string {
-  const pockets: string[] = [...wheelConfig.variants[variant].pockets];
-  const labels = pockets.map((pocket, index) => {
-    const angle = (index / pockets.length) * 360;
-    const radians = (angle * Math.PI) / 180;
-    const x = 50 + Math.sin(radians) * 42;
-    const y = 50 - Math.cos(radians) * 42;
-    const color = pocket === "0" || pocket === "00" ? "green" : isRed(pocket) ? "red" : "black";
-    return `<span class="wheel-pocket ${color} ${result === pocket ? "winner" : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--label-angle:${angle}deg">${pocket}</span>`;
-  }).join("");
+function buildWheel(variant: TableVariant, spinning: boolean): string {
   return `<div class="wheel-stage ${spinning ? "is-spinning" : ""}">
     <div class="wheel-glow"></div>
-    <div class="wheel-rotor">${labels}<div class="wheel-rim"></div><div class="wheel-center"><i>BC</i><b></b></div></div>
-    <div class="ball-orbit"><i class="roulette-ball"></i></div>
+    <canvas id="wheel-canvas" class="wheel-canvas" role="img" aria-label="${variant === "european" ? "European 37-pocket" : "American 38-pocket"} roulette wheel"></canvas>
     <div class="spin-sparks"><i></i><i></i><i></i><i></i></div>
-    <small>${spinning ? "WHEEL / BALL COUNTER-ROTATION" : variant === "european" ? "EUROPEAN 37-POCKET WHEEL" : "AMERICAN 38-POCKET WHEEL"}</small>
+    <small>${spinning ? "LIVE TRAJECTORY / BALL DROP" : variant === "european" ? "EUROPEAN 37-POCKET WHEEL" : "AMERICAN 38-POCKET WHEEL"}</small>
   </div>`;
+}
+
+function mountWheel(): void {
+  if (!game) return;
+  const canvas = app.querySelector<HTMLCanvasElement>("#wheel-canvas");
+  if (!canvas) return;
+  if (game.phase === "SPINNING" && activeSpinPlan) {
+    wheelAnimation = animateWheel(
+      canvas,
+      game.variant,
+      activeSpinPlan,
+      wheelRestAngle,
+      spinDurationMs,
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || !game.animationEnabled,
+    );
+  } else {
+    drawStaticWheel(canvas, game.variant, wheelRestAngle, game.result);
+  }
+}
+
+const profileLabels: Record<Seat["profileId"], string> = {
+  cautious: "CAUTIOUS",
+  normal: "BALANCED",
+  aggressive: "HIGH ROLLER",
+  superstitious: "LUCKY NUMBER",
+};
+
+function buildSeatCard(seat: Seat, index: number, state: GameState, selected: boolean): string {
+  const payment = state.phase === "PAYOUT" ? state.payments.find((item) => item.seatId === seat.id) : undefined;
+  const unpaid = payment ? payment.due - payment.paid : 0;
+  const isWinner = unpaid > 0;
+  const isPaid = Boolean(payment && unpaid <= 0);
+  const interactive = state.mode === "dealer" && isWinner;
+  const tag = interactive ? "button" : "article";
+  const action = interactive ? ` type="button" data-pay-seat="${seat.id}" aria-label="Select ${seat.name} for payout of ${unpaid} units"` : "";
+  const status = isWinner ? `WINNER +${unpaid} u` : isPaid ? "PAID OK" : betSummary(seat, state.variant);
+  return `<${tag}${action} class="seat seat-${index + 1} profile-${seat.profileId} ${isWinner ? "winner" : ""} ${isPaid ? "paid" : ""} ${selected ? "current" : ""}">
+    <div class="npc-avatar avatar-${seat.avatarSeed}" aria-hidden="true"><i class="npc-hair"></i><i class="npc-head"><b></b><b></b></i><i class="npc-body"></i><i class="npc-legs"></i></div>
+    <span class="npc-name">${seat.name}</span><strong>${format(seat.bankroll)} u</strong>
+    <em>${profileLabels[seat.profileId]} / FAV ${seat.favoritePocket}</em>
+    <small>${status}</small>
+  </${tag}>`;
 }
 
 interface FeltChip { seatName: string; stake: number; className: string }
