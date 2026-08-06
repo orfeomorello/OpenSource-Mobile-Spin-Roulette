@@ -68,8 +68,8 @@ Dettaglio: `REQUISITI.md` §0 · Player: **§6bis**.
 | Design / requisiti / UI use case | **Completi per partire** |
 | Config JSON + `config/README.md` | **Presenti** |
 | `sound.md` / `fx.md` | **Specifiche sì, asset no** |
-| Codice app (Vite/TS/engine) | **Prima versione giocabile** - vertical slice Dealer + Autoplay, build verificata |
-| Grafica / audio reali | **UI 8-bit CSS presente; audio/asset finali non prodotti** |
+| Codice app (Vite/TS/engine) | **v0.2 giocabile** - Dealer + Autoplay, felt reale, spin animato, build verificata |
+| Grafica / audio reali | **FX CSS e SFX 8-bit sintetizzati presenti; asset audio finali non prodotti** |
 
 **Fase:** design + config ready → **prossimo lavoro = implementazione**.
 
@@ -102,7 +102,7 @@ Dettaglio: `REQUISITI.md` §0 · Player: **§6bis**.
 2. Vertical slice Dealer: fasi, NPC bets, spin, resolve, PAY, energy, LEVEL, bonus - **completato v0.1**  
 3. Game Table responsive + wheel presenter CSS + Save/Exit + Autoplay - **completato v0.1**  
 4. **Playtest Training/Rush** e taratura di PAY timer, frequenza win e carico NPC  
-5. Migliorare felt: chip visivi sulle singole bet, animazioni puntate progressive, dettaglio vincite  
+5. Felt reale, chip per cliente, ruota EU/US animata e feedback PAY - **completato v0.2**  
 6. Aggiungere import/continue sessione e schermata Game Over completa  
 7. Completare PWA installabile con icone e QA offline multi-browser  
 8. Stub audio/FX con ID da sound.md / fx.md, poi asset P0  
