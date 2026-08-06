@@ -1,0 +1,101 @@
+{
+  "$schemaComment": "BitCroupier — bilanciamento giocabile (B3/B4). Documentazione completa: config/README.md. Modificare qui senza toccare il codice core.",
+  "schemaVersion": 1,
+  "accounting": {
+    "payWinningsOnly": true,
+    "amountDueFormula": "sum(stake * multiplier) per winning bets on seat",
+    "overpayCostsEnergy": true,
+    "overpayEnergyPenalty": 1,
+    "timeoutUnpaidCostsEnergy": true,
+    "timeoutEnergyPenalty": 1
+  },
+  "payTime": {
+    "minSeconds": 4,
+    "formula": "max(minSeconds, payTimeBaseSeconds + tapBonusSecondsPerTap * expectedTaps)",
+    "tapBonusSecondsPerTap": 0.35
+  },
+  "chipDenominationsAllowed": [5, 10, 25, 50],
+  "levelUpEffects": {
+    "comment": "At each +1 LEVEL apply one soft effect in rotation, clamped by preset min/max",
+    "rotation": [
+      "npcStakeMeanUp",
+      "interSpinDown",
+      "chipStepDownIfAllowed"
+    ],
+    "npcStakeMeanUpPercent": 5,
+    "interSpinDownSeconds": 1,
+    "chipStepOrderDescending": [50, 25, 10, 5]
+  },
+  "bonusRoll": {
+    "enabledDefault": true,
+    "maxOnePerPayout": true
+  },
+  "customRanges": {
+    "playerCount": { "min": 1, "max": 8 },
+    "interSpinSeconds": { "min": 10, "max": 90 },
+    "payTimeBaseSeconds": { "min": 4, "max": 20 },
+    "chipValue": { "allowed": [5, 10, 25, 50] },
+    "energy": { "min": 2, "max": 6 },
+    "startLevel": { "min": 1, "max": 20 }
+  },
+  "presets": {
+    "training": {
+      "id": "training",
+      "labelKey": "difficulty.training",
+      "playerCount": 2,
+      "interSpinSeconds": 50,
+      "payTimeBaseSeconds": 12,
+      "chipValue": 25,
+      "energyStart": 5,
+      "energyMax": 5,
+      "startLevel": 1,
+      "maxLevel": 15,
+      "roundsPerLevelUp": 3,
+      "bonusChance": 0.3
+    },
+    "standard": {
+      "id": "standard",
+      "labelKey": "difficulty.standard",
+      "playerCount": 4,
+      "interSpinSeconds": 35,
+      "payTimeBaseSeconds": 9,
+      "chipValue": 10,
+      "energyStart": 3,
+      "energyMax": 3,
+      "startLevel": 1,
+      "maxLevel": 40,
+      "roundsPerLevelUp": 3,
+      "bonusChance": 0.22
+    },
+    "busy": {
+      "id": "busy",
+      "labelKey": "difficulty.busy",
+      "playerCount": 6,
+      "interSpinSeconds": 25,
+      "payTimeBaseSeconds": 7,
+      "chipValue": 10,
+      "energyStart": 3,
+      "energyMax": 3,
+      "startLevel": 1,
+      "maxLevel": 60,
+      "roundsPerLevelUp": 2,
+      "bonusChance": 0.18
+    },
+    "rush": {
+      "id": "rush",
+      "labelKey": "difficulty.rush",
+      "playerCount": 8,
+      "interSpinSeconds": 15,
+      "payTimeBaseSeconds": 5,
+      "chipValue": 5,
+      "energyStart": 3,
+      "energyMax": 3,
+      "startLevel": 3,
+      "maxLevel": 99,
+      "roundsPerLevelUp": 2,
+      "bonusChance": 0.15
+    }
+  },
+  "defaultPresetId": "standard",
+  "tableVariantDefault": "european"
+}

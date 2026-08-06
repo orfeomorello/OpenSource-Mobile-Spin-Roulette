@@ -1,0 +1,53 @@
+{
+  "$schemaComment": "BitCroupier — input rules for Dealer mode vs Autoplay. See config/README.md.",
+  "schemaVersion": 1,
+  "hudChrome": {
+    "comment": "Always-visible table chrome. Dealer: Save+Exit. Autoplay: Exit only.",
+    "dealerMode": {
+      "showSaveButton": true,
+      "showExitButton": true,
+      "saveLabelKey": "hud.save",
+      "exitLabelKey": "hud.exit"
+    },
+    "autoplayMode": {
+      "showSaveButton": false,
+      "showExitButton": true,
+      "exitLabelKey": "hud.exit"
+    },
+    "exitConfirmIfUnsavedDealer": true,
+    "exitConfirmAutoplay": false
+  },
+  "dealerMode": {
+    "noMoreBets": {
+      "manualButton": true,
+      "autoCloseWhenTimerExpires": true,
+      "comment": "Player can close early; at 0s betting window closes automatically."
+    },
+    "spin": {
+      "manualButton": true,
+      "autoSpinAfterClose": false,
+      "autoSpinDelaySeconds": 0.8,
+      "comment": "MVP: always manual Spin after bets locked. autoSpinAfterClose reserved for future/settings."
+    },
+    "pay": {
+      "manualButton": true,
+      "spaceKeyTriggersPrimaryAction": true,
+      "comment": "Space = No more bets | Spin | PAY depending on phase."
+    },
+    "emptyTableAllowed": true,
+    "pauseFreezesBettingTimer": true
+  },
+  "autoplayMode": {
+    "aiClosesBets": true,
+    "aiSpins": true,
+    "aiPays": true,
+    "payTapsVisible": true,
+    "noGameOver": true,
+    "demoBadge": true
+  },
+  "keyboard": {
+    "primaryAction": "Space",
+    "pause": "Escape",
+    "mute": "KeyM"
+  }
+}

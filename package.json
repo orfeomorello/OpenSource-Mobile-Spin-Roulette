@@ -1,0 +1,16 @@
+{
+  "name": "bitcroupier",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build && node scripts/stage-worker.mjs",
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types src/core/game.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.1.1"
+  }
+}

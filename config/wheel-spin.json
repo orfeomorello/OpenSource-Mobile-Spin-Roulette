@@ -1,0 +1,84 @@
+{
+  "$schemaComment": "BitCroupier — SpinEngine v1 Option A (B5). Full docs: config/README.md. Edit to tune feel without changing core code.",
+  "schemaVersion": 1,
+  "engine": "initial_conditions_v1",
+  "rules": {
+    "sameResultWithOrWithoutAnimation": true,
+    "noPocketProbabilityZeroOrOne": true,
+    "difficultyDoesNotAffectWinningNumber": true,
+    "dealerSignatureSoftOnly": true
+  },
+  "maxBiasStrength": 0.2,
+  "variants": {
+    "european": {
+      "pockets": [
+        "0", "32", "15", "19", "4", "21", "2", "25", "17", "34", "6", "27", "13", "36",
+        "11", "30", "8", "23", "10", "5", "24", "16", "33", "1", "20", "14", "31", "9",
+        "22", "18", "29", "7", "28", "12", "35", "3", "26"
+      ],
+      "pocketCount": 37,
+      "colors": {
+        "comment": "Standard European: 0 green; reds/blacks as classic wheel",
+        "green": ["0"],
+        "red": ["1", "3", "5", "7", "9", "12", "14", "16", "18", "19", "21", "23", "25", "27", "30", "32", "34", "36"],
+        "black": ["2", "4", "6", "8", "10", "11", "13", "15", "17", "20", "22", "24", "26", "28", "29", "31", "33", "35"]
+      }
+    },
+    "american": {
+      "pockets": [
+        "0", "28", "9", "26", "30", "11", "7", "20", "32", "17", "5", "22", "34", "15",
+        "3", "24", "36", "13", "1", "00", "27", "10", "25", "29", "12", "8", "19", "31",
+        "18", "6", "21", "33", "16", "4", "23", "35", "14", "2"
+      ],
+      "pocketCount": 38,
+      "colors": {
+        "green": ["0", "00"],
+        "red": ["1", "3", "5", "7", "9", "12", "14", "16", "18", "19", "21", "23", "25", "27", "30", "32", "34", "36"],
+        "black": ["2", "4", "6", "8", "10", "11", "13", "15", "17", "20", "22", "24", "26", "28", "29", "31", "33", "35"]
+      }
+    }
+  },
+  "simulation": {
+    "comment": "Abstract units; map spinPower 1-10 and consistency 1-10 into these ranges",
+    "wheelAngularSpeed": { "min": 0.8, "max": 1.6 },
+    "ballSpeed": {
+      "fromSpinPower": {
+        "statMin": 1,
+        "statMax": 10,
+        "speedMin": 2.5,
+        "speedMax": 5.5
+      }
+    },
+    "ballDeceleration": { "min": 0.35, "max": 0.55 },
+    "releaseAngleNoiseRadians": {
+      "atConsistency1": 0.9,
+      "atConsistency10": 0.12
+    },
+    "releaseStyleOffsetRadians": {
+      "comment": "Base offset per releaseStyle id; noise added on top",
+      "styles": {
+        "neutral": 0,
+        "snap_clockwise": 0.35,
+        "soft_counter": -0.4,
+        "high_arc": 0.15
+      }
+    },
+    "dropSpeedThreshold": 0.45,
+    "scatterNoisePockets": {
+      "atConsistency1": 2.5,
+      "atConsistency10": 0.35
+    },
+    "minRevolutions": 2,
+    "maxRevolutions": 8,
+    "integrationDt": 0.016,
+    "maxSimSeconds": 12
+  },
+  "animation": {
+    "defaultDurationSeconds": 8,
+    "matchSimTrajectory": true
+  },
+  "api": {
+    "function": "spin(dealer, tableVariant, rng) -> { winningNumber, spinPlan, debug }",
+    "winningNumberType": "string pocket id e.g. \"0\" | \"00\" | \"17\""
+  }
+}
