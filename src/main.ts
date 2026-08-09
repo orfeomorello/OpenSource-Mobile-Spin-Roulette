@@ -1,147 +1,884 @@
 import "./styles.css";
 import "./v03.css";
-import controlsConfig from "../config/controls.json" with { type: "json" };
+import "./v04.css";
+import "./v05.css";
+import "./v06.css";
+import "./v07.css";
+import "./v08.css";
+import "./v09.css";
+import balanceConfig from "../config/game-balance.json" with { type: "json" };
 import europeanBets from "../config/bets-european.json" with { type: "json" };
 import americanBets from "../config/bets-american.json" with { type: "json" };
-import { closeBets, createGame, finishRound, getPreset, markSpinning, openBetting, pay, payoutTimeout, resolveSpin, selectPayment, snapshot, type GameState } from "./core/game.ts";
-import type { BetDefinition, GameMode, Seat, SpinResult, TableVariant } from "./core/types.ts";
+import { closeBets, createGame, finishRound, getActiveSeats, getForcedWinningNumber, markSpinning, openBetting, pay, paySeat, payoutTimeout, resolveSpin, selectPayment, snapshot, type GameState, type ScoreEvent } from "./core/game.ts";
+import {
+  applySavedBets, canEnterPlayer, cashOutPlayer, clearDraftBets, clearPlayerBets,
+  createBetCreatorDraft, createPlayerGame, doubleBets, draftTotal, finishPlayerRound,
+  getPlayerModeConfig, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip, placeDraftChip,
+  movePlayerStake, playerProfit, rebetLast, requestPlayerSpin, setDraftChip, setSelectedChip,
+  settlePlayerRound, snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip, undoDraftChip,
+  type BetCreatorDraft, type PlayerGameState,
+} from "./core/player.ts";
+import {
+  expandRecipe,
+  getFinalePackage,
+  getNeighborsPackage,
+  getSectorPackage,
+  isFrenchSectorAvailable,
+  listSectorPackages,
+  NEIGHBOR_RADIUS_OPTIONS,
+  neighborSpan,
+  packageCost,
+  pocketColor,
+  sectorForPocket,
+  type CallSectorId,
+  type NeighborRadius,
+  wheelPockets,
+} from "./core/callBets.ts";
+import type { BetDefinition, GameMode, Locale, PlacedBet, Seat, SpinResult, TableVariant } from "./core/types.ts";
+import { isLocale, LOCALE_META, LOCALE_STORAGE_KEY, numberFormatTag, readStoredLocale, storeLocale, translate } from "./i18n.ts";
+import { AuthoredNpcDialogueProvider } from "./npc/dialogue.ts";
+import { buildHuntBoard, huntBoardClassList, huntSeedKey, renderHuntVoidCell } from "./npc/huntBoard.ts";
+import { renderSeatCard } from "./npc/presenter.ts";
+import {
+  deleteBetTemplate, loadBetTemplates, MAX_BET_TEMPLATES, saveBetTemplates, templateTotal, upsertBetTemplate,
+  type BetTemplate, BET_TEMPLATES_STORAGE_KEY,
+} from "./persist/betTemplates.ts";
+import { commitDealerRun, loadUserProfile, noteBestScore, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
+import { clearStoredSession, readStoredSession, writeStoredSession, SESSION_STORAGE_KEY } from "./persist/session.ts";
+import {
+  asBackgroundAnimation,
+  BACKGROUND_ANIMATION_OPTIONS,
+  buildDataExport,
+  loadSettings,
+  saveSettings,
+  updateSettings,
+  type AppSettings,
+  type BackgroundAnimationId,
+  type DifficultyPresetId,
+  SETTINGS_STORAGE_KEY,
+} from "./persist/settings.ts";
 import { animateWheel, drawStaticWheel, getSpinEndAngle, type WheelAnimationHandle } from "./wheel/canvasWheel.ts";
 import { spin } from "./spin/spinEngine.ts";
-import { isMuted, playSound, setMuted } from "./audio.ts";
+import { isMuted, playSound, setMusic, setMusicVolume, setMuted } from "./audio.ts";
+import {
+  resolveNumberCellSnap,
+  resolveZeroSnap,
+  snapKindLabelKey,
+  type FeltSnapResult,
+} from "./player/feltSnap.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
+/** Creator credit on home — X handle without @ (change if needed). */
+const CREATOR_X_HANDLE = "orfeomorello";
+const CREATOR_X_URL = `https://x.com/${CREATOR_X_HANDLE}`;
+/** Default English; user can switch EN/IT from home or Settings. */
+let locale: Locale = readStoredLocale() ?? "en";
+let profile = loadUserProfile();
+let appSettings: AppSettings = loadSettings();
+setMuted(appSettings.muted);
+setMusicVolume(appSettings.musicVolume);
+
+function toggleMute(): void {
+  const nextMuted = !isMuted();
+  setMuted(nextMuted);
+  appSettings = updateSettings({ muted: nextMuted });
+}
+
+/** Home + Settings → menu; Dealer → jazz brass; Player → freejazz soft. */
+function syncScreenMusic(screen: "menu" | "settings" | "dealer" | "player" | "none"): void {
+  if (screen === "menu" || screen === "settings") setMusic("menu");
+  else if (screen === "dealer") setMusic("dealer");
+  else if (screen === "player") setMusic("player");
+  else setMusic(null);
+}
+
+/** Shared landing FX markup (home + settings share the square grid background). */
+function landingFxMarkup(fx: BackgroundAnimationId): string {
+  const particles = fx === "recommended";
+  const parallax = fx === "c64_parallax";
+  return `
+    <div class="home-fx-layer" aria-hidden="true">
+      <div class="home-grid-fx"></div>
+      <div class="home-ambient-glow"></div>
+      <div class="home-scanline"></div>
+      ${particles
+        ? `<div class="home-pixels">${Array.from({ length: 8 }, (_, i) => `<i class="home-pixel p${i}"></i>`).join("")}</div>`
+        : ""}
+      ${parallax
+        ? `<div class="home-parallax">
+            <div class="home-parallax-layer home-parallax-stars-far"></div>
+            <div class="home-parallax-layer home-parallax-stars-mid"></div>
+            <div class="home-parallax-layer home-parallax-stars-near"></div>
+            <div class="home-parallax-layer home-parallax-hills-far"></div>
+            <div class="home-parallax-layer home-parallax-hills-near"></div>
+            <div class="home-parallax-layer home-parallax-ground"></div>
+          </div>`
+        : ""}
+    </div>`;
+}
+
+function landingBgClass(fx: BackgroundAnimationId = appSettings.backgroundAnimation): string {
+  return `home-bg-${fx}`;
+}
+
 let game: GameState | null = null;
+let playerGame: PlayerGameState | null = null;
+/** Bet Creator sandbox (no score spend) — when set, overrides the live table view. */
+let creatorDraft: BetCreatorDraft | null = null;
+/** Full-screen name dialog after pressing Save strategy. */
+let creatorNameDialogOpen = false;
+/** Live text while typing the strategy name (survives accidental re-renders). */
+let creatorNameBuffer = "";
+/** Strategy list panel over the live Player table. */
+let strategyPanelOpen = false;
+/** French / neighbors racetrack overlay (Player). */
+let racetrackOpen = false;
+/** Session stats overlay (Player). */
+let statsPanelOpen = false;
+/** Neighbor radius: 0→1 number, 2→5 (classic). */
+let racetrackNeighborRadius: NeighborRadius = 2;
 let timer: number | null = null;
 let selectedMode: GameMode = "dealer";
 let lastFx = "";
+let lastWalletEarned = 0;
+let lastPlayerNet: number | null = null;
+/** Full-screen winning-number reveal after every spin (Dealer + Player). */
+interface ResultRevealState {
+  winningNumber: string;
+  context: "dealer" | "player";
+  playerNet: number | null;
+  /** True when the hand had no chips (free spin) — net is 0 but not “even this hand”. */
+  playerFreeSpin?: boolean;
+  dealerNoWinners: boolean;
+}
+let resultReveal: ResultRevealState | null = null;
+let resultRevealTimer: number | null = null;
+/** Called once when reveal ends (timer or user tap). */
+let resultRevealOnDone: (() => void) | null = null;
+/** ~2s — matches live-table / sim “big number” beat; skip early with tap anywhere. */
+const RESULT_REVEAL_MS = 2200;
 let fxTimer: number | null = null;
+/** Seat that just received pay/wrong juice (presenter only). */
+let juiceSeatId: string | null = null;
+let juiceKind: "pay" | "wrong" | null = null;
+let juiceTimer: number | null = null;
+/** Score pops from the last action, consumed on next full render. */
+let pendingScoreEvents: ScoreEvent[] = [];
 let spinTickTimers: number[] = [];
 let activeSpinPlan: SpinResult | null = null;
 let spinDurationMs = 0;
 let wheelRestAngle = 0;
 let wheelAnimation: WheelAnimationHandle | null = null;
+/** How-to lesson step; drives coach copy and gated Next (not used in Dealer). */
+type HowtoLessonKey = "goal" | "betting" | "closed" | "spin" | "result" | "pay" | "score" | "loop";
+let howtoLesson: HowtoLessonKey = "goal";
+/** True while the player must press Next before the lesson continues. */
+let howtoAwaitingAdvance = false;
+/** True while spin or demo-pay animation runs (no Next until idle again). */
+let howtoBusy = false;
+let howtoDelayTimer: number | null = null;
+const t = (key: string, variables: Record<string, string | number> = {}): string => translate(locale, key, variables);
+const dialogue = new AuthoredNpcDialogueProvider((key, variables) => t(key, variables));
+document.documentElement.lang = locale;
+
+/** Defaults for one-click role start — from Settings (home gear). */
+function menuDefaults(): { preset: DifficultyPresetId; variant: TableVariant; animation: boolean } {
+  appSettings = loadSettings();
+  return {
+    preset: appSettings.defaultPresetId,
+    variant: appSettings.defaultTableVariant,
+    animation: appSettings.animationEnabled,
+  };
+}
+
+function startDealerSession(): void {
+  try {
+    const defaults = menuDefaults();
+    selectedMode = "dealer";
+    playerGame = null;
+    lastPlayerNet = null;
+    lastWalletEarned = 0;
+    game = createGame("dealer", defaults.preset, defaults.variant, defaults.animation, Math.random, locale);
+    syncScreenMusic("dealer");
+    try {
+      playSound("bet");
+    } catch {
+      /* audio must never block starting */
+    }
+    saveLocal();
+    renderTable();
+    window.setTimeout(nextRound, 700);
+  } catch (error) {
+    console.error("Failed to start dealer", error);
+    playSound("error");
+    window.alert(t("menu.startFailed"));
+  }
+}
 
 function showMenu(): void {
   stopTimer();
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
   game = null;
+  playerGame = null;
+  lastPlayerNet = null;
+  clearHowtoDelay();
+  syncScreenMusic("menu");
+  const playerCfg = getPlayerModeConfig();
+  const playerUnlocked = canEnterPlayer(profile.walletUnits, playerCfg.minBuyIn);
+  if (selectedMode === "autoplay" || (selectedMode === "player" && !playerUnlocked)) {
+    selectedMode = "dealer";
+  }
+
+  appSettings = loadSettings();
+  const homeFx = appSettings.backgroundAnimation;
   app.innerHTML = `
-    <main class="landing">
-      <section class="brand-card">
-        <div class="eyebrow">LOCAL-FIRST · 8-BIT ROULETTE</div>
-        <h1>BIT<span>CROUPIER</span></h1>
-        <p class="tagline">Roulette from both sides of the table</p>
-        <div class="role-explainer">
-          <b>YOUR SHIFT IN 3 MOVES</b>
-          <span>1 / Let customers bet</span><span>2 / Close and spin</span><span>3 / Pay every winner before time runs out</span>
+    <main class="landing home-clean ${landingBgClass(homeFx)}">
+      ${landingFxMarkup(homeFx)}
+      <button type="button" id="open-settings" class="home-settings-btn" aria-label="${t("menu.settingsAria")}" title="${t("menu.settings")}">
+        <span class="home-settings-gear" aria-hidden="true">⚙</span>
+        <span class="home-settings-label">${t("menu.settings")}</span>
+      </button>
+      <div class="home-lang" role="group" aria-label="${t("menu.language")}">
+        ${LOCALE_META.map((meta) =>
+          `<button type="button" class="lang-pill ${locale === meta.id ? "active" : ""}" data-locale="${meta.id}" title="${meta.native}">${meta.short}</button>`
+        ).join("")}
+      </div>
+      <section class="brand-card home-hero">
+        <div class="home-glow" aria-hidden="true"></div>
+        <h1 class="home-title">BIT<span>CROUPIER</span></h1>
+        <p class="tagline home-enter">${t("menu.tagline")}</p>
+        <p class="home-hint home-enter">${t("menu.clickRole")}</p>
+        <div class="mode-grid mode-grid-roles home-enter" role="group" aria-label="${t("menu.chooseRole")}">
+          <button class="mode-card role-card role-dealer" data-mode="dealer" type="button">
+            <span class="role-kicker">${t("menu.playAs")}</span>
+            <b>${t("menu.dealer")}</b>
+            <span class="role-help">${t("menu.dealerHelp")}</span>
+            <em class="role-go">${t("menu.tapToPlay")}</em>
+          </button>
+          ${playerUnlocked
+            ? `<button class="mode-card role-card role-player" data-mode="player" type="button">
+                <span class="role-kicker">${t("menu.playAs")}</span>
+                <b>${t("menu.player")}</b>
+                <span class="role-help">${t("menu.playerHelp")}</span>
+                <em class="role-go">${t("menu.tapToPlay")}</em>
+              </button>`
+            : `<button class="mode-card role-card role-player locked" type="button" data-mode-locked="player" aria-disabled="true">
+                <span class="role-kicker">${t("menu.playAs")}</span>
+                <b>${t("menu.player")}</b>
+                <span class="role-help">${t("menu.playerLocked", { min: playerCfg.minBuyIn })}</span>
+                <em class="role-go muted">${t("menu.playerNeedDealer")}</em>
+              </button>`}
         </div>
-        <div class="mode-grid" role="group" aria-label="Game mode">
-          <button class="mode-card active" data-mode="dealer"><b>DEALER</b><span>You control the calls, launch the ball and physically pay the winners.</span></button>
-          <button class="mode-card locked" disabled><b>PLAYER</b><span>Coming in v0.3 · earn units as Dealer</span></button>
-          <button class="mode-card" data-mode="autoplay"><b>AUTOPLAY</b><span>Watch a complete demo run</span></button>
-        </div>
-        <form id="setup" class="setup-panel">
-          <label>Difficulty<select name="preset"><option value="training">Training</option><option value="standard" selected>Standard</option><option value="busy">Busy</option><option value="rush">Rush</option></select></label>
-          <label>Wheel<select name="variant"><option value="european">European · 0</option><option value="american">American · 0 + 00</option></select></label>
-          <label class="toggle"><input type="checkbox" name="animation" checked /> Wheel animation</label>
-          <button class="start-button" type="submit">START SHIFT <span>→</span></button>
-        </form>
-        <footer>Entertainment only · No real money · Data stays on your device</footer>
+        <footer class="home-footer">
+          <p class="home-legal">${t("menu.footer")}</p>
+          <p class="home-credit">
+            ${t("menu.creditVibe")}
+            <a class="home-credit-link" href="${CREATOR_X_URL}" target="_blank" rel="noopener noreferrer">@${CREATOR_X_HANDLE}</a>
+            <span class="home-credit-sep">·</span>
+            <a class="home-credit-link" href="${CREATOR_X_URL}" target="_blank" rel="noopener noreferrer">${t("menu.creditContact")}</a>
+          </p>
+        </footer>
       </section>
     </main>`;
-  app.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => button.addEventListener("click", () => {
-    selectedMode = button.dataset.mode as GameMode;
-    app.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("active", item === button));
-  }));
-  app.querySelector<HTMLFormElement>("#setup")!.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget as HTMLFormElement);
-    game = createGame(selectedMode, String(data.get("preset")), String(data.get("variant")) as TableVariant, data.get("animation") === "on");
+
+  app.querySelector<HTMLButtonElement>("#open-settings")?.addEventListener("click", () => {
     playSound("bet");
-    renderTable();
-    window.setTimeout(nextRound, 700);
+    showSettings();
   });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
+    button.addEventListener("click", () => {
+      locale = button.dataset.locale as Locale;
+      storeLocale(locale);
+      showMenu();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.mode;
+      if (mode === "dealer") {
+        startDealerSession();
+        return;
+      }
+      if (mode === "player") {
+        const defaults = menuDefaults();
+        startPlayerSession(defaults.variant, defaults.animation);
+      }
+    });
+  });
+
+  app.querySelector<HTMLButtonElement>("[data-mode-locked='player']")?.addEventListener("click", () => {
+    playSound("error");
+    const dealerCard = app.querySelector<HTMLButtonElement>("[data-mode='dealer']");
+    dealerCard?.classList.add("pulse-hint");
+    window.setTimeout(() => dealerCard?.classList.remove("pulse-hint"), 900);
+  });
+}
+
+function showSettings(): void {
+  stopTimer();
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
+  appSettings = loadSettings();
+  setMuted(appSettings.muted);
+  setMusicVolume(appSettings.musicVolume);
+  syncScreenMusic("settings");
+  const presets: DifficultyPresetId[] = ["training", "standard", "busy", "rush"];
+  const settingsFx = appSettings.backgroundAnimation;
+
+  app.innerHTML = `
+    <main class="landing settings-screen ${landingBgClass(settingsFx)}">
+      ${landingFxMarkup(settingsFx)}
+      <section class="settings-panel" aria-labelledby="settings-title">
+        <header class="settings-header">
+          <button type="button" id="settings-back" class="settings-back">${t("settings.back")}</button>
+          <h1 id="settings-title" class="home-title">${t("settings.title")}</h1>
+        </header>
+
+        <section class="settings-block">
+          <h2>${t("settings.sectionLanguage")}</h2>
+          <p class="settings-help">${t("settings.languageHelp")}</p>
+          <div class="settings-segment settings-segment-wrap settings-lang-grid" role="group" aria-label="${t("menu.language")}">
+            ${LOCALE_META.map((meta) =>
+              `<button type="button" class="settings-option ${locale === meta.id ? "active" : ""}" data-set-locale="${meta.id}">${meta.native}</button>`
+            ).join("")}
+          </div>
+        </section>
+
+        <section class="settings-block">
+          <h2>${t("settings.sectionPlay")}</h2>
+          <label class="settings-label">${t("settings.variant")}</label>
+          <div class="settings-choice-grid" role="radiogroup" aria-label="${t("settings.variant")}">
+            <button type="button" class="settings-choice ${appSettings.defaultTableVariant === "european" ? "active" : ""}" data-variant="european">
+              <b>${t("settings.variantEu")}</b>
+              <span>${t("settings.variantEuHelp")}</span>
+            </button>
+            <button type="button" class="settings-choice ${appSettings.defaultTableVariant === "american" ? "active" : ""}" data-variant="american">
+              <b>${t("settings.variantUs")}</b>
+              <span>${t("settings.variantUsHelp")}</span>
+            </button>
+          </div>
+
+          <label class="settings-label">${t("settings.animation")}</label>
+          <p class="settings-help">${t("settings.animationHelp")}</p>
+          <div class="settings-segment" role="group" aria-label="${t("settings.animation")}">
+            <button type="button" class="settings-option ${appSettings.animationEnabled ? "active" : ""}" data-animation="on">${t("settings.animationOn")}</button>
+            <button type="button" class="settings-option ${!appSettings.animationEnabled ? "active" : ""}" data-animation="off">${t("settings.animationOff")}</button>
+          </div>
+
+          <label class="settings-label">${t("settings.backgroundAnimation")}</label>
+          <p class="settings-help">${t("settings.backgroundAnimationHelp")}</p>
+          <div class="settings-segment settings-segment-wrap" role="group" aria-label="${t("settings.backgroundAnimation")}">
+            ${BACKGROUND_ANIMATION_OPTIONS.map((id) => `
+              <button type="button" class="settings-option ${appSettings.backgroundAnimation === id ? "active" : ""}" data-bg-anim="${id}">${t(`settings.bgAnim.${id}`)}</button>
+            `).join("")}
+          </div>
+
+          <label class="settings-label">${t("settings.difficulty")}</label>
+          <p class="settings-help">${t("settings.difficultyHelp")}</p>
+          <div class="settings-segment settings-segment-wrap" role="group" aria-label="${t("settings.difficulty")}">
+            ${presets.map((id) => `
+              <button type="button" class="settings-option ${appSettings.defaultPresetId === id ? "active" : ""}" data-preset="${id}">${t(`settings.preset.${id}`)}</button>
+            `).join("")}
+          </div>
+        </section>
+
+        <section class="settings-block">
+          <h2>${t("settings.sectionAudio")}</h2>
+          <p class="settings-help">${t("settings.soundHelp")}</p>
+          <div class="settings-segment" role="group" aria-label="${t("settings.sound")}">
+            <button type="button" class="settings-option ${!appSettings.muted ? "active" : ""}" data-sound="on">${t("settings.soundOn")}</button>
+            <button type="button" class="settings-option ${appSettings.muted ? "active" : ""}" data-sound="off">${t("settings.soundOff")}</button>
+          </div>
+          <label class="settings-label" for="settings-music-volume">${t("settings.musicVolume")}</label>
+          <p class="settings-help">${t("settings.musicVolumeHelp")}</p>
+          <div class="settings-volume-row">
+            <input
+              type="range"
+              id="settings-music-volume"
+              class="settings-volume-slider"
+              min="0"
+              max="100"
+              step="1"
+              value="${Math.round(appSettings.musicVolume * 100)}"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="${Math.round(appSettings.musicVolume * 100)}"
+              aria-label="${t("settings.musicVolume")}"
+            />
+            <output id="settings-music-volume-value" class="settings-volume-value" for="settings-music-volume">${Math.round(appSettings.musicVolume * 100)}%</output>
+          </div>
+        </section>
+
+        <section class="settings-block">
+          <h2>${t("settings.sectionData")}</h2>
+          <p class="settings-help">${t("settings.privacyNote")}</p>
+          <div class="settings-data-actions">
+            <button type="button" id="settings-export" class="chrome-button">${t("settings.export")}</button>
+            <button type="button" id="settings-import" class="chrome-button">${t("settings.import")}</button>
+            <button type="button" id="settings-reset" class="chrome-button danger">${t("settings.reset")}</button>
+          </div>
+          <input type="file" id="settings-import-file" accept="application/json,.json" hidden />
+        </section>
+      </section>
+    </main>`;
+
+  app.querySelector<HTMLButtonElement>("#settings-back")?.addEventListener("click", () => {
+    playSound("bet");
+    showMenu();
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-set-locale]").forEach((button) => {
+    button.addEventListener("click", () => {
+      locale = button.dataset.setLocale as Locale;
+      storeLocale(locale);
+      playSound("bet");
+      showSettings();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-variant]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const variant = button.dataset.variant === "american" ? "american" : "european";
+      appSettings = updateSettings({ defaultTableVariant: variant });
+      playSound("bet");
+      showSettings();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-animation]").forEach((button) => {
+    button.addEventListener("click", () => {
+      appSettings = updateSettings({ animationEnabled: button.dataset.animation !== "off" });
+      playSound("bet");
+      showSettings();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-bg-anim]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = asBackgroundAnimation(button.dataset.bgAnim) as BackgroundAnimationId;
+      appSettings = updateSettings({ backgroundAnimation: id });
+      playSound("bet");
+      showSettings();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const id = button.dataset.preset as DifficultyPresetId;
+      appSettings = updateSettings({ defaultPresetId: id });
+      playSound("bet");
+      showSettings();
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-sound]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const muted = button.dataset.sound === "off";
+      appSettings = updateSettings({ muted });
+      setMuted(muted);
+      syncScreenMusic("settings");
+      if (!muted) playSound("bet");
+      showSettings();
+    });
+  });
+
+  const musicVolumeSlider = app.querySelector<HTMLInputElement>("#settings-music-volume");
+  const musicVolumeLabel = app.querySelector<HTMLOutputElement>("#settings-music-volume-value");
+  const applyMusicVolumeFromSlider = (persist: boolean) => {
+    if (!musicVolumeSlider) return;
+    const pct = Math.min(100, Math.max(0, Number(musicVolumeSlider.value) || 0));
+    const volume = pct / 100;
+    setMusicVolume(volume);
+    if (musicVolumeLabel) musicVolumeLabel.textContent = `${pct}%`;
+    musicVolumeSlider.setAttribute("aria-valuenow", String(pct));
+    if (persist) {
+      appSettings = updateSettings({ musicVolume: volume });
+    }
+  };
+  musicVolumeSlider?.addEventListener("input", () => applyMusicVolumeFromSlider(false));
+  musicVolumeSlider?.addEventListener("change", () => applyMusicVolumeFromSlider(true));
+
+  app.querySelector<HTMLButtonElement>("#settings-export")?.addEventListener("click", () => {
+    const bundle = {
+      ...buildDataExport(readStoredLocale(), loadUserProfile(), readStoredSession()),
+      betTemplates: loadBetTemplates(),
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `bitcroupier-export-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    playSound("settle");
+    window.alert(t("settings.exportDone"));
+  });
+
+  const importInput = app.querySelector<HTMLInputElement>("#settings-import-file");
+  app.querySelector<HTMLButtonElement>("#settings-import")?.addEventListener("click", () => importInput?.click());
+  importInput?.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
+    importInput.value = "";
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as {
+        schemaVersion?: number;
+        locale?: Locale | null;
+        settings?: AppSettings;
+        profile?: unknown;
+        session?: unknown;
+        betTemplates?: BetTemplate[];
+      };
+      if (parsed.schemaVersion !== 1) throw new Error("bad schema");
+      if (parsed.settings?.schemaVersion === 1) {
+        const importedVolume =
+          typeof parsed.settings.musicVolume === "number" && Number.isFinite(parsed.settings.musicVolume)
+            ? Math.min(1, Math.max(0, parsed.settings.musicVolume))
+            : 0.5;
+        saveSettings({
+          schemaVersion: 1,
+          defaultTableVariant: parsed.settings.defaultTableVariant === "american" ? "american" : "european",
+          animationEnabled: parsed.settings.animationEnabled !== false,
+          muted: parsed.settings.muted === true,
+          musicVolume: importedVolume,
+          backgroundAnimation: asBackgroundAnimation(parsed.settings.backgroundAnimation),
+          defaultPresetId: (["training", "standard", "busy", "rush"] as const).includes(parsed.settings.defaultPresetId as DifficultyPresetId)
+            ? (parsed.settings.defaultPresetId as DifficultyPresetId)
+            : "standard",
+        });
+        setMusicVolume(importedVolume);
+      }
+      if (parsed.profile && typeof parsed.profile === "object") {
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(parsed.profile));
+      }
+      if (parsed.session && typeof parsed.session === "object") {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(parsed.session));
+      } else if (parsed.session === null) {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+      }
+      if (Array.isArray(parsed.betTemplates)) {
+        saveBetTemplates(parsed.betTemplates);
+      }
+      if (isLocale(parsed.locale)) {
+        storeLocale(parsed.locale);
+      }
+      playSound("level");
+      window.alert(t("settings.importDone"));
+      window.location.reload();
+    } catch {
+      playSound("error");
+      window.alert(t("settings.importFailed"));
+    }
+  });
+
+  app.querySelector<HTMLButtonElement>("#settings-reset")?.addEventListener("click", () => {
+    if (!window.confirm(t("settings.resetConfirm"))) return;
+    localStorage.removeItem(PROFILE_STORAGE_KEY);
+    localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(BET_TEMPLATES_STORAGE_KEY);
+    localStorage.removeItem(LOCALE_STORAGE_KEY);
+    playSound("error");
+    window.alert(t("settings.resetDone"));
+    window.location.reload();
+  });
+}
+
+/** Enter Player using the full score as the live bankroll (single pool — no separate “bring”). */
+function startPlayerSession(variant: TableVariant, animationEnabled: boolean): void {
+  try {
+    if (!canEnterPlayer(profile.walletUnits)) {
+      playSound("error");
+      selectedMode = "dealer";
+      showMenu();
+      return;
+    }
+    const result = openPlayerBankroll(profile);
+    if (!result) {
+      playSound("error");
+      showMenu();
+      return;
+    }
+    selectedMode = "player";
+    playerGame = createPlayerGame(variant, result.tableScore, animationEnabled, locale);
+    game = null;
+    lastPlayerNet = null;
+    strategyPanelOpen = false;
+    racetrackOpen = false;
+    statsPanelOpen = false;
+    creatorDraft = null;
+    syncScreenMusic("player");
+    try {
+      playSound("level");
+    } catch {
+      /* ignore */
+    }
+    persistPlayerScore();
+    savePlayerLocal();
+    openPlayerBetting(playerGame);
+    renderPlayerTable();
+  } catch (error) {
+    console.error("Failed to start player", error);
+    playSound("error");
+    window.alert(t("menu.startFailed"));
+  }
+}
+
+/** Keep profile.walletUnits in sync with live Player wealth (free + on felt). */
+function persistPlayerScore(): void {
+  if (!playerGame) return;
+  profile = syncPlayerScore(profile, playerGame);
+  saveUserProfile(profile);
 }
 
 function renderTable(): void {
   if (!game) return;
+  if (game.phase === "GAME_OVER" && game.mode === "dealer" && !game.walletCreditCommitted) commitCurrentRun();
   wheelAnimation?.cancel();
   wheelAnimation = null;
-  const preset = getPreset(game.presetId);
+  const activeSeats = getActiveSeats(game);
   const selectedPayment = game.payments[game.paymentIndex];
-  const current = selectedPayment?.paid < selectedPayment?.due ? selectedPayment : undefined;
-  const allPaid = game.payments.length > 0 && game.payments.every((payment) => payment.paid >= payment.due);
-  const dueLeft = current ? current.due - current.paid : 0;
-  const clicksTotal = current ? Math.ceil(current.due / preset.chipValue) : 0;
-  const clicksDone = current ? Math.ceil(current.paid / preset.chipValue) : 0;
-  const displayResult = game.result ?? game.history[0] ?? null;
-  const resultClass = displayResult === "0" || displayResult === "00" ? "green" : isRed(displayResult) ? "red" : "black";
-  const saveButton = game.mode === "dealer" && controlsConfig.hudChrome.dealerMode.showSaveButton ? `<button id="save" class="chrome-button">SAVE</button>` : "";
-  const guideStep = game.phase === "BETTING_OPEN" ? 1 : ["BETTING_CLOSED", "SPINNING", "RESULT"].includes(game.phase) ? 2 : game.phase === "PAYOUT" ? 3 : 0;
-  const progress = current ? Math.round((current.paid / current.due) * 100) : 0;
-  app.innerHTML = `
-    <main class="game-shell ${lastFx ? `fx-${lastFx}` : ""}">
-      <header class="arcade-strip">
-        <div class="metric"><span>LEVEL</span><strong>${pad(game.level)}</strong></div>
-        <div class="metric"><span>ENERGY</span><strong class="energy">${game.mode === "autoplay" ? "∞" : energyBar(game.energy, game.energyMax)}</strong></div>
-        <div class="metric score" title="Losing stakes collected minus winning profits paid"><span>HOUSE SCORE</span><strong>${format(game.score)}<small> u</small></strong></div>
-        <div class="meta"><b>${game.variant === "european" ? "EU" : "US"}</b> · ${game.presetId.toUpperCase()} · ROUND ${game.round}${game.mode === "autoplay" ? `<em>AUTOPLAY</em>` : ""}</div>
-        <nav><button id="sound" class="chrome-button" aria-label="Toggle sound">${isMuted() ? "SOUND OFF" : "SOUND ON"}</button>${saveButton}<button id="exit" class="chrome-button danger">EXIT</button></nav>
-      </header>
-      <section class="dealer-guide">
-        <div class="your-role"><span>YOU ARE</span><b>${game.mode === "autoplay" ? "WATCHING THE CROUPIER" : "THE CROUPIER"}</b></div>
-        ${guideItem(1, "BETTING", "Customers place chips", guideStep)}
-        ${guideItem(2, "SPIN", "Lock bets and launch", guideStep)}
-        ${guideItem(3, "PAYOUT", "Pay winners in time", guideStep)}
+  const guideStep = game.mode === "autoplay"
+    ? (["goal", "betting"].includes(howtoLesson) ? 1 : ["closed", "spin", "result"].includes(howtoLesson) ? 2 : 3)
+    : game.phase === "BETTING_OPEN" ? 1 : ["BETTING_CLOSED", "SPINNING", "RESULT"].includes(game.phase) ? 2 : game.phase === "PAYOUT" ? 3 : 0;
+  pendingScoreEvents = game.scoreEvents.splice(0);
+  const globalScoreEvents = pendingScoreEvents.filter((event) => !event.seatId || event.reason === "perfect-service" || event.reason === "speed-bonus" || event.reason === "timeout");
+  const howto = game.mode === "autoplay" ? howtoCoachFromLesson() : null;
+  const phasePayout = game.phase === "PAYOUT";
+  const phaseClass = phasePayout ? "phase-is-payout" : game.phase === "SPINNING" ? "phase-is-spinning" : "";
+  // During the big-number reveal, stay on the show table — never flash an empty hunt grid.
+  const revealing = resultReveal !== null && resultReveal.context === "dealer";
+  const phasePayoutHunt = phasePayout && !revealing;
+  const unpaidWinners = game.payments.filter((payment) => payment.paid < payment.due).length;
+  const totalWinners = game.payments.length;
+  // Show phase = short table vignette; PAYOUT hunt = full roster (only when someone won).
+  const showCrowdMax = 4;
+  const showSeats = phasePayoutHunt ? activeSeats : activeSeats.slice(0, showCrowdMax);
+  const showHidden = Math.max(0, activeSeats.length - showSeats.length);
+  const huntTitle = game.mode === "autoplay"
+    ? t("howto.pay.title")
+    : game.round === 1
+      ? t("focus.tutorial")
+      : t("focus.payWinners");
+  const huntHint = game.mode === "autoplay" ? t("table.aiSelects") : t("focus.wrongPenalty");
+  const huntBoardHtml = phasePayoutHunt ? buildHuntBoardMarkup(game, activeSeats, selectedPayment?.seatId ?? null, pendingScoreEvents) : "";
+  const showWheel = game.animationEnabled;
+  const historyHtml = `<div class="history ${showWheel ? "" : "history-bar"}"><span>${t("table.lastNumbers")}</span><div>${game.history.length ? game.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
+  const showTableBody = `${howto && !phasePayoutHunt ? buildHowtoCoach(howto) : ""}
+      <section class="dealer-guide automatic-guide">
+        <div class="your-role"><span>${t("guide.youAre")}</span><b>${game.mode === "autoplay" ? t("guide.watching") : t("guide.croupier")}</b></div>
+        ${guideItem(1, t("guide.betting"), t("guide.automatic"), guideStep)}
+        ${guideItem(2, t("guide.spin"), t("guide.automatic"), guideStep)}
+        ${guideItem(3, t("guide.payout"), t("guide.clickNpc"), guideStep)}
       </section>
-      <section class="phase-row"><span>${phaseTitle(game)}</span><b>${phaseHelp(game)}</b>${game.bonus ? `<mark>BONUS! ${game.bonus}</mark>` : ""}<time class="${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time></section>
-      <section class="table-grid">
-        <aside class="wheel-panel">
+      <section class="phase-row"><span>${phaseTitle(game)}</span><b>${phaseHelp(game)}</b>${game.bonus ? `<mark>BONUS! ${t(game.bonus)}</mark>` : ""}<time class="${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time></section>
+      <section class="table-grid ${showWheel ? "" : "table-grid-nowheel"}">
+        ${showWheel ? `<aside class="wheel-panel">
           ${buildWheel(game.variant, game.phase === "SPINNING")}
-          <div class="last-result ${resultClass}">${displayResult ?? "—"}</div>
-          <div class="history"><span>LAST NUMBERS</span><div>${game.history.length ? game.history.slice(0, 12).map(numberChip).join("") : `<i>First spin awaits</i>`}</div></div>
-        </aside>
-        <section class="felt-panel">
-          <div class="felt-heading"><span>LIVE TABLE / ${game.variant.toUpperCase()}</span><small>CHIPS SHOW WHERE EACH CUSTOMER BET</small></div>
-          <div class="felt-grid">${buildFelt(game.variant, game.result, game.seats)}</div>
-          <div class="payout-card ${game.phase === "PAYOUT" ? "visible" : ""}">
-            <span class="kicker">${current ? `PAY -> ${current.seatName}` : game.phase === "PAYOUT" && !allPaid ? "SELECT A WINNER" : game.phase === "PAYOUT" ? "TABLE CLEAR" : "CROUPIER CONTROL"}</span>
-            <strong>${current ? `${dueLeft} units left` : game.phase === "PAYOUT" && !allPaid ? "Click a glowing customer below" : phaseInstruction(game)}</strong>
-            ${current ? `<div class="click-count">CLICKS <b>${clicksDone} / ${clicksTotal}</b><span>LEFT ${clicksTotal - clicksDone}</span></div><div class="pay-progress"><i style="width:${progress}%"></i></div><small>EACH PRESS SENDS ${preset.chipValue} u / STOP AT ZERO</small><i class="flying-chip">${preset.chipValue}</i>` : `<small>${game.mode === "autoplay" ? "AI CHOOSES EACH WINNER" : game.phase === "PAYOUT" && !allPaid ? "YOU DECIDE WHO TO PAY - SPACE WORKS AFTER SELECTION" : "SPACE = PRIMARY ACTION"}</small>`}
-            <button id="primary" class="primary-action" ${primaryDisabled(game) ? "disabled" : ""}>${primaryLabel(game)}</button>
-          </div>
+          ${historyHtml}
+        </aside>` : ""}
+        <section class="felt-panel casino-felt">
+          ${showWheel ? "" : historyHtml}
+          <div class="felt-heading"><span>${t("table.live")} / ${game.variant.toUpperCase()}</span><small>${t("table.chipsHelp")}</small></div>
+          <div class="felt-grid">${buildFelt(game.variant, game.result, activeSeats)}</div>
         </section>
       </section>
-      <section class="seats" aria-label="Customers">${game.seats.map((seat, index) => buildSeatCard(seat, index, game!, selectedPayment?.seatId === seat.id)).join("")}</section>
-      <footer class="table-footer"><span>BITCROUPIER · HOUSE FLOOR 01</span><span>${game.mode === "autoplay" ? "DEMO — NO WALLET EARNINGS" : "LOCAL AUTOSAVE ON"}</span></footer>
-      ${game.phase === "RESULT" || (game.phase === "PAYOUT" && game.result) ? `<div class="result-burst ${resultClass}"><small>WINNING NUMBER</small><b>${game.result}</b></div>` : ""}
+      <div class="show-crowd-wrap">
+        <section class="seats crowd-arena show-crowd crowd-${Math.min(showSeats.length, showCrowdMax)} ${game.phase === "SPINNING" ? "phase-spinning" : ""}" aria-label="Customers">${showSeats.map((seat, index) => buildSeatCard(seat, index, game!, false, pendingScoreEvents, false)).join("")}</section>
+        ${showHidden > 0 ? `<p class="crowd-more">${t("crowd.more", { n: showHidden, total: activeSeats.length })}</p>` : ""}
+      </div>
+      <footer class="table-footer"><span>${t("table.houseFloor")}</span></footer>`;
+  const showBody = phasePayoutHunt
+    ? `${howto ? buildHowtoCoach(howto) : ""}
+      <section class="hunt-banner" aria-label="${t("phase.PAYOUT")}">
+        <div class="hunt-copy"><b>${huntTitle}</b><span>${huntHint}${game.bonus ? ` · BONUS! ${t(game.bonus)}` : ""}</span></div>
+        <div class="hunt-progress"><i>${t("hunt.left")}</i><strong>${unpaidWinners}<small>/${totalWinners}</small></strong></div>
+        <time class="hunt-timer ${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time>
+      </section>
+      ${huntBoardHtml}`
+    : showTableBody;
+  app.innerHTML = `
+    <main class="game-shell simplified ${showWheel ? "" : "dealer-nowheel"} ${revealing ? "is-result-reveal" : ""} ${phaseClass} ${game.mode === "autoplay" ? "howto-mode" : ""} ${howtoAwaitingAdvance ? "howto-waiting" : ""} ${howtoBusy ? "howto-busy" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
+      <header class="arcade-strip">
+        <div class="metric"><span>${t("hud.level")}</span><strong>${pad(game.level)}</strong></div>
+        <div class="metric"><span>${t("hud.energy")}</span><strong class="energy">${game.mode === "autoplay" ? "∞" : energyBar(game.energy, game.energyMax)}</strong></div>
+        <div class="metric score" title="Performance as croupier"><span>${t("hud.score")}</span><strong>${format(game.serviceScore)}</strong><i>COMBO ×${game.serviceComboStep + 1}</i></div>
+        <div class="meta"><b>${game.variant === "european" ? "EU" : "US"}</b> · ${game.presetId.toUpperCase()} · ${t("hud.round")} ${game.round} · NPC ${game.activeSeatCount}${game.mode === "autoplay" ? `<em>${t("howto.badge")}</em>` : ""}</div>
+        <nav><button id="sound" class="chrome-button" aria-label="Toggle sound">${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}</button><button id="exit" class="chrome-button danger">${t("hud.exit")}</button></nav>
+      </header>
+      ${showBody}
+      <div class="score-pop-stack global-only">${globalScoreEvents.map((event) => `<div class="score-pop ${event.delta < 0 ? "negative" : "positive"}"><b>${event.delta > 0 ? "+" : ""}${event.delta}</b><span>${t(`score.${event.reason}`)}</span></div>`).join("")}</div>
+      ${game.phase === "GAME_OVER" ? buildGameOverPanel(game) : ""}
+      ${buildResultRevealOverlay()}
     </main>`;
-  app.querySelector<HTMLButtonElement>("#primary")?.addEventListener("click", primaryAction);
-  app.querySelector<HTMLButtonElement>("#save")?.addEventListener("click", saveGame);
-  mountWheel();
+  if (!phasePayoutHunt && showWheel) mountWheel();
   app.querySelectorAll<HTMLButtonElement>("[data-pay-seat]").forEach((seatButton) => seatButton.addEventListener("click", () => {
-    if (!game || !selectPayment(game, seatButton.dataset.paySeat ?? "")) return;
-    playSound("bet");
-    triggerFx("select", 360);
+    if (!game) return;
+    const seatId = seatButton.dataset.paySeat ?? "";
+    const outcome = paySeat(game, seatId);
+    if (outcome === "invalid") return;
+    const failed = outcome === "wrong-player" || outcome === "overpay";
+    if (outcome === "complete") playSound("level");
+    else if (failed) playSound("error");
+    else {
+      playSound("pay");
+      // After first seat, combo step is ≥1 → next awards 15/20; celebrate multi-hit.
+      if (game.serviceComboStep >= 2) playSound("bonus");
+    }
+    triggerSeatJuice(seatId, failed ? "wrong" : "pay");
+    triggerFx(outcome === "wrong-player" ? "wrong" : outcome === "complete" ? "perfect" : failed ? "overpay" : "pay", failed ? 650 : 500);
+    saveLocal();
     renderTable();
+    if (outcome === "complete") window.setTimeout(completeRound, balanceConfig.automaticFlow.nextRoundDelayMs);
   }));
-  app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => { setMuted(!isMuted()); if (!isMuted()) playSound("bet"); renderTable(); });
-  app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", () => {
-    if (game?.mode === "dealer") saveLocal();
+  app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => { toggleMute(); if (!isMuted()) playSound("bet"); renderTable(); });
+  app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", showExitConfirm);
+  app.querySelector<HTMLButtonElement>("#gameover-menu")?.addEventListener("click", () => {
+    clearStoredSession();
+    showMenu();
+  });
+  app.querySelector<HTMLButtonElement>("#gameover-retry")?.addEventListener("click", retryLastShift);
+  app.querySelector<HTMLButtonElement>("#howto-next")?.addEventListener("click", advanceHowto);
+  bindResultRevealDismiss();
+}
+
+function buildGameOverPanel(state: GameState): string {
+  const isBest = state.serviceScore >= profile.bestServiceScore && state.serviceScore > 0;
+  return `<div class="game-over-panel">
+    <section>
+      <small>${t("gameover.title")}</small>
+      <h2>${t("gameover.score", { score: state.serviceScore })}</h2>
+      <ul class="game-over-stats">
+        <li><span>${t("hud.level")}</span><b>${pad(state.level)}</b></li>
+        <li><span>${t("hud.round")}</span><b>${state.round}</b></li>
+        <li><span>${t("menu.difficulty")}</span><b>${state.presetId.toUpperCase()}</b></li>
+        <li><span>${t("menu.bestScore")}</span><b>${format(Math.max(profile.bestServiceScore, state.serviceScore))}</b></li>
+      </ul>
+      <strong>${t("gameover.wallet", { earned: lastWalletEarned })}</strong>
+      ${isBest ? `<em class="new-record">${t("gameover.newRecord")}</em>` : ""}
+      <div class="game-over-actions">
+        <button type="button" id="gameover-retry">${t("gameover.retry")}</button>
+        <button type="button" id="gameover-menu">${t("gameover.menu")}</button>
+      </div>
+    </section>
+  </div>`;
+}
+
+function retryLastShift(): void {
+  if (!game) return;
+  const presetId = game.presetId;
+  const variant = game.variant;
+  const animationEnabled = game.animationEnabled;
+  clearStoredSession();
+  game = createGame("dealer", presetId, variant, animationEnabled, Math.random, locale);
+  lastWalletEarned = 0;
+  selectedMode = "dealer";
+  playSound("level");
+  saveLocal();
+  renderTable();
+  window.setTimeout(nextRound, 600);
+}
+
+function triggerSeatJuice(seatId: string, kind: "pay" | "wrong"): void {
+  juiceSeatId = seatId;
+  juiceKind = kind;
+  if (juiceTimer !== null) window.clearTimeout(juiceTimer);
+  juiceTimer = window.setTimeout(() => {
+    juiceSeatId = null;
+    juiceKind = null;
+    document.querySelectorAll(".seat.juice-pay, .seat.juice-wrong").forEach((node) => {
+      node.classList.remove("juice-pay", "juice-wrong");
+    });
+  }, kind === "wrong" ? 700 : 520);
+}
+
+function commitCurrentRun(): number {
+  if (!game || game.mode !== "dealer") return 0;
+  profile = noteBestScore(profile, game.serviceScore);
+  if (game.walletCreditCommitted) {
+    saveUserProfile(profile);
+    return 0;
+  }
+  const result = commitDealerRun(profile, { runId: game.runId, mode: game.mode, serviceScore: game.serviceScore });
+  profile = result.profile;
+  game.walletCreditCommitted = result.committed || profile.committedDealerRuns.includes(game.runId);
+  lastWalletEarned = result.earnedUnits;
+  saveUserProfile(profile);
+  saveLocal();
+  return result.earnedUnits;
+}
+
+function showExitConfirm(): void {
+  if (playerGame) {
+    showPlayerExitConfirm();
+    return;
+  }
+  if (!game) return;
+  stopTimer();
+  const phase = game.phase;
+  const wasHowto = game.mode === "autoplay";
+  const overlay = document.createElement("div");
+  overlay.className = "exit-confirm";
+  overlay.innerHTML = `<section><h2>${t("exit.title")}</h2><p>${t("exit.help")}</p><strong>+${game.mode === "dealer" ? game.serviceScore : 0}</strong><div><button id="exit-cancel">${t("exit.cancel")}</button><button id="exit-confirm">${t("exit.confirm")}</button></div></section>`;
+  app.append(overlay);
+  overlay.querySelector<HTMLButtonElement>("#exit-cancel")!.addEventListener("click", () => {
+    overlay.remove();
+    if (wasHowto) return;
+    if (phase === "BETTING_OPEN") startTimer("betting");
+    if (phase === "PAYOUT") startTimer("payout");
+  });
+  overlay.querySelector<HTMLButtonElement>("#exit-confirm")!.addEventListener("click", () => {
+    clearHowtoDelay();
+    commitCurrentRun();
     showMenu();
   });
 }
 
-function primaryAction(): void {
-  if (!game || game.mode === "autoplay") return;
-  if (game.phase === "BETTING_OPEN") { closeBets(game); playSound("close"); triggerFx("close"); renderTable(); }
-  else if (game.phase === "BETTING_CLOSED") performSpin();
-  else if (game.phase === "PAYOUT") {
-    const outcome = pay(game);
-    playSound(outcome === "overpay" || outcome === "invalid" ? "error" : "pay");
-    triggerFx(outcome === "overpay" ? "overpay" : outcome === "invalid" ? "select" : outcome === "complete" ? "perfect" : "pay");
-    renderTable();
-    if (outcome === "complete") window.setTimeout(completeRound, 650);
+function showPlayerExitConfirm(): void {
+  if (!playerGame) return;
+  if (playerGame.phase === "SPINNING" || resultReveal) return; // no exit mid-spin / mid-reveal
+  const residual = playerGame.tableScore + (playerGame.phase === "BETTING_OPEN" || playerGame.phase === "PREPARE" ? totalStaked(playerGame) : 0);
+  const overlay = document.createElement("div");
+  overlay.className = "exit-confirm";
+  overlay.innerHTML = `<section><h2>${t("player.exitTitle")}</h2><p>${t("player.exitHelp")}</p><strong>${t("player.score")}: ${format(residual)}</strong><div><button id="exit-cancel">${t("player.exitCancel")}</button><button id="exit-confirm">${t("player.exitConfirm")}</button></div></section>`;
+  app.append(overlay);
+  overlay.querySelector<HTMLButtonElement>("#exit-cancel")!.addEventListener("click", () => {
+    overlay.remove();
+  });
+  overlay.querySelector<HTMLButtonElement>("#exit-confirm")!.addEventListener("click", () => {
+    if (!playerGame) return;
+    const out = cashOutPlayer(playerGame, profile);
+    profile = out.profile;
+    saveUserProfile(profile);
+    clearStoredSession();
+    playerGame = null;
+    creatorDraft = null;
+    creatorNameDialogOpen = false;
+    creatorNameBuffer = "";
+    strategyPanelOpen = false;
+    racetrackOpen = false;
+    statsPanelOpen = false;
+    playSound("pay");
+    showMenu();
+  });
+}
+
+function clearHowtoDelay(): void {
+  if (howtoDelayTimer !== null) {
+    window.clearTimeout(howtoDelayTimer);
+    howtoDelayTimer = null;
   }
+}
+
+function scheduleHowto(ms: number, action: () => void): void {
+  clearHowtoDelay();
+  howtoDelayTimer = window.setTimeout(() => {
+    howtoDelayTimer = null;
+    action();
+  }, ms);
 }
 
 function nextRound(): void {
@@ -149,15 +886,116 @@ function nextRound(): void {
   openBetting(game);
   playSound("bet");
   triggerFx("bet");
+  saveLocal();
   renderTable();
+  if (game.mode === "autoplay") return;
   startTimer("betting");
-  if (game.mode === "autoplay") window.setTimeout(() => { if (game?.phase === "BETTING_OPEN") { closeBets(game); playSound("close"); triggerFx("close"); renderTable(); window.setTimeout(performSpin, 650); } }, 1900);
+}
+
+/** Abort reveal without running onDone (e.g. new spin starting). */
+function clearResultReveal(): void {
+  if (resultRevealTimer !== null) {
+    window.clearTimeout(resultRevealTimer);
+    resultRevealTimer = null;
+  }
+  resultReveal = null;
+  resultRevealOnDone = null;
+}
+
+/** End reveal once — timer or tap — then continue hunt / next hand. */
+function finishResultReveal(): void {
+  if (resultReveal === null && resultRevealOnDone === null) return;
+  const done = resultRevealOnDone;
+  if (resultRevealTimer !== null) {
+    window.clearTimeout(resultRevealTimer);
+    resultRevealTimer = null;
+  }
+  resultReveal = null;
+  resultRevealOnDone = null;
+  done?.();
+}
+
+function scheduleResultReveal(state: ResultRevealState, onDone: () => void): void {
+  clearResultReveal();
+  resultReveal = state;
+  resultRevealOnDone = onDone;
+  resultRevealTimer = window.setTimeout(() => {
+    resultRevealTimer = null;
+    finishResultReveal();
+  }, RESULT_REVEAL_MS);
+}
+
+function bindResultRevealDismiss(): void {
+  const overlay = app.querySelector<HTMLElement>(".result-reveal");
+  if (!overlay) return;
+  const dismiss = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    finishResultReveal();
+  };
+  overlay.addEventListener("click", dismiss);
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " " || event.key === "Escape") dismiss(event);
+  });
+  // Prefer focus so keyboard users can dismiss without hunting the card.
+  overlay.focus({ preventScroll: true });
+}
+
+function buildResultRevealOverlay(): string {
+  if (!resultReveal) return "";
+  const n = resultReveal.winningNumber;
+  const color = n === "0" || n === "00" ? "green" : isRed(n) ? "red" : "black";
+  let outcomeClass = "is-reveal";
+  let outcome = "";
+  if (resultReveal.context === "player" && resultReveal.playerNet !== null) {
+    if (resultReveal.playerNet > 0) {
+      outcomeClass = "is-win";
+      outcome = t("reveal.playerWin", { net: format(resultReveal.playerNet) });
+    } else if (resultReveal.playerNet < 0) {
+      outcomeClass = "is-lose";
+      outcome = t("reveal.playerLose", { net: format(Math.abs(resultReveal.playerNet)) });
+    } else if (resultReveal.playerFreeSpin) {
+      outcomeClass = "is-reveal";
+      outcome = t("reveal.playerFree");
+    } else {
+      outcomeClass = "is-even";
+      outcome = t("reveal.playerEven");
+    }
+  } else if (resultReveal.context === "dealer") {
+    if (resultReveal.dealerNoWinners) {
+      outcomeClass = "is-none";
+      outcome = t("reveal.dealerNoWinners");
+    } else {
+      outcomeClass = "is-pay";
+      outcome = t("reveal.dealerWinners");
+    }
+  }
+  return `<div class="result-reveal" role="button" tabindex="0" aria-live="assertive" aria-label="${t("reveal.number")} ${n}">
+    <div class="result-reveal-card color-${color} ${outcomeClass}">
+      <span class="result-reveal-label">${t("reveal.number")}</span>
+      <b class="result-reveal-number">${n}</b>
+      ${outcome ? `<p class="result-reveal-outcome">${outcome}</p>` : ""}
+    </div>
+  </div>`;
 }
 
 function performSpin(): void {
+  if (playerGame) {
+    performPlayerSpin();
+    return;
+  }
   if (!game || !markSpinning(game)) return;
   stopTimer();
-  const plan = spin({ spinPower: 6, consistency: 6, releaseStyle: "snap_clockwise" }, game.variant);
+  clearResultReveal();
+  if (game.mode === "autoplay") {
+    howtoLesson = "spin";
+    howtoAwaitingAdvance = false;
+    howtoBusy = true;
+  }
+  // Outcome from SpinEngine v2 (CSPRNG + ball/wheel ODE). Canvas only presents the plan.
+  const generatedPlan = spin(game.variant);
+  const forcedNumber = getForcedWinningNumber(game);
+  const plan: SpinResult = forcedNumber ? { ...generatedPlan, winningNumber: forcedNumber } : generatedPlan;
   activeSpinPlan = plan;
   spinDurationMs = game.animationEnabled ? Math.min(6200, Math.max(5000, plan.durationMs * 0.68)) : 160;
   playSound("spin");
@@ -171,31 +1009,138 @@ function performSpin(): void {
     resolveSpin(game, plan.winningNumber);
     clearSpinTicks();
     playSound("settle");
-    triggerFx("result", 900);
+    const noWinners = game.payments.length === 0
+      || game.payments.every((payment) => payment.paid >= payment.due);
+
+    if (game.mode === "autoplay") {
+      howtoBusy = false;
+      howtoLesson = "result";
+      howtoAwaitingAdvance = true;
+      scheduleResultReveal({
+        winningNumber: plan.winningNumber,
+        context: "dealer",
+        playerNet: null,
+        dealerNoWinners: noWinners,
+      }, () => {
+        if (game) renderTable();
+      });
+      renderTable();
+      return;
+    }
+
+    saveLocal();
+    // Big-number beat first; hunt board only after reveal, and only if someone won.
+    scheduleResultReveal({
+      winningNumber: plan.winningNumber,
+      context: "dealer",
+      playerNet: null,
+      dealerNoWinners: noWinners,
+    }, () => {
+      if (!game) return;
+      if (noWinners) {
+        // No empty hunt flash — go straight to next wave.
+        completeRound();
+        return;
+      }
+      renderTable();
+      startTimer("payout");
+    });
     renderTable();
-    if (game.payments.length === 0 || game.payments.every((payment) => payment.paid >= payment.due)) window.setTimeout(completeRound, 900);
-    else { startTimer("payout"); if (game.mode === "autoplay") autoplayPay(); }
   }, spinDurationMs);
+}
+
+function performPlayerSpin(): void {
+  if (!playerGame || !requestPlayerSpin(playerGame)) {
+    playSound("error");
+    if (playerGame) renderPlayerTable();
+    return;
+  }
+  clearResultReveal();
+  const generatedPlan = spin(playerGame.variant);
+  activeSpinPlan = generatedPlan;
+  spinDurationMs = playerGame.animationEnabled ? Math.min(6200, Math.max(5000, generatedPlan.durationMs * 0.68)) : 160;
+  playSound("spin");
+  triggerFx("spin", spinDurationMs);
+  scheduleSpinTicks(playerGame.animationEnabled ? spinDurationMs : 0);
+  renderPlayerTable();
+  window.setTimeout(() => {
+    if (!playerGame) return;
+    wheelRestAngle = getSpinEndAngle(wheelRestAngle, playerGame.variant, generatedPlan.winningNumber, generatedPlan.turns);
+    activeSpinPlan = null;
+    const settle = settlePlayerRound(playerGame, generatedPlan.winningNumber);
+    lastPlayerNet = settle.netDelta;
+    clearSpinTicks();
+    playSound(settle.netDelta > 0 ? "pay" : settle.totalStaked === 0 ? "settle" : "error");
+    triggerFx(settle.netDelta > 0 ? "perfect" : "settle", 700);
+    persistPlayerScore();
+    savePlayerLocal();
+    scheduleResultReveal({
+      winningNumber: generatedPlan.winningNumber,
+      context: "player",
+      playerNet: settle.netDelta,
+      playerFreeSpin: settle.totalStaked === 0,
+      dealerNoWinners: false,
+    }, () => {
+      completePlayerRound();
+    });
+    renderPlayerTable();
+  }, spinDurationMs);
+}
+
+function completePlayerRound(): void {
+  if (!playerGame) return;
+  clearResultReveal();
+  finishPlayerRound(playerGame);
+  persistPlayerScore();
+  savePlayerLocal();
+  if (playerGame.phase === "GAME_OVER") {
+    clearStoredSession();
+    renderPlayerTable();
+    return;
+  }
+  openPlayerBetting(playerGame);
+  lastPlayerNet = null;
+  savePlayerLocal();
+  renderPlayerTable();
 }
 
 function autoplayPay(): void {
   if (!game || game.mode !== "autoplay" || game.phase !== "PAYOUT") return;
+  howtoBusy = true;
+  howtoAwaitingAdvance = false;
   const current = game.payments[game.paymentIndex];
   if (!current || current.paid >= current.due) {
     const next = game.payments.find((payment) => payment.paid < payment.due);
-    if (next) selectPayment(game, next.seatId);
+    if (next) {
+      selectPayment(game, next.seatId);
+      playSound("bet");
+      triggerFx("select", 360);
+      renderTable();
+      scheduleHowto(420, autoplayPay);
+      return;
+    }
   }
+  const targetSeatId = game.payments[game.paymentIndex]?.seatId ?? "";
   const outcome = pay(game);
-  playSound(outcome === "overpay" ? "error" : "pay");
+  if (outcome === "complete") playSound("level");
+  else playSound(outcome === "overpay" ? "error" : "pay");
+  if (targetSeatId) triggerSeatJuice(targetSeatId, outcome === "overpay" ? "wrong" : "pay");
   triggerFx(outcome === "complete" ? "perfect" : "pay");
   renderTable();
-  if (outcome === "complete") window.setTimeout(completeRound, 700);
-  else window.setTimeout(autoplayPay, 280);
+  if (outcome === "complete") {
+    howtoBusy = false;
+    howtoLesson = "score";
+    howtoAwaitingAdvance = true;
+    renderTable();
+    return;
+  }
+  scheduleHowto(360, autoplayPay);
 }
 
 function completeRound(): void {
   if (!game || game.phase === "GAME_OVER") return;
   stopTimer();
+  clearResultReveal();
   const levelBefore = game.level;
   finishRound(game);
   if (game.level > levelBefore) {
@@ -203,8 +1148,77 @@ function completeRound(): void {
     triggerFx("level", 900);
   }
   saveLocal();
+  if (game.mode === "autoplay") {
+    howtoBusy = false;
+    howtoLesson = "loop";
+    howtoAwaitingAdvance = true;
+    renderTable();
+    return;
+  }
   renderTable();
-  window.setTimeout(nextRound, 850);
+  window.setTimeout(nextRound, balanceConfig.automaticFlow.nextRoundDelayMs);
+}
+
+function advanceHowto(): void {
+  if (!game || game.mode !== "autoplay" || !howtoAwaitingAdvance || howtoBusy) return;
+  playSound("bet");
+  howtoAwaitingAdvance = false;
+
+  switch (howtoLesson) {
+    case "goal": {
+      openBetting(game);
+      triggerFx("bet");
+      howtoLesson = "betting";
+      howtoAwaitingAdvance = true;
+      renderTable();
+      return;
+    }
+    case "betting": {
+      closeBets(game);
+      playSound("close");
+      triggerFx("close");
+      howtoLesson = "closed";
+      howtoAwaitingAdvance = true;
+      renderTable();
+      return;
+    }
+    case "closed": {
+      performSpin();
+      return;
+    }
+    case "result": {
+      const unpaid = game.payments.some((payment) => payment.paid < payment.due);
+      if (unpaid) {
+        howtoLesson = "pay";
+        howtoAwaitingAdvance = true;
+        renderTable();
+        return;
+      }
+      howtoLesson = "score";
+      howtoAwaitingAdvance = true;
+      renderTable();
+      return;
+    }
+    case "pay": {
+      autoplayPay();
+      return;
+    }
+    case "score": {
+      completeRound();
+      return;
+    }
+    case "loop": {
+      openBetting(game);
+      triggerFx("bet");
+      howtoLesson = "betting";
+      howtoAwaitingAdvance = true;
+      renderTable();
+      return;
+    }
+    default:
+      howtoAwaitingAdvance = true;
+      renderTable();
+  }
 }
 
 function startTimer(kind: "betting" | "payout"): void {
@@ -213,90 +1227,130 @@ function startTimer(kind: "betting" | "payout"): void {
     if (!game) return;
     if (kind === "betting" && game.phase === "BETTING_OPEN") {
       game.bettingSeconds = Math.max(0, game.bettingSeconds - 1);
-      if (game.bettingSeconds === 0) { closeBets(game); playSound("close"); triggerFx("close"); stopTimer(); renderTable(); if (game.mode === "autoplay") window.setTimeout(performSpin, 650); }
-      else updateTimerDisplay();
+      if (game.bettingSeconds === 0) {
+        closeBets(game);
+        playSound("close");
+        triggerFx("close");
+        stopTimer();
+        renderTable();
+        window.setTimeout(performSpin, balanceConfig.automaticFlow.closedBetsPauseMs);
+      } else updateTimerDisplay();
     } else if (kind === "payout" && game.phase === "PAYOUT") {
       game.paySeconds = Math.max(0, game.paySeconds - 1);
-      if (game.paySeconds === 0) { payoutTimeout(game); playSound("error"); triggerFx("timeout", 900); stopTimer(); renderTable(); if (game.energy > 0 || game.mode === "autoplay") window.setTimeout(completeRound, 900); }
-      else updateTimerDisplay();
+      if (game.paySeconds === 0) {
+        payoutTimeout(game);
+        playSound("error");
+        triggerFx("timeout", 900);
+        stopTimer();
+        renderTable();
+        if (game.energy > 0 || game.mode === "autoplay") window.setTimeout(completeRound, balanceConfig.automaticFlow.nextRoundDelayMs);
+      } else updateTimerDisplay();
     }
   }, 1000);
 }
 
 function updateTimerDisplay(): void {
   if (!game) return;
-  const display = app.querySelector<HTMLTimeElement>(".phase-row time");
-  if (!display) return;
-  display.textContent = phaseTime(game);
-  display.classList.toggle("critical", phaseCritical(game));
+  const label = phaseTime(game);
+  const critical = phaseCritical(game);
+  app.querySelectorAll<HTMLTimeElement>(".phase-row time, .hunt-timer").forEach((display) => {
+    display.textContent = label;
+    display.classList.toggle("critical", critical);
+  });
 }
 function stopTimer(): void { if (timer !== null) window.clearInterval(timer); timer = null; }
 
 function saveLocal(): void {
   if (!game || game.mode !== "dealer") return;
-  localStorage.setItem("bitcroupier.session.v1", JSON.stringify(snapshot(game)));
+  writeStoredSession(snapshot(game));
 }
 
-function saveGame(): void {
-  if (!game) return;
-  saveLocal();
-  const blob = new Blob([JSON.stringify(snapshot(game), null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `bitcroupier-round-${game.round}.json`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-  game.message = "Session saved locally + exported";
-  renderTable();
+function savePlayerLocal(): void {
+  if (!playerGame) return;
+  writeStoredSession(snapshotPlayer(playerGame));
 }
 
-function primaryLabel(state: GameState): string {
-  if (state.mode === "autoplay") return "AI IN CONTROL";
-  if (state.phase === "BETTING_OPEN") return "CLOSE BETTING";
-  if (state.phase === "BETTING_CLOSED") return "LAUNCH BALL";
-  if (state.phase === "PAYOUT") {
-    const current = state.payments[state.paymentIndex];
-    if (!current || current.paid >= current.due) return state.payments.every((payment) => payment.paid >= payment.due) ? "PAYOUT COMPLETE" : "SELECT A WINNER";
-    const piece = Math.min(getPreset(state.presetId).chipValue, current.due - current.paid);
-    return `PAY ${piece} u TO ${current.seatName.toUpperCase()}`;
-  }
-  if (state.phase === "GAME_OVER") return "SHIFT OVER";
-  return "STAND BY";
+function phaseTime(state: GameState): string {
+  if (state.mode === "autoplay") return howtoBusy ? "…" : howtoAwaitingAdvance ? "❚❚" : "—";
+  return state.phase === "BETTING_OPEN"
+    ? `00:${String(Math.ceil(state.bettingSeconds)).padStart(2, "0")}`
+    : state.phase === "PAYOUT" ? `00:${String(Math.ceil(state.paySeconds)).padStart(2, "0")}` : "—";
 }
 
-function primaryDisabled(state: GameState): boolean {
-  if (state.mode === "autoplay" || !["BETTING_OPEN", "BETTING_CLOSED", "PAYOUT"].includes(state.phase)) return true;
-  if (state.phase !== "PAYOUT") return false;
-  const current = state.payments[state.paymentIndex];
-  return !current || current.paid >= current.due;
-}
-function phaseInstruction(state: GameState): string { return state.phase === "BETTING_OPEN" ? "Customers are choosing their bets" : state.phase === "BETTING_CLOSED" ? "Bets locked - launch the ball" : state.phase === "SPINNING" ? "Wheel clockwise / ball counter-clockwise" : state.phase === "GAME_OVER" ? `LEVEL ${state.level} / SCORE ${state.score}` : "Ready for the next call"; }
-function phaseTime(state: GameState): string { return state.phase === "BETTING_OPEN" ? `00:${String(Math.ceil(state.bettingSeconds)).padStart(2, "0")}` : state.phase === "PAYOUT" ? `00:${String(Math.ceil(state.paySeconds)).padStart(2, "0")}` : "—"; }
 function guideItem(step: number, title: string, copy: string, activeStep: number): string {
   const state = step === activeStep ? "active" : activeStep > step ? "done" : "";
   return `<div class="guide-item ${state}"><i>${activeStep > step ? "OK" : step}</i><span><b>${title}</b><small>${copy}</small></span></div>`;
 }
 
-function phaseTitle(state: GameState): string {
-  const titles: Record<GameState["phase"], string> = {
-    PREPARE: "GET READY", BETTING_OPEN: "PLACE YOUR BETS", BETTING_CLOSED: "NO MORE BETS",
-    SPINNING: "BALL IN MOTION", RESULT: "WINNING NUMBER", PAYOUT: "PAY THE WINNERS", GAME_OVER: "SHIFT OVER",
+interface HowtoCoachStep {
+  step: number;
+  total: number;
+  key: HowtoLessonKey;
+  anchor: string;
+  showNext: boolean;
+  statusKey?: string;
+}
+
+const HOWTO_TOTAL_STEPS = 7;
+
+const HOWTO_STEP_META: Record<HowtoLessonKey, { step: number; anchor: string }> = {
+  goal: { step: 1, anchor: "role" },
+  betting: { step: 2, anchor: "felt" },
+  closed: { step: 3, anchor: "wheel" },
+  spin: { step: 4, anchor: "wheel" },
+  result: { step: 5, anchor: "wheel" },
+  pay: { step: 6, anchor: "crowd" },
+  score: { step: 6, anchor: "score" },
+  loop: { step: 7, anchor: "table" },
+};
+
+function howtoCoachFromLesson(): HowtoCoachStep {
+  const meta = HOWTO_STEP_META[howtoLesson];
+  const showNext = howtoAwaitingAdvance && !howtoBusy;
+  let statusKey: string | undefined;
+  if (howtoBusy && howtoLesson === "spin") statusKey = "howto.watching";
+  if (howtoBusy && howtoLesson === "pay") statusKey = "howto.demoPaying";
+  return {
+    step: meta.step,
+    total: HOWTO_TOTAL_STEPS,
+    key: howtoLesson,
+    anchor: meta.anchor,
+    showNext,
+    statusKey,
   };
-  return titles[state.phase];
+}
+
+function buildHowtoCoach(step: HowtoCoachStep): string {
+  const footer = step.showNext
+    ? `<button type="button" id="howto-next" class="howto-next">${t("howto.next")}</button>`
+    : step.statusKey
+      ? `<div class="howto-status">${t(step.statusKey)}</div>`
+      : "";
+  return `<aside class="howto-coach anchor-${step.anchor} ${step.showNext ? "has-next" : "is-busy"}" aria-live="polite">
+    <div class="howto-bubble">
+      <header>
+        <span class="howto-badge">${t("howto.badge")}</span>
+        <em>${t("howto.step", { n: step.step, total: step.total })}</em>
+      </header>
+      <strong>${t(`howto.${step.key}.title`)}</strong>
+      <p>${t(`howto.${step.key}.body`)}</p>
+      ${footer}
+    </div>
+  </aside>`;
+}
+
+function phaseTitle(state: GameState): string {
+  return t(`phase.${state.phase}`);
 }
 
 function phaseHelp(state: GameState): string {
-  if (state.mode === "autoplay") return "Demo croupier is showing every action automatically";
-  if (state.phase === "BETTING_OPEN") return "Customers are placing chips. Close betting now or wait for the timer.";
-  if (state.phase === "BETTING_CLOSED") return "All chips are locked. Press LAUNCH BALL to spin.";
-  if (state.phase === "SPINNING") return "Wheel and ball rotate in opposite directions, then slow into a pocket.";
-  if (state.phase === "PAYOUT") return "Choose a glowing winning customer, then pay one chip per press before time expires.";
-  if (state.phase === "RESULT") return "Read the result, then get ready to pay every winning customer.";
-  return state.message;
+  if (state.mode === "autoplay") return t(`howto.${howtoLesson}.title`);
+  return t(state.message, state.messageParams);
 }
 
 function phaseCritical(state: GameState): boolean {
-  return (state.phase === "BETTING_OPEN" && state.bettingSeconds <= 5) || (state.phase === "PAYOUT" && state.paySeconds <= 5);
+  if (state.mode === "autoplay") return false;
+  return state.phase === "PAYOUT" && state.paySeconds <= 5;
 }
 
 function triggerFx(name: string, duration = 480): void {
@@ -308,7 +1362,7 @@ function triggerFx(name: string, duration = 480): void {
   }, duration);
 }
 function pad(value: number): string { return String(value).padStart(2, "0"); }
-function format(value: number): string { return new Intl.NumberFormat("en-US").format(value); }
+function format(value: number): string { return new Intl.NumberFormat(numberFormatTag(locale)).format(value); }
 function energyBar(value: number, max: number): string { return Array.from({ length: max }, (_, index) => index < value ? "◆" : "◇").join(""); }
 const redNumbers = new Set(["1","3","5","7","9","12","14","16","18","19","21","23","25","27","30","32","34","36"]);
 function isRed(value: string | null): boolean { return value ? redNumbers.has(value) : false; }
@@ -317,51 +1371,1553 @@ function buildWheel(variant: TableVariant, spinning: boolean): string {
   return `<div class="wheel-stage ${spinning ? "is-spinning" : ""}">
     <div class="wheel-glow"></div>
     <canvas id="wheel-canvas" class="wheel-canvas" role="img" aria-label="${variant === "european" ? "European 37-pocket" : "American 38-pocket"} roulette wheel"></canvas>
-    <div class="spin-sparks"><i></i><i></i><i></i><i></i></div>
-    <small>${spinning ? "LIVE TRAJECTORY / BALL DROP" : variant === "european" ? "EUROPEAN 37-POCKET WHEEL" : "AMERICAN 38-POCKET WHEEL"}</small>
+    <small>${spinning ? t("wheel.live") : variant === "european" ? t("wheel.european") : t("wheel.american")}</small>
   </div>`;
 }
 
 function mountWheel(): void {
-  if (!game) return;
+  const active = playerGame ?? game;
+  if (!active) return;
   const canvas = app.querySelector<HTMLCanvasElement>("#wheel-canvas");
   if (!canvas) return;
-  if (game.phase === "SPINNING" && activeSpinPlan) {
+  if (active.phase === "SPINNING" && activeSpinPlan) {
     wheelAnimation = animateWheel(
       canvas,
-      game.variant,
+      active.variant,
       activeSpinPlan,
       wheelRestAngle,
       spinDurationMs,
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches || !game.animationEnabled,
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || !active.animationEnabled,
     );
   } else {
-    drawStaticWheel(canvas, game.variant, wheelRestAngle, game.result);
+    drawStaticWheel(canvas, active.variant, wheelRestAngle, active.result);
   }
 }
 
-const profileLabels: Record<Seat["profileId"], string> = {
-  cautious: "CAUTIOUS",
-  normal: "BALANCED",
-  aggressive: "HIGH ROLLER",
-  superstitious: "LUCKY NUMBER",
-};
+// ---------------------------------------------------------------------------
+// Player mode presenter
+// ---------------------------------------------------------------------------
 
-function buildSeatCard(seat: Seat, index: number, state: GameState, selected: boolean): string {
+function renderPlayerTable(): void {
+  if (!playerGame) return;
+  // Full Bet Creator only when not mid Racetrack “save as strategy” naming
+  if (creatorDraft && !racetrackOpen) {
+    renderBetCreator();
+    return;
+  }
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
+  const cfg = getPlayerModeConfig();
+  const staked = totalStaked(playerGame);
+  const free = playerGame.tableScore;
+  const total = free + staked;
+  const coverage = tableCoverage(playerGame);
+  const betting = playerGame.phase === "BETTING_OPEN";
+  /** Coverage bar while bets are still on the table (open + spin). */
+  const showCoverage = betting || playerGame.phase === "SPINNING" || playerGame.phase === "BETTING_CLOSED";
+  const playerPhaseKeys = new Set(["BETTING_OPEN", "BETTING_CLOSED", "SPINNING", "PAYOUT", "PREPARE", "GAME_OVER"]);
+  const phaseKey = playerPhaseKeys.has(playerGame.phase) ? `player.phase.${playerGame.phase}` : `phase.${playerGame.phase}`;
+  // Single hand outcome for the phase strip (avoid duplicating net in message + mark)
+  const handOutcomeLabel = lastPlayerNet === null
+    ? ""
+    : lastPlayerNet > 0
+      ? t("player.resultWin", { net: format(lastPlayerNet) })
+      : lastPlayerNet < 0
+        ? t("player.resultLose", { net: format(lastPlayerNet) })
+        : lastPlayerNet === 0 && playerGame.lastSettle?.totalStaked === 0
+          ? t("player.resultFree")
+          : t("player.resultEven");
+  const lastCost = playerGame.lastBets.reduce((sum, bet) => sum + bet.stake, 0);
+  // Rebet replaces open bets with one copy of last hand (needs free+staked ≥ cost)
+  const canRebet = betting && lastCost > 0 && free + staked >= lastCost;
+  const canDouble = betting && staked > 0 && free >= staked;
+  // Free spin: SPIN always available in BETTING_OPEN (chips optional)
+  const canSpin = betting;
+  const canOpenStrategies = betting && playerGame.phase === "BETTING_OPEN";
+  const canOpenRacetrack = betting && playerGame.phase === "BETTING_OPEN";
+  const showWheel = playerGame.animationEnabled;
+  const templates = loadBetTemplates().filter((item) => item.variant === playerGame!.variant);
+  const historyHtml = `<div class="history ${showWheel ? "" : "history-bar"}"><span>${t("table.lastNumbers")}</span><div>${playerGame.history.length ? playerGame.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
+
+  const playerRevealing = resultReveal !== null && resultReveal.context === "player";
+  // Stats are read-only — open between hands and mid-bet (not during spin/reveal)
+  const canOpenStats = !playerRevealing && playerGame.phase !== "SPINNING";
+  // During betting: highlight live total on table; suppress routine place noise; keep fail tips
+  const bettingStatusNoise = new Set([
+    "message.playerWelcome",
+    "message.playerBetting",
+    "message.playerChipPlaced",
+    "message.playerChipMoved",
+    "message.playerMoveUndone",
+    "message.playerUndo",
+    "message.playerCleared",
+    "message.playerStrategyApplied",
+    "message.playerRebet",
+    "message.playerDouble",
+    "message.playerCallPlaced",
+  ]);
+  const showBettingFeedback = betting
+    && playerGame.message
+    && !bettingStatusNoise.has(playerGame.message);
+  // After spin: one mark only (e.g. "+30 QUESTA MANO") — do not also show "17 · hai vinto +30"
+  const phaseStatusHtml = betting
+    ? `<mark class="player-stake-total ${staked > 0 ? "has-stake" : ""}" title="${t("player.betTotalHelp")}">${t("player.betTotal", { amount: format(staked) })}</mark>${
+        showBettingFeedback
+          ? `<b class="player-phase-feedback">${t(playerGame.message, playerGame.messageParams)}</b>`
+          : ""
+      }`
+    : handOutcomeLabel
+      ? `<mark class="player-hand-result">${handOutcomeLabel}</mark>`
+      : `<b>${t(playerGame.message, playerGame.messageParams)}</b>`;
+  app.innerHTML = `
+    <main class="game-shell player-mode ${showWheel ? "" : "player-nowheel"} ${playerRevealing ? "is-result-reveal" : ""} ${playerGame.phase === "SPINNING" ? "phase-is-spinning" : ""} ${playerGame.phase === "PAYOUT" ? "phase-is-payout" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
+      <header class="arcade-strip player-strip">
+        <div class="metric score"><span>${t("player.score")}</span><strong>${format(total)}</strong></div>
+        <nav>
+          <button type="button" id="player-anim" class="chrome-button anim-toggle" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""} title="${t("settings.animationHelp")}" aria-label="${t("settings.animation")}">${playerGame.animationEnabled ? t("hud.animationOn") : t("hud.animationOff")}</button>
+          <button type="button" id="sound" class="chrome-button">${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}</button>
+          <button type="button" id="exit" class="chrome-button danger" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""}>${t("player.exit")}</button>
+        </nav>
+      </header>
+      <section class="phase-row player-phase-row">
+        <span>${t(phaseKey)}</span>
+        ${phaseStatusHtml}
+        ${showCoverage ? `
+          <div class="table-coverage" title="${t("player.coverageHelp", { covered: coverage.covered, total: coverage.total })}">
+            <span class="table-coverage-label">${t("player.coverage")}</span>
+            <div
+              class="table-coverage-track"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="${coverage.percent}"
+              aria-label="${t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total })}"
+            >
+              <i class="table-coverage-fill" style="width:${coverage.percent}%"></i>
+            </div>
+            <strong class="table-coverage-pct">${coverage.percent}%</strong>
+          </div>` : ""}
+      </section>
+      <section class="table-grid ${showWheel ? "" : "table-grid-nowheel"}">
+        ${showWheel ? `<aside class="wheel-panel">
+          ${buildWheel(playerGame.variant, playerGame.phase === "SPINNING")}
+          ${historyHtml}
+        </aside>` : ""}
+        <section class="felt-panel player-felt casino-felt ${betting ? "interactive snap-felt" : ""}">
+          ${showWheel ? "" : historyHtml}
+          <div class="felt-heading"><span>${t("table.live")} / ${playerGame.variant.toUpperCase()}</span><small>${betting ? t("player.placeHint") : t("player.manualSpinHelp")}</small></div>
+          <div class="felt-grid">${buildPlayerFelt(playerGame.variant, playerGame.result, feltDisplayBets(playerGame), betting)}</div>
+          <div class="felt-snap-guide" hidden aria-live="polite"></div>
+        </section>
+      </section>
+      <section class="player-controls">
+        <div class="player-tools">
+          <button type="button" id="player-racetrack" class="chrome-button racetrack-btn" ${canOpenRacetrack ? "" : "disabled"} title="${t("racetrack.aria")}" aria-label="${t("racetrack.aria")}">◎ ${t("racetrack.btn")}</button>
+          <button type="button" id="player-strategies" class="chrome-button strategy-btn" ${canOpenStrategies ? "" : "disabled"} title="${t("player.strategyAria")}" aria-label="${t("player.strategyAria")}">★ ${t("player.strategy")}${templates.length ? ` (${templates.length})` : ""}</button>
+          <button type="button" id="player-stats" class="chrome-button stats-btn" ${canOpenStats ? "" : "disabled"} title="${t("player.statsAria")}" aria-label="${t("player.statsAria")}">▣ ${t("player.stats")}</button>
+        </div>
+        <div class="chip-tray" role="group" aria-label="${t("player.chipTray")}">
+          <span class="tray-label">${t("player.chipTray")}</span>
+          <div class="chip-row">
+            ${cfg.chipDenominations.map((d) => {
+              const disabled = !betting || free < d;
+              const digits = String(d).length;
+              return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${playerGame!.selectedChip === d ? "active" : ""}" data-chip="${d}" ${disabled ? "disabled" : ""}><span>${d}</span></button>`;
+            }).join("")}
+          </div>
+        </div>
+        <button type="button" id="player-spin" class="player-spin-btn" ${canSpin ? "" : "disabled"} aria-label="${t("player.spin")}">
+          <span class="spin-label">${t("player.spin")}</span>
+        </button>
+        <div class="bet-actions">
+          <button type="button" id="player-undo" class="chrome-button" ${!betting || !playerGame.chipHistory.length ? "disabled" : ""}>${t("player.undo")}</button>
+          <button type="button" id="player-clear" class="chrome-button" ${!betting || !playerGame.bets.length ? "disabled" : ""}>${t("player.clear")}</button>
+          <button type="button" id="player-rebet" class="chrome-button" ${canRebet ? "" : "disabled"} title="${t("player.rebetHelp")}">${t("player.rebet")}</button>
+          <button type="button" id="player-double" class="chrome-button" ${canDouble ? "" : "disabled"} title="${t("player.doubleHelp")}">${t("player.double")}</button>
+        </div>
+      </section>
+      <footer class="table-footer"><span>${t("table.houseFloor")}</span></footer>
+      ${playerGame.phase === "GAME_OVER" ? buildPlayerOutPanel() : ""}
+      ${strategyPanelOpen && canOpenStrategies ? buildStrategyPanel(templates, free) : ""}
+      ${racetrackOpen && canOpenRacetrack ? buildRacetrackPanel(playerGame, free) : ""}
+      ${statsPanelOpen && canOpenStats ? buildStatsPanel(playerGame) : ""}
+      ${buildResultRevealOverlay()}
+    </main>`;
+
+  if (showWheel) mountWheel();
+  app.querySelector<HTMLButtonElement>("#player-anim")?.addEventListener("click", () => {
+    if (!playerGame || playerGame.phase === "SPINNING" || playerRevealing) return;
+    const next = !playerGame.animationEnabled;
+    playerGame.animationEnabled = next;
+    appSettings = updateSettings({ animationEnabled: next });
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => {
+    toggleMute();
+    if (!isMuted()) playSound("bet");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", showPlayerExitConfirm);
+  app.querySelector<HTMLButtonElement>("#player-strategies")?.addEventListener("click", () => {
+    if (!canOpenStrategies || creatorNameDialogOpen) return;
+    strategyPanelOpen = !strategyPanelOpen;
+    if (strategyPanelOpen) {
+      racetrackOpen = false;
+      statsPanelOpen = false;
+    }
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-racetrack")?.addEventListener("click", () => {
+    if (!canOpenRacetrack || creatorNameDialogOpen) return;
+    racetrackOpen = !racetrackOpen;
+    if (racetrackOpen) {
+      strategyPanelOpen = false;
+      statsPanelOpen = false;
+    }
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-stats")?.addEventListener("click", () => {
+    if (!canOpenStats || creatorNameDialogOpen) return;
+    statsPanelOpen = !statsPanelOpen;
+    if (statsPanelOpen) {
+      strategyPanelOpen = false;
+      racetrackOpen = false;
+    }
+    playSound("tick");
+    renderPlayerTable();
+  });
+  bindStrategyPanel(templates);
+  if (racetrackOpen && canOpenRacetrack) bindRacetrackPanel();
+  if (statsPanelOpen && canOpenStats) bindStatsPanel();
+  // Name dialog from Racetrack “save as strategy” (creator screen has its own mount path)
+  if (creatorNameDialogOpen) {
+    mountCreatorNameDialog();
+  }
+  app.querySelectorAll<HTMLButtonElement>("[data-chip]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!playerGame || !betting) return;
+      setSelectedChip(playerGame, Number(btn.dataset.chip));
+      playSound("tick");
+      renderPlayerTable();
+    });
+  });
+  app.querySelector<HTMLButtonElement>("#player-undo")?.addEventListener("click", () => {
+    if (!playerGame || !undoChip(playerGame)) return;
+    playSound("tick");
+    persistPlayerScore();
+    savePlayerLocal();
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-clear")?.addEventListener("click", () => {
+    if (!playerGame || !clearPlayerBets(playerGame)) return;
+    playSound("close");
+    persistPlayerScore();
+    savePlayerLocal();
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-rebet")?.addEventListener("click", () => {
+    if (!playerGame || !rebetLast(playerGame)) {
+      playSound("error");
+      renderPlayerTable();
+      return;
+    }
+    playSound("bet");
+    persistPlayerScore();
+    savePlayerLocal();
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-double")?.addEventListener("click", () => {
+    if (!playerGame || !doubleBets(playerGame)) {
+      playSound("error");
+      renderPlayerTable();
+      return;
+    }
+    playSound("bet");
+    persistPlayerScore();
+    savePlayerLocal();
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-spin")?.addEventListener("click", () => {
+    if (!playerGame || playerGame.phase !== "BETTING_OPEN") return;
+    strategyPanelOpen = false;
+    racetrackOpen = false;
+    statsPanelOpen = false;
+    performPlayerSpin();
+  });
+  bindResultRevealDismiss();
+  if (betting && !strategyPanelOpen && !racetrackOpen && !statsPanelOpen) {
+    bindFeltSnapPlacement(app.querySelector<HTMLElement>(".player-felt"), playerGame.variant, {
+      onPlace: (betId) => {
+        if (!playerGame) return false;
+        if (!placeChip(playerGame, betId)) {
+          playSound("error");
+          return false;
+        }
+        playSound("bet");
+        persistPlayerScore();
+        savePlayerLocal();
+        renderPlayerTable();
+        return true;
+      },
+      onMove: (fromBetId, toBetId) => {
+        if (!playerGame) return false;
+        if (!movePlayerStake(playerGame, fromBetId, toBetId)) {
+          playSound("error");
+          return false;
+        }
+        playSound("bet");
+        persistPlayerScore();
+        savePlayerLocal();
+        renderPlayerTable();
+        return true;
+      },
+    });
+  }
+  app.querySelector<HTMLButtonElement>("#player-out-menu")?.addEventListener("click", () => {
+    clearStoredSession();
+    playerGame = null;
+    creatorDraft = null;
+    creatorNameDialogOpen = false;
+    creatorNameBuffer = "";
+    strategyPanelOpen = false;
+    racetrackOpen = false;
+    statsPanelOpen = false;
+    showMenu();
+  });
+  app.querySelector<HTMLButtonElement>("#player-out-dealer")?.addEventListener("click", () => {
+    clearStoredSession();
+    playerGame = null;
+    creatorDraft = null;
+    creatorNameDialogOpen = false;
+    creatorNameBuffer = "";
+    strategyPanelOpen = false;
+    racetrackOpen = false;
+    statsPanelOpen = false;
+    selectedMode = "dealer";
+    showMenu();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Racetrack (French call bets + neighbors + finales)
+// ---------------------------------------------------------------------------
+
+function buildRacetrackPanel(state: PlayerGameState, free: number): string {
+  const unit = state.selectedChip;
+  const openBets = state.bets.length;
+  const openCost = totalStaked(state);
+  const canSaveStrategy = openBets > 0 && loadBetTemplates().length < MAX_BET_TEMPLATES;
+  const frenchOk = isFrenchSectorAvailable(state.variant);
+  const sectors = listSectorPackages();
+  const sectorBtns = sectors.map((pack) => {
+    const cost = packageCost(pack.lines, unit);
+    const disabled = !frenchOk || free < cost;
+    const title = !frenchOk ? t("racetrack.euOnly") : t("racetrack.cost", { amount: format(cost) });
+    return `<button type="button" class="rt-sector rt-sector-${pack.id}" data-rt-sector="${pack.id}" ${disabled ? "disabled" : ""} title="${title}" data-rt-pockets="${pack.pockets.join(",")}">
+      <b>${t(pack.labelKey)}</b>
+      <span>${pack.chipCount}× · ${format(cost)}</span>
+    </button>`;
+  }).join("");
+
+  const radiusBtns = NEIGHBOR_RADIUS_OPTIONS.map((r) => {
+    const span = neighborSpan(r);
+    return `<button type="button" class="rt-span ${racetrackNeighborRadius === r ? "active" : ""}" data-rt-radius="${r}" title="${t("racetrack.span", { n: span })}">${span}</button>`;
+  }).join("");
+
+  const pockets = wheelPockets(state.variant);
+  const n = pockets.length;
+  // Ellipse layout (percent of track area)
+  const cx = 50;
+  const cy = 50;
+  const rx = 42;
+  const ry = 34;
+  const cells = pockets.map((pocket, i) => {
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + rx * Math.cos(angle);
+    const y = cy + ry * Math.sin(angle);
+    const color = pocketColor(pocket);
+    const sector = state.variant === "european" ? sectorForPocket(pocket) : null;
+    const neigh = getNeighborsPackage(state.variant, pocket, racetrackNeighborRadius);
+    const cost = neigh ? packageCost(neigh.lines, unit) : 0;
+    const disabled = !neigh || free < cost;
+    return `<button type="button" class="rt-pocket color-${color}${sector ? ` sec-${sector}` : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-rt-pocket="${pocket}" data-rt-pockets="${neigh?.pockets.join(",") ?? pocket}" ${disabled ? "disabled" : ""} title="${t("racetrack.neighbors")} ${pocket} · ${t("racetrack.cost", { amount: format(cost) })}">${pocket}</button>`;
+  }).join("");
+
+  const finales = Array.from({ length: 10 }, (_, d) => {
+    const pack = getFinalePackage(d, state.variant);
+    if (!pack) return "";
+    const cost = packageCost(pack.lines, unit);
+    const disabled = free < cost;
+    return `<button type="button" class="rt-finale" data-rt-finale="${d}" data-rt-pockets="${pack.pockets.join(",")}" ${disabled ? "disabled" : ""} title="${t("racetrack.cost", { amount: format(cost) })}"><b>${d}</b><span>${pack.chipCount}×</span></button>`;
+  }).join("");
+
+  return `<div class="racetrack-panel" role="dialog" aria-labelledby="racetrack-title">
+    <div class="racetrack-card">
+      <header class="racetrack-header">
+        <div>
+          <h2 id="racetrack-title">${t("racetrack.title")}</h2>
+          <p class="racetrack-help">${t("racetrack.help")}</p>
+        </div>
+        <div class="racetrack-header-actions">
+          <button type="button" id="racetrack-save-strategy" class="chrome-button racetrack-save-btn" ${canSaveStrategy ? "" : "disabled"} title="${canSaveStrategy ? t("racetrack.saveStrategyHelp", { n: openBets, amount: format(openCost) }) : t("racetrack.saveStrategyNeedBets")}">${t("racetrack.saveStrategy")}${openBets ? ` (${openBets})` : ""}</button>
+          <button type="button" id="racetrack-close" class="chrome-button">${t("racetrack.close")}</button>
+        </div>
+      </header>
+      <div class="racetrack-meta">
+        <span>${t("racetrack.unit", { chip: unit })}</span>
+        <span>${t("racetrack.free", { amount: format(free) })}</span>
+        <span class="rt-variant">${state.variant === "european" ? "EU" : "US"}</span>
+      </div>
+      ${!frenchOk ? `<p class="racetrack-eu-note">${t("racetrack.euOnly")}</p>` : ""}
+      <section class="racetrack-sectors" aria-label="${t("racetrack.sectors")}">
+        <span class="rt-label">${t("racetrack.sectors")}</span>
+        <div class="rt-sector-row">${sectorBtns}</div>
+      </section>
+      <section class="racetrack-neighbors-bar">
+        <span class="rt-label">${t("racetrack.neighbors")}</span>
+        <div class="rt-span-row" role="group" aria-label="${t("racetrack.neighbors")}">${radiusBtns}</div>
+        <small>${t("racetrack.neighborsHelp")}</small>
+      </section>
+      <div class="racetrack-track-wrap">
+        <div class="racetrack-track" aria-label="${t("racetrack.title")}">
+          <div class="racetrack-inner">
+            <span class="rt-inner-label">${t("racetrack.neighbors")}</span>
+            <span class="rt-inner-span">${t("racetrack.span", { n: neighborSpan(racetrackNeighborRadius) })}</span>
+          </div>
+          ${cells}
+        </div>
+        <p class="racetrack-preview" id="racetrack-preview" aria-live="polite">${t("racetrack.previewNone")}</p>
+      </div>
+      <section class="racetrack-finales" aria-label="${t("racetrack.finales")}">
+        <span class="rt-label">${t("racetrack.finales")}</span>
+        <div class="rt-finale-row">${finales}</div>
+      </section>
+    </div>
+  </div>`;
+}
+
+function setRacetrackHighlight(pockets: string[] | null): void {
+  const list = pockets?.filter(Boolean) ?? [];
+  const set = new Set(list);
+  app.querySelectorAll<HTMLElement>("[data-rt-pocket]").forEach((el) => {
+    const p = el.dataset.rtPocket ?? "";
+    el.classList.toggle("rt-hi", set.has(p));
+  });
+  const preview = app.querySelector<HTMLElement>("#racetrack-preview");
+  if (!preview) return;
+  // Always visible fixed line — never hide (avoids layout jump / hover flicker)
+  preview.textContent = list.length
+    ? t("racetrack.preview", { pockets: list.join(" · ") })
+    : t("racetrack.previewNone");
+  preview.classList.toggle("has-selection", list.length > 0);
+}
+
+function applyRacetrackPackage(bets: PlacedBet[]): void {
+  if (!playerGame) return;
+  if (creatorNameDialogOpen) return;
+  if (!placeBetsPackage(playerGame, bets)) {
+    playSound("error");
+    renderPlayerTable();
+    return;
+  }
+  playSound("bet");
+  persistPlayerScore();
+  savePlayerLocal();
+  // Keep racetrack open so the player can stack more call bets
+  renderPlayerTable();
+}
+
+/** Snapshot open table bets into a draft and open the shared name dialog. */
+function openRacetrackStrategySave(): void {
+  if (!playerGame || playerGame.phase !== "BETTING_OPEN") return;
+  if (!playerGame.bets.length) {
+    playSound("error");
+    return;
+  }
+  if (loadBetTemplates().length >= MAX_BET_TEMPLATES) {
+    playSound("error");
+    window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+    return;
+  }
+  creatorDraft = createBetCreatorDraft(playerGame.variant, {
+    bets: structuredClone(playerGame.bets),
+    selectedChip: playerGame.selectedChip,
+  });
+  creatorNameBuffer = "";
+  creatorNameDialogOpen = true;
+  playSound("tick");
+  mountCreatorNameDialog();
+}
+
+function bindRacetrackPanel(): void {
+  if (!playerGame) return;
+  const state = playerGame;
+  const unit = state.selectedChip;
+
+  app.querySelector<HTMLButtonElement>("#racetrack-close")?.addEventListener("click", () => {
+    if (creatorNameDialogOpen) return;
+    racetrackOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+  });
+
+  app.querySelector<HTMLButtonElement>("#racetrack-save-strategy")?.addEventListener("click", () => {
+    openRacetrackStrategySave();
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-rt-radius]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const r = Number(btn.dataset.rtRadius) as NeighborRadius;
+      if (!NEIGHBOR_RADIUS_OPTIONS.includes(r)) return;
+      racetrackNeighborRadius = r;
+      playSound("tick");
+      renderPlayerTable();
+    });
+  });
+
+  const bindHover = (el: HTMLElement) => {
+    el.addEventListener("pointerenter", () => {
+      const raw = el.dataset.rtPockets ?? "";
+      setRacetrackHighlight(raw ? raw.split(",").filter(Boolean) : null);
+    });
+    el.addEventListener("pointerleave", (event) => {
+      // Don't flash "none" while moving to another racetrack control
+      const next = event.relatedTarget;
+      if (next instanceof Element && next.closest("[data-rt-pockets], [data-rt-pocket], [data-rt-sector], [data-rt-finale]")) {
+        return;
+      }
+      setRacetrackHighlight(null);
+    });
+  };
+
+  app.querySelectorAll<HTMLButtonElement>("[data-rt-sector]").forEach((btn) => {
+    bindHover(btn);
+    btn.addEventListener("click", () => {
+      if (!playerGame || !isFrenchSectorAvailable(playerGame.variant)) return;
+      const id = btn.dataset.rtSector as CallSectorId;
+      const pack = getSectorPackage(id);
+      applyRacetrackPackage(expandRecipe(pack.lines, unit));
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-rt-pocket]").forEach((btn) => {
+    bindHover(btn);
+    btn.addEventListener("click", () => {
+      if (!playerGame) return;
+      const pocket = btn.dataset.rtPocket ?? "";
+      const pack = getNeighborsPackage(playerGame.variant, pocket, racetrackNeighborRadius);
+      if (!pack) return;
+      applyRacetrackPackage(expandRecipe(pack.lines, unit));
+    });
+  });
+
+  app.querySelectorAll<HTMLButtonElement>("[data-rt-finale]").forEach((btn) => {
+    bindHover(btn);
+    btn.addEventListener("click", () => {
+      if (!playerGame) return;
+      const d = Number(btn.dataset.rtFinale);
+      const pack = getFinalePackage(d, playerGame.variant);
+      if (!pack) return;
+      applyRacetrackPackage(expandRecipe(pack.lines, unit));
+    });
+  });
+}
+
+/** freeScore only — strategy apply stacks (does not free staked chips first). */
+function buildStrategyPanel(templates: BetTemplate[], freeScore: number): string {
+  const rows = templates.length
+    ? templates.map((item) => {
+      const cost = templateTotal(item.bets);
+      const canApply = freeScore >= cost;
+      return `<li class="strategy-row" data-strategy-id="${item.id}">
+        <div class="strategy-meta">
+          <button type="button" class="strategy-name-btn" data-strategy-apply="${item.id}" ${canApply ? "" : "disabled"} title="${t("player.strategyApplyHelp")}">${escapeHtml(item.name)}</button>
+          <span>${t("player.strategyCost", { amount: format(cost) })} · ${item.bets.length} · ${item.variant === "european" ? "EU" : "US"}</span>
+        </div>
+        <div class="strategy-row-actions">
+          <button type="button" class="chrome-button" data-strategy-apply="${item.id}" ${canApply ? "" : "disabled"} title="${t("player.strategyApplyHelp")}">${t("player.strategyApply")}</button>
+          <button type="button" class="chrome-button" data-strategy-edit="${item.id}">${t("player.strategyEdit")}</button>
+          <button type="button" class="chrome-button danger" data-strategy-delete="${item.id}">${t("player.strategyDelete")}</button>
+        </div>
+      </li>`;
+    }).join("")
+    : `<li class="strategy-empty">${t("player.strategyEmpty")}</li>`;
+
+  return `<div class="strategy-panel" role="dialog" aria-labelledby="strategy-title">
+    <div class="strategy-card">
+      <header class="strategy-card-header">
+        <h2 id="strategy-title">${t("player.strategyListTitle")}</h2>
+        <div class="strategy-header-actions">
+          <button type="button" id="strategy-open-creator" class="chrome-button strategy-create-btn">${t("player.strategyCreate")}</button>
+          <button type="button" id="strategy-close" class="chrome-button">${t("player.strategyClose")}</button>
+        </div>
+      </header>
+      <ul class="strategy-list">${rows}</ul>
+    </div>
+  </div>`;
+}
+
+function buildStatsPanel(state: PlayerGameState): string {
+  const profit = playerProfit(state);
+  const { wins, losses, startingScore, bankrollHistory } = state.stats;
+  const current = state.tableScore + totalStaked(state);
+  const hands = wins + losses;
+  // Live point for the curve (open bets already count toward total)
+  const curve = bankrollHistory.length
+    ? (bankrollHistory[bankrollHistory.length - 1] === current
+      ? bankrollHistory
+      : [...bankrollHistory, current])
+    : [startingScore, current];
+  const profitClass = profit > 0 ? "up" : profit < 0 ? "down" : "flat";
+  const profitLabel = profit > 0
+    ? `+${format(profit)}`
+    : profit < 0
+      ? `−${format(Math.abs(profit))}`
+      : format(0);
+
+  return `<div class="stats-panel" role="dialog" aria-labelledby="stats-title">
+    <div class="stats-card">
+      <header class="stats-card-header">
+        <h2 id="stats-title">${t("player.statsTitle")}</h2>
+        <button type="button" id="stats-close" class="chrome-button">${t("player.statsClose")}</button>
+      </header>
+      <p class="stats-help">${t("player.statsHelp")}</p>
+      <div class="stats-metrics" role="group" aria-label="${t("player.statsTitle")}">
+        <div class="stats-metric profit ${profitClass}">
+          <span>${t("player.statsProfit")}</span>
+          <strong>${profitLabel}</strong>
+        </div>
+        <div class="stats-metric wins">
+          <span>${t("player.statsWins")}</span>
+          <strong>${format(wins)}</strong>
+        </div>
+        <div class="stats-metric losses">
+          <span>${t("player.statsLosses")}</span>
+          <strong>${format(losses)}</strong>
+        </div>
+      </div>
+      <div class="stats-chart-wrap">
+        <div class="stats-chart-head">
+          <span>${t("player.statsBankroll")}</span>
+          <small>${t("player.statsHands", { n: hands })} · ${t("player.statsStart", { amount: format(startingScore) })}</small>
+        </div>
+        ${buildBankrollChartSvg(curve)}
+        <div class="stats-chart-foot">
+          <span>${t("player.statsCurrent", { amount: format(current) })}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/** Pixel-friendly SVG line chart of bankroll over hands. */
+function buildBankrollChartSvg(values: number[]): string {
+  const w = 320;
+  const h = 140;
+  const padL = 36;
+  const padR = 10;
+  const padT = 12;
+  const padB = 22;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const series = values.length ? values : [0];
+  let minV = Math.min(...series);
+  let maxV = Math.max(...series);
+  if (minV === maxV) {
+    minV = Math.max(0, minV - 10);
+    maxV = maxV + 10;
+  }
+  const range = maxV - minV || 1;
+  const n = series.length;
+  const xAt = (i: number): number => (n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW);
+  const yAt = (v: number): number => padT + plotH - ((v - minV) / range) * plotH;
+
+  const points = series.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+  const areaPoints = n === 1
+    ? `${padL},${(padT + plotH).toFixed(1)} ${xAt(0).toFixed(1)},${yAt(series[0]!).toFixed(1)} ${(padL + plotW).toFixed(1)},${(padT + plotH).toFixed(1)}`
+    : `${padL},${(padT + plotH).toFixed(1)} ${points} ${(padL + plotW).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+
+  const last = series[n - 1]!;
+  const first = series[0]!;
+  const stroke = last > first ? "#5fd08a" : last < first ? "#e07070" : "#c69e45";
+  const mid = minV + range / 2;
+  const yLabels = [
+    { v: maxV, y: yAt(maxV) },
+    { v: mid, y: yAt(mid) },
+    { v: minV, y: yAt(minV) },
+  ];
+
+  const grid = yLabels.map(({ y }) =>
+    `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${padL + plotW}" y2="${y.toFixed(1)}" class="stats-grid"/>`
+  ).join("");
+  const labels = yLabels.map(({ v, y }) =>
+    `<text x="${padL - 4}" y="${(y + 3).toFixed(1)}" text-anchor="end" class="stats-axis">${format(Math.round(v))}</text>`
+  ).join("");
+  const dots = series.map((v, i) =>
+    `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="${i === n - 1 ? 3.5 : 2.2}" class="stats-dot${i === n - 1 ? " last" : ""}"/>`
+  ).join("");
+
+  const emptyNote = n <= 1
+    ? `<text x="${(w / 2).toFixed(1)}" y="${(h / 2 + 4).toFixed(1)}" text-anchor="middle" class="stats-empty">${t("player.statsChartEmpty")}</text>`
+    : "";
+
+  return `<svg class="stats-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${t("player.statsBankroll")}">
+    <rect x="0" y="0" width="${w}" height="${h}" class="stats-chart-bg"/>
+    ${grid}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" class="stats-axis-line"/>
+    <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" class="stats-axis-line"/>
+    ${labels}
+    <polygon points="${areaPoints}" class="stats-area" style="fill:${stroke}"/>
+    <polyline points="${points}" class="stats-line" style="stroke:${stroke}"/>
+    ${dots}
+    ${emptyNote}
+  </svg>`;
+}
+
+function bindStatsPanel(): void {
+  app.querySelector<HTMLButtonElement>("#stats-close")?.addEventListener("click", () => {
+    statsPanelOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+  });
+  // Click backdrop to close
+  app.querySelector<HTMLElement>(".stats-panel")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+      statsPanelOpen = false;
+      playSound("tick");
+      renderPlayerTable();
+    }
+  });
+}
+
+function bindStrategyPanel(templates: BetTemplate[]): void {
+  app.querySelector<HTMLButtonElement>("#strategy-close")?.addEventListener("click", () => {
+    strategyPanelOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#strategy-open-creator")?.addEventListener("click", () => {
+    if (!playerGame) return;
+    strategyPanelOpen = false;
+    creatorNameDialogOpen = false;
+    creatorDraft = createBetCreatorDraft(playerGame.variant, {
+      selectedChip: playerGame.selectedChip,
+    });
+    playSound("level");
+    renderPlayerTable();
+  });
+  const applyStrategyById = (id: string): void => {
+    if (!playerGame) return;
+    const item = templates.find((t) => t.id === id);
+    if (!item) return;
+    if (item.variant !== playerGame.variant) {
+      playSound("error");
+      window.alert(t("player.strategyWrongVariant", { variant: item.variant === "european" ? "EU" : "US" }));
+      return;
+    }
+    if (!applySavedBets(playerGame, item.bets, "strategy")) {
+      playSound("error");
+      renderPlayerTable();
+      return;
+    }
+    // Keep list open so the player can stack the same strategy (click name 3× → 3× layout)
+    playSound("bet");
+    persistPlayerScore();
+    savePlayerLocal();
+    renderPlayerTable();
+  };
+
+  app.querySelectorAll<HTMLButtonElement>("[data-strategy-apply]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyStrategyById(btn.dataset.strategyApply ?? "");
+    });
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-strategy-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!playerGame) return;
+      const id = btn.dataset.strategyEdit ?? "";
+      const item = templates.find((t) => t.id === id) ?? loadBetTemplates().find((t) => t.id === id);
+      if (!item) return;
+      strategyPanelOpen = false;
+      creatorNameDialogOpen = false;
+      creatorDraft = createBetCreatorDraft(playerGame.variant, {
+        editingId: item.id,
+        name: item.name,
+        bets: item.bets,
+        selectedChip: playerGame.selectedChip,
+      });
+      playSound("tick");
+      renderPlayerTable();
+    });
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-strategy-delete]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.strategyDelete ?? "";
+      const item = loadBetTemplates().find((t) => t.id === id);
+      if (!item) return;
+      deleteBetTemplate(id);
+      playSound("close");
+      renderPlayerTable();
+    });
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Full-felt Bet Creator — wheel hidden; no score deduction. */
+function renderBetCreator(): void {
+  if (!playerGame || !creatorDraft) return;
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
+  const cfg = getPlayerModeConfig();
+  const draft = creatorDraft;
+  const cost = draftTotal(draft);
+  const free = playerGame.tableScore + totalStaked(playerGame);
+
+  app.innerHTML = `
+    <main class="game-shell player-mode bet-creator-mode">
+      <header class="arcade-strip player-strip creator-strip">
+        <div class="metric score"><span>${t("player.creatorTotal")}</span><strong>${format(cost)}</strong><i>${t("player.score")}: ${format(free)}</i></div>
+        <div class="meta"><b>${draft.variant === "european" ? "EU" : "US"}</b> · ${t("player.creatorTitle")}</div>
+        <nav>
+          <button type="button" id="creator-back" class="chrome-button">${t("player.creatorBack")}</button>
+        </nav>
+      </header>
+      <section class="phase-row player-phase-row creator-help-row">
+        <span>${t("player.creatorTitle")}</span>
+        <b>${t("player.creatorHelp")}</b>
+      </section>
+      <section class="table-grid creator-grid">
+        <section class="felt-panel player-felt casino-felt interactive snap-felt creator-felt">
+          <div class="felt-heading">
+            <span>${t("player.creatorTitle")} / ${draft.variant.toUpperCase()}</span>
+            <small>${t("player.placeHint")}</small>
+          </div>
+          <div class="felt-grid">${buildPlayerFelt(draft.variant, null, draft.bets, true)}</div>
+          <div class="felt-snap-guide" hidden aria-live="polite"></div>
+        </section>
+      </section>
+      <section class="player-controls creator-controls">
+        <div class="chip-tray" role="group" aria-label="${t("player.chipTray")}">
+          <span class="tray-label">${t("player.chipTray")}</span>
+          <div class="chip-row">
+            ${cfg.chipDenominations.map((d) => {
+              const digits = String(d).length;
+              return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${draft.selectedChip === d ? "active" : ""}" data-chip="${d}"><span>${d}</span></button>`;
+            }).join("")}
+          </div>
+        </div>
+        <div class="bet-actions creator-actions">
+          <button type="button" id="creator-undo" class="chrome-button" ${draft.chipHistory.length ? "" : "disabled"}>${t("player.undo")}</button>
+          <button type="button" id="creator-clear" class="chrome-button" ${draft.bets.length ? "" : "disabled"}>${t("player.clear")}</button>
+          <button type="button" id="creator-save" class="creator-save-btn" ${cost > 0 ? "" : "disabled"}>${t("player.creatorSave")}</button>
+        </div>
+      </section>
+      <footer class="table-footer"><span>${t("player.creatorHelp")}</span><span>${format(cost)}</span></footer>
+    </main>`;
+
+  // Re-attach name dialog after a full re-render without wiping the typed buffer.
+  if (creatorNameDialogOpen) {
+    mountCreatorNameDialog();
+  }
+
+  app.querySelector<HTMLButtonElement>("#creator-back")?.addEventListener("click", () => {
+    creatorDraft = null;
+    creatorNameDialogOpen = false;
+    creatorNameBuffer = "";
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-chip]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!creatorDraft || creatorNameDialogOpen) return;
+      setDraftChip(creatorDraft, Number(btn.dataset.chip));
+      playSound("tick");
+      renderBetCreator();
+    });
+  });
+  app.querySelector<HTMLButtonElement>("#creator-undo")?.addEventListener("click", () => {
+    if (!creatorDraft || creatorNameDialogOpen) return;
+    if (!undoDraftChip(creatorDraft)) return;
+    playSound("tick");
+    renderBetCreator();
+  });
+  app.querySelector<HTMLButtonElement>("#creator-clear")?.addEventListener("click", () => {
+    if (!creatorDraft || creatorNameDialogOpen) return;
+    if (!clearDraftBets(creatorDraft)) return;
+    playSound("close");
+    renderBetCreator();
+  });
+  app.querySelector<HTMLButtonElement>("#creator-save")?.addEventListener("click", () => {
+    if (!creatorDraft) return;
+    if (!creatorDraft.bets.length) {
+      playSound("error");
+      window.alert(t("player.creatorNeedBets"));
+      return;
+    }
+    if (!creatorDraft.editingId && loadBetTemplates().length >= MAX_BET_TEMPLATES) {
+      playSound("error");
+      window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+      return;
+    }
+    // Open dialog in-place (no full re-render) so typing is never wiped by DOM rebuild.
+    creatorNameBuffer = creatorDraft.name ?? "";
+    creatorNameDialogOpen = true;
+    playSound("tick");
+    mountCreatorNameDialog();
+  });
+  if (!creatorNameDialogOpen) {
+    bindFeltSnapPlacement(app.querySelector<HTMLElement>(".player-felt"), draft.variant, {
+      onPlace: (betId) => {
+        if (!creatorDraft) return false;
+        if (!placeDraftChip(creatorDraft, betId)) {
+          playSound("error");
+          return false;
+        }
+        playSound("bet");
+        renderBetCreator();
+        return true;
+      },
+    });
+  }
+}
+
+interface FeltSnapHandlers {
+  onPlace: (betId: string) => boolean;
+  /** Move whole stack already on felt (Player only). */
+  onMove?: (fromBetId: string, toBetId: string) => boolean;
+}
+
+/**
+ * Magnetic snap placement: pointer → nearest bet (straight/split/corner/…).
+ * With onMove: grab an existing chip stack and drag it to a new snap target
+ * (short click on stack still places another chip of the selected denomination).
+ */
+function bindFeltSnapPlacement(
+  felt: HTMLElement | null,
+  variant: TableVariant,
+  handlers: FeltSnapHandlers,
+): void {
+  if (!felt || !felt.classList.contains("interactive")) return;
+  const { onPlace, onMove } = handlers;
+  const guide = felt.querySelector<HTMLElement>(".felt-snap-guide");
+  let activeSnap: FeltSnapResult | null = null;
+  let activeCell: HTMLElement | null = null;
+  let dragging = false;
+  /** Pending place-or-move started on an existing stack. */
+  let stackFromBetId: string | null = null;
+  let stackDragActive = false;
+  let startX = 0;
+  let startY = 0;
+  let ghost: HTMLElement | null = null;
+  const DRAG_THRESHOLD_PX = 10;
+
+  const clearGuide = () => {
+    activeSnap = null;
+    if (activeCell) activeCell.classList.remove("snap-target");
+    activeCell = null;
+    felt.querySelectorAll(".snap-target").forEach((el) => el.classList.remove("snap-target"));
+    if (guide) {
+      guide.hidden = true;
+      guide.textContent = "";
+    }
+  };
+
+  const clearGhost = () => {
+    ghost?.remove();
+    ghost = null;
+    felt.querySelectorAll(".player-stack.is-lifting").forEach((el) => el.classList.remove("is-lifting"));
+    felt.classList.remove("is-moving-stack");
+  };
+
+  const ensureGhost = (stakeLabel: string, clientX: number, clientY: number) => {
+    if (!ghost) {
+      ghost = document.createElement("span");
+      ghost.className = `felt-chip player-chip chip-ghost ${playerChipSizeClass(stakeLabel)}`;
+      ghost.textContent = stakeLabel;
+      felt.append(ghost);
+    }
+    const feltRect = felt.getBoundingClientRect();
+    ghost.style.left = `${clientX - feltRect.left}px`;
+    ghost.style.top = `${clientY - feltRect.top}px`;
+  };
+
+  const showGuide = (cell: HTMLElement, snap: FeltSnapResult, clientX: number, clientY: number) => {
+    activeSnap = snap;
+    if (activeCell !== cell) {
+      activeCell?.classList.remove("snap-target");
+      activeCell = cell;
+      cell.classList.add("snap-target");
+    }
+    // Mark matching hit marker if present (chip stack host)
+    felt.querySelectorAll(".inside-hit.snap-target").forEach((el) => el.classList.remove("snap-target"));
+    const hit = cell.querySelector<HTMLElement>(`[data-bet="${CSS.escape(snap.betId)}"], [data-preview="${CSS.escape(snap.betId)}"]`);
+    hit?.classList.add("snap-target");
+
+    if (guide) {
+      const kind = t(snapKindLabelKey(snap.kind));
+      const betLabel = snap.betId.replace(/_/g, " ");
+      guide.hidden = false;
+      guide.textContent = stackDragActive
+        ? t("player.snap.moveGuide", { kind, bet: betLabel })
+        : t("player.snap.guide", { kind, bet: betLabel });
+      const feltRect = felt.getBoundingClientRect();
+      const gx = clientX - feltRect.left;
+      const gy = clientY - feltRect.top;
+      guide.style.left = `${Math.min(feltRect.width - 8, Math.max(8, gx))}px`;
+      guide.style.top = `${Math.min(feltRect.height - 8, Math.max(8, gy - 36))}px`;
+    }
+  };
+
+  const resolveFromEvent = (event: PointerEvent | MouseEvent): { cell: HTMLElement; snap: FeltSnapResult } | null => {
+    // elementFromPoint so we resolve under a chip-ghost / stack (pointer-events none on ghost)
+    const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+    const target = el && felt.contains(el) ? el : (event.target as HTMLElement | null);
+    if (!target) return null;
+
+    // Outside bets: direct data-bet, no magnetic snap needed.
+    const outside = target.closest<HTMLElement>(".column-pays [data-bet], .dozens [data-bet], .even-money [data-bet], .column-pays [data-preview], .dozens [data-preview], .even-money [data-preview]");
+    if (outside?.dataset.bet || outside?.dataset.preview) {
+      const betId = outside.dataset.bet ?? outside.dataset.preview ?? "";
+      return {
+        cell: outside,
+        snap: { betId, kind: "outside", anchorX: 0.5, anchorY: 0.5 },
+      };
+    }
+
+    const cell = target.closest<HTMLElement>(".felt-cell, .zero-zone b");
+    if (!cell || !felt.contains(cell)) return null;
+    const rect = cell.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const lx = (event.clientX - rect.left) / rect.width;
+    const ly = (event.clientY - rect.top) / rect.height;
+
+    if (cell.dataset.zero === "0" || cell.dataset.zero === "00") {
+      const snap = resolveZeroSnap(variant, cell.dataset.zero as "0" | "00", lx, ly);
+      return { cell, snap };
+    }
+    const col = Number(cell.dataset.col);
+    const row = Number(cell.dataset.row);
+    if (!Number.isFinite(col) || !Number.isFinite(row)) {
+      // Fallback legacy: data-bet only
+      const betId = cell.dataset.bet ?? cell.dataset.preview ?? "";
+      if (!betId) return null;
+      return { cell, snap: { betId, kind: "straight", anchorX: 0.5, anchorY: 0.5 } };
+    }
+    return { cell, snap: resolveNumberCellSnap(col, row, lx, ly, variant) };
+  };
+
+  const betIdFromChipTarget = (target: HTMLElement | null): string | null => {
+    if (!target || !onMove) return null;
+    const stack = target.closest<HTMLElement>(".player-stack");
+    if (stack && felt.contains(stack)) {
+      return stack.closest<HTMLElement>("[data-bet]")?.dataset.bet || null;
+    }
+    // inside-hit hosts re-enable pointer-events when they hold a stack
+    const hit = target.closest<HTMLElement>(".inside-hit[data-bet]");
+    if (hit && felt.contains(hit) && hit.querySelector(".player-stack")) {
+      return hit.dataset.bet || null;
+    }
+    return null;
+  };
+
+  const onPointerMove = (event: PointerEvent) => {
+    if (!dragging && event.pointerType === "mouse" && event.buttons === 0) {
+      // Hover preview (desktop) — skip while over a draggable stack (grab affordance)
+      const overStack = betIdFromChipTarget(event.target as HTMLElement);
+      if (overStack) {
+        clearGuide();
+        return;
+      }
+      const resolved = resolveFromEvent(event);
+      if (!resolved) {
+        clearGuide();
+        return;
+      }
+      showGuide(resolved.cell, resolved.snap, event.clientX, event.clientY);
+      return;
+    }
+    if (!dragging) return;
+    event.preventDefault();
+
+    // Promote stack click → move once past threshold
+    if (stackFromBetId && !stackDragActive) {
+      const dist = Math.hypot(event.clientX - startX, event.clientY - startY);
+      if (dist >= DRAG_THRESHOLD_PX) {
+        stackDragActive = true;
+        felt.classList.add("is-moving-stack");
+        const sourceStack = felt.querySelector<HTMLElement>(
+          `[data-bet="${CSS.escape(stackFromBetId)}"] .player-stack`,
+        );
+        sourceStack?.classList.add("is-lifting");
+        const stakeLabel = sourceStack?.querySelector(".player-chip")?.textContent?.trim() || "•";
+        ensureGhost(stakeLabel, event.clientX, event.clientY);
+      }
+    }
+
+    if (stackDragActive && ghost) {
+      ensureGhost(ghost.textContent || "•", event.clientX, event.clientY);
+    }
+
+    const resolved = resolveFromEvent(event);
+    if (!resolved) {
+      clearGuide();
+      return;
+    }
+    showGuide(resolved.cell, resolved.snap, event.clientX, event.clientY);
+  };
+
+  const onDown = (event: PointerEvent) => {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    const fromStack = betIdFromChipTarget(event.target as HTMLElement);
+    stackFromBetId = fromStack;
+    stackDragActive = false;
+    startX = event.clientX;
+    startY = event.clientY;
+
+    // Place path: need a snap target under pointer (stack click still ok — places on that bet)
+    const resolved = resolveFromEvent(event);
+    if (!resolved && !fromStack) return;
+
+    dragging = true;
+    felt.classList.add("is-snapping");
+    try {
+      felt.setPointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (resolved) showGuide(resolved.cell, resolved.snap, event.clientX, event.clientY);
+  };
+
+  const onUp = (event: PointerEvent) => {
+    if (!dragging) return;
+    dragging = false;
+    felt.classList.remove("is-snapping");
+    try {
+      felt.releasePointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const resolved = resolveFromEvent(event) ?? (activeSnap && activeCell ? { cell: activeCell, snap: activeSnap } : null);
+    const fromId = stackFromBetId;
+    const didMoveDrag = stackDragActive;
+    clearGhost();
+    clearGuide();
+    stackFromBetId = null;
+    stackDragActive = false;
+
+    if (didMoveDrag && fromId && onMove) {
+      const toId = resolved?.snap.betId;
+      if (!toId || toId === fromId) return; // drop on same / invalid → cancel
+      onMove(fromId, toId);
+      return;
+    }
+
+    // Short click on stack (or empty felt place): add selected chip
+    if (!resolved?.snap.betId) return;
+    onPlace(resolved.snap.betId);
+  };
+
+  const onCancel = () => {
+    dragging = false;
+    stackFromBetId = null;
+    stackDragActive = false;
+    felt.classList.remove("is-snapping");
+    clearGhost();
+    clearGuide();
+  };
+
+  felt.addEventListener("pointerdown", onDown);
+  felt.addEventListener("pointermove", onPointerMove);
+  felt.addEventListener("pointerup", onUp);
+  felt.addEventListener("pointercancel", onCancel);
+  felt.addEventListener("pointerleave", () => {
+    if (!dragging) clearGuide();
+  });
+}
+
+function buildCreatorNameDialogHtml(): string {
+  return `<div class="creator-name-dialog" role="dialog" aria-modal="true" aria-labelledby="creator-name-title">
+    <div class="creator-name-card">
+      <h2 id="creator-name-title">${t("player.creatorNameTitle")}</h2>
+      <p class="creator-name-help">${t("player.creatorNameHelp")}</p>
+      <label class="creator-name-label" for="creator-name">${t("player.creatorName")}</label>
+      <input id="creator-name" class="creator-name-input" type="text" maxlength="40" value="${escapeHtml(creatorNameBuffer)}" placeholder="${t("player.creatorNamePlaceholder")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <div class="creator-name-actions">
+        <button type="button" id="creator-name-cancel" class="chrome-button">${t("player.creatorCancel")}</button>
+        <button type="button" id="creator-name-confirm" class="creator-confirm-btn">${t("player.creatorConfirm")}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/** Inject / refresh name dialog without rebuilding the whole creator (protects typed text). */
+function mountCreatorNameDialog(): void {
+  if (!creatorNameDialogOpen) return;
+  const main = app.querySelector("main");
+  if (!main) return;
+
+  let dialog = app.querySelector<HTMLElement>(".creator-name-dialog");
+  if (!dialog) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = buildCreatorNameDialogHtml();
+    dialog = wrap.firstElementChild as HTMLElement;
+    main.append(dialog);
+  }
+
+  const nameInput = dialog.querySelector<HTMLInputElement>("#creator-name");
+  if (nameInput && nameInput.value !== creatorNameBuffer) {
+    nameInput.value = creatorNameBuffer;
+  }
+
+  // Avoid double-binding if already mounted.
+  if (dialog.dataset.bound === "1") {
+    nameInput?.focus();
+    return;
+  }
+  dialog.dataset.bound = "1";
+
+  const syncBuffer = () => {
+    if (nameInput) creatorNameBuffer = nameInput.value;
+  };
+
+  nameInput?.addEventListener("input", syncBuffer);
+  nameInput?.addEventListener("change", syncBuffer);
+  // Stop global hotkeys (M = mute, Escape = exit) from eating keystrokes while typing.
+  nameInput?.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitCreatorName();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeCreatorNameDialog();
+    }
+  });
+
+  dialog.querySelector<HTMLButtonElement>("#creator-name-cancel")?.addEventListener("click", () => {
+    closeCreatorNameDialog();
+  });
+  dialog.querySelector<HTMLButtonElement>("#creator-name-confirm")?.addEventListener("click", () => {
+    commitCreatorName();
+  });
+
+  // Focus without select() — select() on mobile often fights the keyboard and clips input.
+  window.setTimeout(() => {
+    nameInput?.focus({ preventScroll: true });
+  }, 30);
+}
+
+function closeCreatorNameDialog(): void {
+  creatorNameDialogOpen = false;
+  const dialog = app.querySelector(".creator-name-dialog");
+  dialog?.remove();
+  // Ephemeral draft from Racetrack “save as strategy” (not the full Bet Creator screen)
+  if (creatorDraft && !app.querySelector("#creator-save")) {
+    creatorDraft = null;
+  }
+  playSound("tick");
+}
+
+function commitCreatorName(): void {
+  if (!playerGame || !creatorDraft) return;
+  const nameInput = app.querySelector<HTMLInputElement>("#creator-name");
+  const name = (nameInput?.value ?? creatorNameBuffer).trim();
+  creatorNameBuffer = name;
+  if (creatorDraft) creatorDraft.name = name;
+  if (!name) {
+    playSound("error");
+    window.alert(t("player.creatorNeedName"));
+    nameInput?.focus();
+    return;
+  }
+  if (!creatorDraft.bets.length) {
+    playSound("error");
+    window.alert(t("player.creatorNeedBets"));
+    return;
+  }
+  if (!creatorDraft.editingId && loadBetTemplates().length >= MAX_BET_TEMPLATES) {
+    playSound("error");
+    window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+    return;
+  }
+  const saved = upsertBetTemplate({
+    id: creatorDraft.editingId,
+    name,
+    variant: playerGame.variant,
+    bets: creatorDraft.bets,
+  });
+  if (!saved) {
+    playSound("error");
+    return;
+  }
+  const fromRacetrack = racetrackOpen;
+  creatorDraft = null;
+  creatorNameDialogOpen = false;
+  creatorNameBuffer = "";
+  if (fromRacetrack) {
+    racetrackOpen = false;
+  }
+  strategyPanelOpen = true;
+  playSound("settle");
+  renderPlayerTable();
+}
+
+function buildPlayerOutPanel(): string {
+  return `<div class="game-over-panel player-out">
+    <section>
+      <small>${t("player.badge")}</small>
+      <h2>${t("player.outTitle")}</h2>
+      <p>${t("player.outHelp")}</p>
+      <div class="game-over-actions">
+        <button type="button" id="player-out-dealer">${t("player.outDealer")}</button>
+        <button type="button" id="player-out-menu">${t("player.outMenu")}</button>
+      </div>
+    </section>
+  </div>`;
+}
+
+/**
+ * Bets to draw on the felt.
+ * - BETTING_OPEN / SPINNING: live `bets` only (free spin = empty felt, never ghost last hand).
+ * - PAYOUT: after settle, `bets` is cleared — show lastBets only if this hand actually staked.
+ */
+function feltDisplayBets(state: PlayerGameState): PlacedBet[] {
+  if (state.bets.length) return state.bets;
+  if (
+    state.phase === "PAYOUT"
+    && state.lastBets.length
+    && (state.lastSettle?.totalStaked ?? 0) > 0
+  ) {
+    return state.lastBets;
+  }
+  return [];
+}
+
+function playerChipMap(bets: PlacedBet[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const bet of bets) {
+    map.set(bet.betId, (map.get(bet.betId) ?? 0) + bet.stake);
+  }
+  return map;
+}
+
+/** Digit / label length → chip shell class (circle → pill as totals grow). */
+function playerChipSizeClass(label: string): string {
+  const n = label.length;
+  if (n <= 2) return "chip-sz-s";
+  if (n === 3) return "chip-sz-m";
+  if (n === 4) return "chip-sz-l";
+  return "chip-sz-xl";
+}
+
+function playerChipAt(betId: string, chips: Map<string, number>): string {
+  const stake = chips.get(betId) ?? 0;
+  if (stake <= 0) return "";
+  const label = String(stake);
+  const size = playerChipSizeClass(label);
+  return `<span class="chip-stack player-stack" data-stack-bet="${betId}" title="${stake}"><i class="felt-chip player-chip ${size}" title="${stake}">${label}</i></span>`;
+}
+
+/** Roulette pocket at player felt grid (col 0..11 left→right, row 0..2 top→bottom). */
+function pocketAtColRow(col: number, row: number): number {
+  return (col + 1) * 3 - row;
+}
+
+function splitBetId(a: number, b: number): string {
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  return `split_${lo}_${hi}`;
+}
+
+/** Catalog corner id for the 2×2 block whose SE hit sits on cell (col,row). */
+function cornerBetId(col: number, row: number): string {
+  // Value-space street index r and lower street-column c (matches config/_generate-bets.js).
+  const r = col + 1;
+  const c = 2 - row;
+  const cell = (rr: number, cc: number) => (rr - 1) * 3 + cc;
+  const p = [cell(r, c), cell(r, c + 1), cell(r + 1, c), cell(r + 1, c + 1)];
+  return `corner_${p.join("_")}`;
+}
+
+function streetBetId(col: number): string {
+  const a = col * 3 + 1;
+  return `street_${a}_${a + 1}_${a + 2}`;
+}
+
+function sixlineBetId(col: number): string {
+  // Between street col and col+1 (col 0..10): sixline_1_6, sixline_4_9, …
+  const start = col * 3 + 1;
+  const end = (col + 1) * 3 + 3;
+  return `sixline_${start}_${end}`;
+}
+
+function insideHit(
+  betId: string,
+  className: string,
+  clickAttr: string,
+  chips: Map<string, number>,
+  title: string,
+  options?: { showChip?: boolean },
+): string {
+  // showChip false: secondary snap/display host for the same betId (avoid duplicate chip stacks).
+  const chip = options?.showChip === false ? "" : playerChipAt(betId, chips);
+  return `<i class="inside-hit ${className}" ${clickAttr}="${betId}" role="button" title="${title}" aria-label="${title}">${chip}</i>`;
+}
+
+function buildPlayerFelt(variant: TableVariant, result: string | null, bets: PlacedBet[], interactive: boolean): string {
+  const chips = playerChipMap(bets);
+  const click = interactive ? "data-bet" : "data-preview";
+  // Inside-hit markers remain for chip stacks; pointer-events off in snap mode — placement uses magnetic resolve.
+  const numberCells: string[] = [];
+  for (let row = 0; row < 3; row += 1) {
+    for (let col = 0; col < 12; col += 1) {
+      const number = String(pocketAtColRow(col, row));
+      const betId = `straight_${number}`;
+      const hits: string[] = [];
+      if (col < 11) {
+        const right = pocketAtColRow(col + 1, row);
+        hits.push(insideHit(splitBetId(Number(number), right), "hit-e", click, chips, `split ${number}/${right}`));
+      }
+      if (row < 2) {
+        const down = pocketAtColRow(col, row + 1);
+        hits.push(insideHit(splitBetId(Number(number), down), "hit-s", click, chips, `split ${number}/${down}`));
+      }
+      if (col < 11 && row < 2) {
+        hits.push(insideHit(cornerBetId(col, row), "hit-se", click, chips, "corner"));
+      }
+      if (row === 2) {
+        hits.push(insideHit(streetBetId(col), "hit-street", click, chips, `street ${streetBetId(col)}`));
+        if (col < 11) {
+          hits.push(insideHit(sixlineBetId(col), "hit-six", click, chips, "six line"));
+        }
+      }
+      numberCells.push(
+        `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}" ${click}="${betId}" data-col="${col}" data-row="${row}" data-pocket="${number}" role="button" tabindex="0"><span>${number}</span>${playerChipAt(betId, chips)}${hits.join("")}</b>`,
+      );
+    }
+  }
+  const zeroHits = (pocket: string) => {
+    // Catalog zero-edge splits (see config/_generate-bets.js) — always rendered for chip display.
+    if (pocket === "0" && variant === "european") {
+      // First four: one chip host only (bottom outer = classic). Top is snap-only ghost.
+      return [
+        insideHit("split_0_3", "hit-zero hit-zero-top", click, chips, "split 0/3"),
+        insideHit("split_0_2", "hit-zero hit-zero-mid", click, chips, "split 0/2"),
+        insideHit("split_0_1", "hit-zero hit-zero-bot", click, chips, "split 0/1"),
+        insideHit("trio_0_2_3", "hit-zero hit-zero-trio-top", click, chips, "trio 0/2/3"),
+        insideHit("trio_0_1_2", "hit-zero hit-zero-trio-bot", click, chips, "trio 0/1/2"),
+        insideHit("first_four_0_1_2_3", "hit-zero hit-zero-four hit-zero-four-bot", click, chips, "0-1-2-3"),
+        insideHit("first_four_0_1_2_3", "hit-zero hit-zero-four hit-zero-four-top", click, chips, "0-1-2-3", { showChip: false }),
+      ].join("");
+    }
+    if (pocket === "0" && variant === "american") {
+      return [
+        insideHit("split_0_2", "hit-zero hit-zero-top", click, chips, "split 0/2"),
+        insideHit("split_0_1", "hit-zero hit-zero-bot", click, chips, "split 0/1"),
+        insideHit("split_0_00", "hit-zero hit-zero-mid", click, chips, "split 0/00"),
+        insideHit("trio_0_1_2", "hit-zero hit-zero-trio-bot", click, chips, "trio 0/1/2"),
+        insideHit("five_number_0_00_1_2_3", "hit-zero hit-zero-four hit-zero-four-bot", click, chips, "0-00-1-2-3"),
+        insideHit("five_number_0_00_1_2_3", "hit-zero hit-zero-four hit-zero-four-top", click, chips, "0-00-1-2-3", { showChip: false }),
+      ].join("");
+    }
+    if (pocket === "00" && variant === "american") {
+      // Chip host only on 0 cell for five-number; 00 keeps snap ghost only.
+      return [
+        insideHit("split_00_3", "hit-zero hit-zero-top", click, chips, "split 00/3"),
+        insideHit("split_00_2", "hit-zero hit-zero-mid", click, chips, "split 00/2"),
+        insideHit("trio_00_2_3", "hit-zero hit-zero-trio-top", click, chips, "trio 00/2/3"),
+        insideHit("five_number_0_00_1_2_3", "hit-zero hit-zero-four hit-zero-four-bot", click, chips, "0-00-1-2-3", { showChip: false }),
+      ].join("");
+    }
+    return "";
+  };
+  const zeroCells = variant === "american"
+    ? `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b><b class="green ${result === "00" ? "hit" : ""}" ${click}="straight_00" data-zero="00" role="button"><span>00</span>${playerChipAt("straight_00", chips)}${zeroHits("00")}</b>`
+    : `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b>`;
+  const outside = (id: string, label: string, extraClass = "") =>
+    `<span class="${extraClass}" ${click}="${id}" role="button">${label}${playerChipAt(id, chips)}</span>`;
+  return `<div class="zero-zone">${zeroCells}</div>
+    <div class="numbers player-numbers">${numberCells.join("")}</div>
+    <div class="column-pays">${outside("column3", "2 TO 1")}${outside("column2", "2 TO 1")}${outside("column1", "2 TO 1")}</div>
+    <div class="dozens">${outside("dozen1", "1ST 12")}${outside("dozen2", "2ND 12")}${outside("dozen3", "3RD 12")}</div>
+    <div class="even-money">${outside("low", "1 TO 18")}${outside("even", "EVEN")}${outside("red", "RED", "red-label")}${outside("black", "BLACK", "black-label")}${outside("odd", "ODD")}${outside("high", "19 TO 36")}</div>`;
+}
+
+function npcSpeech(seat: Seat, state: GameState): string {
+  const intent = state.npcBehavior[seat.id]?.intentKey;
+  if (!intent) return "";
+  const resolved = dialogue.resolve(intent, locale, { name: seat.name });
+  return typeof resolved === "string" ? resolved : "";
+}
+
+/** Sparse crossword-like PAYOUT board: seats + non-interactive voids. */
+function buildHuntBoardMarkup(
+  state: GameState,
+  activeSeats: Seat[],
+  selectedSeatId: string | null,
+  scoreEvents: ScoreEvent[],
+): string {
+  const board = buildHuntBoard(activeSeats.length, huntSeedKey(state.runId, state.round, activeSeats.length));
+  const classList = huntBoardClassList(board, activeSeats.length);
+  const cells = board.cells.map((cell, cellIndex) => {
+    if (cell.kind === "void") return renderHuntVoidCell(cell, cellIndex);
+    const seat = activeSeats[cell.seatIndex];
+    if (!seat) return renderHuntVoidCell({ kind: "void", voidKind: "floor", variant: 0 }, cellIndex);
+    return buildSeatCard(seat, cell.seatIndex, state, selectedSeatId === seat.id, scoreEvents, true);
+  }).join("");
+  return `<section class="${classList}" style="--hunt-cols:${board.cols}" aria-label="Customers">${cells}</section>`;
+}
+
+function buildSeatCard(
+  seat: Seat,
+  index: number,
+  state: GameState,
+  selected: boolean,
+  scoreEvents: ScoreEvent[] = [],
+  compact = false,
+): string {
   const payment = state.phase === "PAYOUT" ? state.payments.find((item) => item.seatId === seat.id) : undefined;
   const unpaid = payment ? payment.due - payment.paid : 0;
   const isWinner = unpaid > 0;
   const isPaid = Boolean(payment && unpaid <= 0);
-  const interactive = state.mode === "dealer" && isWinner;
-  const tag = interactive ? "button" : "article";
-  const action = interactive ? ` type="button" data-pay-seat="${seat.id}" aria-label="Select ${seat.name} for payout of ${unpaid} units"` : "";
-  const status = isWinner ? `WINNER +${unpaid} u` : isPaid ? "PAID OK" : betSummary(seat, state.variant);
-  return `<${tag}${action} class="seat seat-${index + 1} profile-${seat.profileId} ${isWinner ? "winner" : ""} ${isPaid ? "paid" : ""} ${selected ? "current" : ""}">
-    <div class="npc-avatar avatar-${seat.avatarSeed}" aria-hidden="true"><i class="npc-hair"></i><i class="npc-head"><b></b><b></b></i><i class="npc-body"></i><i class="npc-legs"></i></div>
-    <span class="npc-name">${seat.name}</span><strong>${format(seat.bankroll)} u</strong>
-    <em>${profileLabels[seat.profileId]} / FAV ${seat.favoritePocket}</em>
-    <small>${status}</small>
-  </${tag}>`;
+  const interactive = state.mode === "dealer" && state.phase === "PAYOUT" && !isPaid;
+  const aria = isWinner ? t("seat.clickToPay") : isPaid ? t("seat.paid") : seat.name;
+  const status = isWinner ? t("seat.clickToPay") : isPaid ? t("seat.paid") : betSummary(seat, state.variant);
+  const localPops = scoreEvents
+    .filter((event) => event.seatId === seat.id && (event.reason === "seat-complete" || event.reason === "wrong-player"))
+    .map((event) => `<span class="seat-score-pop ${event.delta < 0 ? "negative" : ""}">${event.delta > 0 ? "+" : ""}${event.delta}</span>`)
+    .join("");
+  return renderSeatCard({
+    seatId: seat.id,
+    name: seat.name,
+    profileId: seat.profileId,
+    avatarSeed: seat.avatarSeed,
+    bankrollLabel: format(seat.bankroll),
+    statusLabel: status,
+    speech: npcSpeech(seat, state),
+    isWinner,
+    isPaid,
+    selected,
+    interactive,
+    behavior: state.npcBehavior[seat.id] ?? null,
+    juice: juiceSeatId === seat.id ? juiceKind : null,
+    scorePopsHtml: localPops,
+    winnerMarkerText: t("seat.winner"),
+    clickAria: aria,
+    index,
+    compact,
+  });
 }
 
 interface FeltChip { seatName: string; stake: number; className: string }
@@ -390,7 +2946,7 @@ function buildChipMap(variant: TableVariant, seats: Seat[]): Map<string, FeltChi
 function chipsAt(target: string, chips: Map<string, FeltChip[]>): string {
   const placed = chips.get(target) ?? [];
   if (!placed.length) return "";
-  return `<span class="chip-stack">${placed.slice(0, 4).map((chip, index) => `<i class="felt-chip ${chip.className}" style="--stack:${index}" title="${chip.seatName}: ${chip.stake} units">${chip.seatName.slice(0, 1)}</i>`).join("")}</span>`;
+  return `<span class="chip-stack">${placed.slice(0, 4).map((chip, index) => `<i class="felt-chip ${chip.className}" style="--stack:${index}" title="${chip.seatName}: ${chip.stake}">${chip.seatName.slice(0, 1)}</i>`).join("")}</span>`;
 }
 
 function buildFelt(variant: TableVariant, result: string | null, seats: Seat[]): string {
@@ -412,7 +2968,7 @@ function buildFelt(variant: TableVariant, result: string | null, seats: Seat[]):
 }
 
 function betSummary(seat: Seat, variant: TableVariant): string {
-  if (!seat.bets.length) return "NO BET THIS ROUND";
+  if (!seat.bets.length) return t("seat.noBet");
   const catalog = new Map(catalogFor(variant).map((bet) => [bet.id, bet]));
   return seat.bets.map((placed) => {
     const type = catalog.get(placed.betId)?.type ?? "bet";
@@ -435,13 +2991,52 @@ function clearSpinTicks(): void {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.code === "Space" && game) { event.preventDefault(); primaryAction(); }
-  if (event.code === "Escape" && game) showMenu();
-  if (event.code === "KeyM") { setMuted(!isMuted()); if (game) renderTable(); }
+  const target = event.target as HTMLElement | null;
+  const typing =
+    target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target?.isContentEditable;
+  if (typing) return;
+  if (creatorNameDialogOpen) return;
+  if (event.code === "Escape") {
+    if (statsPanelOpen && playerGame) {
+      statsPanelOpen = false;
+      playSound("tick");
+      renderPlayerTable();
+      return;
+    }
+    if (racetrackOpen && playerGame) {
+      racetrackOpen = false;
+      playSound("tick");
+      renderPlayerTable();
+      return;
+    }
+    if (strategyPanelOpen && playerGame) {
+      strategyPanelOpen = false;
+      playSound("tick");
+      renderPlayerTable();
+      return;
+    }
+    if (game || playerGame) showExitConfirm();
+    return;
+  }
+  if (event.code === "KeyM") {
+    toggleMute();
+    if (playerGame) renderPlayerTable();
+    else if (game) renderTable();
+  }
 });
 
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+// Skip service worker on third-party hosts (itch.io embed) — avoids bad cache / path issues.
+if (
+  "serviceWorker" in navigator
+  && import.meta.env.PROD
+  && !/\.itch\.(io|zone)$/i.test(location.hostname)
+  && !/itch\.zone$/i.test(location.hostname)
+) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(new URL("./sw.js", document.baseURI || document.URL)).catch(() => {});
+  });
 }
 
 showMenu();

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "tracks": [
+    {
+      "file": "mus_menu_loop.mp3",
+      "url": "https://opengameart.org/sites/default/files/8bit%20Bossa.mp3",
+      "sha256": "0ee835fd279ac5fa15f9346744cbafc2ba800c1c0671b78ca9abe2b4353402f7"
+    },
+    {
+      "file": "mus_dealer_loop.wav",
+      "url": "https://opengameart.org/sites/default/files/jazznbrass%20loop.wav",
+      "sha256": "015a8b9e20f6a07a63e017faf8dc71d91e1d96eccb30c8688f0baf71973ebf08"
+    },
+    {
+      "file": "andriih-bossa-nova-bossa-nova-jazz-575813.mp3",
+      "sourcePage": "https://pixabay.com/it/music/bossanova-bossa-nova-bossa-nova-jazz-575813/",
+      "sha256": "1ffc52ef72ad114a62593aa454f33dc8e43febfc28af19b0bc0b44a907da9cd3"
+    },
+    {
+      "file": "andriih-bossa-nova-lounge-music-571055.mp3",
+      "sourcePage": "https://pixabay.com/it/music/bossa-nova-bossa-nova-lounge-music-571055/",
+      "sha256": "c51818e6873e4ec8a050ad598e4cc7ee2d9945d2e0906b41d609ed49dbedd497"
+    },
+    {
+      "file": "andriih-bossa-nova-restaurant-music-572268.mp3",
+      "sourcePage": "https://pixabay.com/it/music/bossa-nova-bossa-nova-restaurant-music-572268/",
+      "sha256": "f8b75a4976fbc9451d6e598923291b9b3d10e89ff0aba82b6ba1cb31e06f6be8"
+    },
+    {
+      "file": "andriih-cooking-cooking-music-575825.mp3",
+      "sourcePage": "https://pixabay.com/it/music/upbeat-cooking-cooking-music-575825/",
+      "sha256": "c9403ba06cb08d968a771f1894d8b152ebf495ee16f99a079f9a9a839311ea73"
+    },
+    {
+      "file": "andriih-elevator-elevator-jazz-579808.mp3",
+      "sourcePage": "https://pixabay.com/it/music/jazz-elevator-elevator-jazz-579808/",
+      "sha256": "9e21867cc365b2e027a2f5ae849e377f6b149f07d4e63f55a596338434a49d2d"
+    },
+    {
+      "file": "andriih-hotel-cafe-restaurant-music-579812.mp3",
+      "sourcePage": "https://pixabay.com/it/music/easy-listening-hotel-cafe-restaurant-music-579812/",
+      "sha256": "a8b1cd3733b6865ca9b433d2c6737b6d412d7ff56ed9d1462e656055cd330754"
+    }
+  ]
+}

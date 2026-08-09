@@ -1,14 +1,15 @@
 {
-  "$schemaComment": "BitCroupier — SpinEngine v1 Option A (B5). Full docs: config/README.md. Edit to tune feel without changing core code.",
-  "schemaVersion": 1,
-  "engine": "initial_conditions_v1",
+  "$schemaComment": "BitCroupier — SpinEngine v2 (ball–wheel ODE + CSPRNG). Outcome only; canvas is presenter. Docs: config/README.md · src/spin/spinEngine.ts",
+  "schemaVersion": 2,
+  "engine": "ball_wheel_ode_v1",
   "rules": {
     "sameResultWithOrWithoutAnimation": true,
     "noPocketProbabilityZeroOrOne": true,
     "difficultyDoesNotAffectWinningNumber": true,
-    "dealerSignatureSoftOnly": true
+    "scoreDoesNotAffectWinningNumber": true,
+    "dealerSignature": false,
+    "comment": "Outcome from CSPRNG initial conditions + numerical ball/wheel dynamics. No per-dealer profile. Animation never re-rolls the pocket."
   },
-  "maxBiasStrength": 0.2,
   "variants": {
     "european": {
       "pockets": [
@@ -39,46 +40,35 @@
     }
   },
   "simulation": {
-    "comment": "Abstract units; map spinPower 1-10 and consistency 1-10 into these ranges",
-    "wheelAngularSpeed": { "min": 0.8, "max": 1.6 },
-    "ballSpeed": {
-      "fromSpinPower": {
-        "statMin": 1,
-        "statMax": 10,
-        "speedMin": 2.5,
-        "speedMax": 5.5
-      }
-    },
-    "ballDeceleration": { "min": 0.35, "max": 0.55 },
-    "releaseAngleNoiseRadians": {
-      "atConsistency1": 0.9,
-      "atConsistency10": 0.12
-    },
-    "releaseStyleOffsetRadians": {
-      "comment": "Base offset per releaseStyle id; noise added on top",
-      "styles": {
-        "neutral": 0,
-        "snap_clockwise": 0.35,
-        "soft_counter": -0.4,
-        "high_arc": 0.15
-      }
+    "comment": "Angular units rad/s (abstract). Ball drag: dω/dt = -sign(ω)*(alpha + beta*|ω|). Wheel speed constant for one spin. Drop when |ω_ball| <= dropSpeedThreshold.",
+    "wheelAngularSpeed": { "min": 0.85, "max": 1.55 },
+    "ballAngularSpeed": { "min": 2.6, "max": 5.4 },
+    "ballDrag": {
+      "alpha": { "min": 0.09, "max": 0.15 },
+      "beta": { "min": 0.13, "max": 0.22 }
     },
     "dropSpeedThreshold": 0.45,
-    "scatterNoisePockets": {
-      "atConsistency1": 2.5,
-      "atConsistency10": 0.35
+    "fretsScatterPockets": {
+      "maxAbs": 1,
+      "comment": "After geometric drop, shift pocket index by U{-maxAbs…+maxAbs} (frets / diamond noise). 0 disables."
     },
-    "minRevolutions": 2,
-    "maxRevolutions": 8,
-    "integrationDt": 0.016,
-    "maxSimSeconds": 12
+    "ballDirection": -1,
+    "wheelDirection": 1,
+    "integrationDt": 0.004,
+    "maxSimSeconds": 18
   },
   "animation": {
-    "defaultDurationSeconds": 8,
-    "matchSimTrajectory": true
+    "comment": "Presenter only — does not change winningNumber. durationFromSim scales wall-clock show length from sim time.",
+    "defaultDurationSeconds": 7,
+    "durationFromSim": true,
+    "durationScale": 1.15,
+    "minDurationSeconds": 5,
+    "maxDurationSeconds": 7.5
   },
   "api": {
-    "function": "spin(dealer, tableVariant, rng) -> { winningNumber, spinPlan, debug }",
-    "winningNumberType": "string pocket id e.g. \"0\" | \"00\" | \"17\""
+    "function": "spin(tableVariant, rng?) -> { winningNumber, durationMs, turns, finalAngle }",
+    "detailed": "spinDetailed(tableVariant, rng?) -> { result, debug }",
+    "winningNumberType": "string pocket id e.g. \"0\" | \"00\" | \"17\"",
+    "rng": "Optional () => number in [0,1). Default: crypto.getRandomValues (CSPRNG)."
   }
 }

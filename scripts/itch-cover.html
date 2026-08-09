@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BitCroupier itch cover 630×500</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 630px; height: 500px; overflow: hidden; background: #030806; }
+    .cover {
+      width: 630px;
+      height: 500px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: Impact, "Arial Black", "Segoe UI Black", sans-serif;
+      background:
+        radial-gradient(ellipse 90% 55% at 50% 18%, rgba(22, 59, 46, 0.75) 0%, transparent 70%),
+        radial-gradient(circle at 50% 100%, #0a221a 0%, transparent 45%),
+        linear-gradient(180deg, #0a1814 0%, #06100d 40%, #030806 100%);
+      color: #f2ead8;
+      image-rendering: pixelated;
+    }
+    .grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+    }
+    .frame {
+      position: absolute;
+      inset: 14px;
+      border: 3px solid #c69e45;
+      box-shadow:
+        inset 0 0 0 2px #1a1008,
+        0 0 0 1px #5a4018,
+        inset 0 0 40px rgba(0,0,0,0.35);
+      pointer-events: none;
+    }
+    .corner {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 3px solid #f0c85e;
+    }
+    .corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
+    .corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
+    .corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
+    .corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+
+    .glow {
+      position: absolute;
+      top: 22%;
+      left: 50%;
+      width: 420px;
+      height: 160px;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(219, 61, 46, 0.28), transparent 65%),
+        radial-gradient(ellipse at 50% 80%, rgba(207, 173, 85, 0.22), transparent 70%);
+      pointer-events: none;
+    }
+
+    .content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 24px 32px;
+      max-width: 560px;
+    }
+
+    .kicker {
+      font-family: "Lucida Console", "Courier New", monospace;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #cfad55;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: 72px;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      text-shadow: 5px 5px 0 #1c0b09, 0 0 24px rgba(219, 61, 46, 0.25);
+      margin-bottom: 14px;
+    }
+    h1 span { color: #db3d2e; }
+
+    .tagline {
+      font-family: "Lucida Console", "Courier New", monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #b5c7bc;
+      line-height: 1.35;
+      margin-bottom: 22px;
+    }
+
+    .roles {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .pill {
+      font-family: "Lucida Console", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border: 2px solid #385a4a;
+      background: #0a1c16;
+      color: #f0c85e;
+      box-shadow: 3px 3px 0 #050c09;
+    }
+    .pill.dealer { border-color: #4a6a3a; }
+    .pill.player { border-color: #3a5a6a; color: #7ec8e8; }
+
+    .wheel {
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      border: 6px solid #59341e;
+      background: conic-gradient(
+        #b92f25 0deg 20deg,
+        #121613 20deg 40deg,
+        #b92f25 40deg 60deg,
+        #121613 60deg 80deg,
+        #b92f25 80deg 100deg,
+        #121613 100deg 120deg,
+        #b92f25 120deg 140deg,
+        #121613 140deg 160deg,
+        #b92f25 160deg 180deg,
+        #121613 180deg 200deg,
+        #b92f25 200deg 220deg,
+        #121613 220deg 240deg,
+        #187044 240deg 260deg,
+        #121613 260deg 280deg,
+        #b92f25 280deg 300deg,
+        #121613 300deg 320deg,
+        #b92f25 320deg 340deg,
+        #121613 340deg 360deg
+      );
+      box-shadow:
+        0 0 0 3px #c7943e,
+        0 0 0 6px #1d100b,
+        0 8px 20px rgba(0,0,0,0.45);
+      position: relative;
+    }
+    .wheel::after {
+      content: "";
+      position: absolute;
+      inset: 28%;
+      border-radius: 50%;
+      background: #0d2d21;
+      border: 4px solid #9b6d31;
+    }
+
+    .foot {
+      font-family: "Lucida Console", "Courier New", monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #62776c;
+    }
+  </style>
+</head>
+<body>
+  <div class="cover" id="cover">
+    <div class="grid"></div>
+    <div class="glow"></div>
+    <div class="frame"></div>
+    <i class="corner tl"></i>
+    <i class="corner tr"></i>
+    <i class="corner bl"></i>
+    <i class="corner br"></i>
+    <div class="content">
+      <div class="kicker">HTML5 · Browser game</div>
+      <div class="wheel" aria-hidden="true"></div>
+      <h1>BIT<span>CROUPIER</span></h1>
+      <p class="tagline">Roulette from both sides of the table</p>
+      <div class="roles">
+        <span class="pill dealer">Dealer</span>
+        <span class="pill player">Player</span>
+      </div>
+      <p class="foot">No real money · Score only</p>
+    </div>
+  </div>
+</body>
+</html>

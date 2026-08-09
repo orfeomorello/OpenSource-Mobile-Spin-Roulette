@@ -3,3 +3,15 @@ dist/
 .vite/
 *.log
 *.tsbuildinfo
+
+# Audio is restored from public/audio-manifest.json by npm run prepare:audio.
+public/audio/*.mp3
+public/audio/*.wav
+
+# Generated distribution package.
+bitcroupier-itch.zip
+
+# Keep internal design notes local; publish only the public documentation.
+*.md
+!/README.md
+!/public/audio/CREDITS.md

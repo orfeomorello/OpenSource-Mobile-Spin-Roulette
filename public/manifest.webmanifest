@@ -2,7 +2,7 @@
   "name": "BitCroupier",
   "short_name": "BitCroupier",
   "description": "Roulette from both sides of the table",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#06100d",
   "theme_color": "#081611"

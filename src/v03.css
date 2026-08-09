@@ -1,4 +1,17 @@
 /* v0.3: trajectory canvas and character-driven customer payout */
+/* Soft drop-shadow / filter on the canvas itself re-rasters pocket numbers → blurry. */
+.wheel-stage {
+  /* Shadow lives on the stage, not on the canvas bitmap. */
+}
+.wheel-stage::before {
+  content: "";
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  z-index: 1;
+  pointer-events: none;
+  box-shadow: 0 16px 22px rgba(0, 0, 0, 0.5);
+}
 .wheel-canvas {
   position: absolute;
   inset: 0;
@@ -6,13 +19,15 @@
   height: 100%;
   display: block;
   z-index: 2;
+  /* Prefer sharp resampling when the 3D tilt scales the bitmap. */
   image-rendering: auto;
-  transform: perspective(720px) rotateX(6deg);
+  -webkit-font-smoothing: antialiased;
+  transform: perspective(900px) rotateX(4deg);
   transform-origin: 50% 58%;
-  filter: saturate(1.12) drop-shadow(0 18px 14px rgba(0,0,0,.48));
+  /* No CSS filter here — filters force blurry intermediate bitmaps on text. */
+  filter: none;
 }
 .wheel-stage .wheel-glow { z-index: 1; }
-.wheel-stage .spin-sparks { z-index: 4; }
 .wheel-stage.is-spinning .wheel-canvas { animation:wheelCabinetHum .18s steps(2) infinite alternate; }
 .wheel-stage.is-spinning:after {
   content:"";
@@ -24,7 +39,8 @@
   background:conic-gradient(from 20deg,transparent,rgba(255,224,112,.08),transparent 22%);
   animation:trackGlint .7s linear infinite;
 }
-@keyframes wheelCabinetHum { to { filter:saturate(1.22) brightness(1.05) drop-shadow(0 19px 15px rgba(0,0,0,.52)); } }
+/* Spin “hum” only tweaks brightness — avoid saturate+drop-shadow on the canvas. */
+@keyframes wheelCabinetHum { to { filter: brightness(1.04); } }
 @keyframes trackGlint { to { transform:rotate(360deg); } }
 
 .seats { grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px; }

@@ -1,0 +1,572 @@
+/* v0.36 PAYOUT hunt scene: fullscreen character grid, big timer, dense tiles.
+   Show phase (bet/spin) keeps table layout. Core rules untouched. */
+
+/* —— Hunt shell: take remaining viewport after HUD —— */
+.game-shell.simplified.phase-is-payout {
+  gap: 8px;
+}
+
+.game-shell.simplified.phase-is-payout .dealer-guide,
+.game-shell.simplified.phase-is-payout .table-grid,
+.game-shell.simplified.phase-is-payout .table-footer,
+.game-shell.simplified.phase-is-payout .phase-row {
+  display: none !important;
+}
+
+/* Hunt banner: copy + giant timer */
+.hunt-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 10px 14px;
+  border: 3px solid #e6c75e;
+  background:
+    linear-gradient(180deg, #1a3d2c, #0c2118 70%),
+    #0c2118;
+  box-shadow: 4px 5px #050e0a, 0 0 22px rgba(230, 199, 94, .18);
+}
+
+.hunt-banner .hunt-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hunt-banner .hunt-copy b {
+  color: #ffe37a;
+  font-size: clamp(.72rem, 2.2vw, .95rem);
+  font-weight: 1000;
+  letter-spacing: .06em;
+  line-height: 1.2;
+}
+
+.hunt-banner .hunt-copy span {
+  color: #8eab9a;
+  font-size: .58rem;
+  font-weight: 800;
+}
+
+.hunt-banner .hunt-progress {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 6px 10px;
+  border: 2px solid #3a5c4a;
+  background: #071510;
+}
+
+.hunt-banner .hunt-progress i {
+  font-style: normal;
+  font-size: .48rem;
+  letter-spacing: .08em;
+  color: #6a8576;
+  font-weight: 900;
+}
+
+.hunt-banner .hunt-progress strong {
+  color: #ffe177;
+  font-size: 1.15rem;
+  font-weight: 1000;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-timer {
+  margin: 0;
+  min-width: 5.5rem;
+  padding: 10px 16px;
+  text-align: center;
+  border: 3px solid #ef5947;
+  background: #2a1210;
+  color: #ff8a78;
+  font: 1000 clamp(1.35rem, 4.5vw, 2rem)/1 var(--pixel-font, monospace);
+  letter-spacing: .04em;
+  box-shadow: 3px 4px #0a0504, 0 0 18px rgba(239, 89, 71, .25);
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-timer.critical {
+  color: #fff;
+  background: #d23627;
+  border-color: #ffb0a4;
+  animation: timerCritical .45s steps(2) infinite alternate;
+}
+
+/* —— Hunt grid: character cards with natural size (no tall stretch bars) —— */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-grid {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 8px;
+  /* Never stretch rows to fill the viewport — that made 1 NPC a vertical bar */
+  grid-auto-rows: auto;
+  align-content: center;
+  justify-content: center;
+  justify-items: stretch;
+  margin: 0 auto;
+  padding: 16px 12px 14px;
+  width: 100%;
+  min-height: min(42vh, 420px);
+  max-height: none;
+  box-sizing: border-box;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-grid:before {
+  inset: 12% -4px -4px;
+  opacity: .9;
+}
+
+/* Sparse crossword board: fixed column count from packer (--hunt-cols) */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board {
+  grid-template-columns: repeat(var(--hunt-cols, 4), minmax(0, 1fr));
+  gap: 7px;
+  max-width: min(920px, 100%);
+  width: 100%;
+  align-content: center;
+  justify-items: stretch;
+  padding: 14px 10px;
+  background:
+    linear-gradient(180deg, rgba(8, 28, 20, .55), rgba(5, 16, 12, .35));
+  border: 2px solid rgba(58, 92, 74, .55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03), 4px 5px #050e0a;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-sparse {
+  min-height: min(48vh, 520px);
+}
+
+/*
+ * Solid board (N=1–2): fixed card sizes, centered — never stretch with 1fr
+ * across a wide frame (that made 1–2 NPCs look like tall empty bars).
+ */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  gap: 16px 20px;
+  width: max-content;
+  max-width: min(100%, 420px);
+  min-height: 0;
+  margin-inline: auto;
+  padding: 28px 32px;
+  background:
+    linear-gradient(180deg, rgba(12, 36, 26, .75), rgba(6, 18, 14, .55));
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid:before {
+  display: none;
+}
+
+/* 1 customer: large centered tutorial card */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-1 {
+  max-width: min(100%, 280px);
+  padding: 32px 36px;
+  min-height: min(36vh, 300px);
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-1 .seat.seat-arena.seat-compact {
+  width: 180px;
+  min-height: 168px;
+  max-width: 180px;
+  padding: 28px 12px 14px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-1 .seat.seat-arena.seat-compact .seat-stage {
+  width: 72px;
+  height: 88px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-1 .seat.seat-arena.seat-compact .npc-avatar {
+  width: 56px;
+  height: 72px;
+  transform: scale(1);
+}
+
+/* 2 customers: two equal cards side by side */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-few:not(.hunt-1) {
+  max-width: min(100%, 400px);
+  min-height: min(34vh, 280px);
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-few:not(.hunt-1) .seat.seat-arena.seat-compact {
+  width: 150px;
+  min-height: 148px;
+  max-width: 150px;
+  padding: 24px 10px 12px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid .seat.seat-arena.seat-compact {
+  flex: 0 0 auto;
+  height: auto;
+  margin-inline: 0;
+}
+
+/* Dense / swarm: slightly tighter cells inside the board frame */
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.crowd-dense {
+  max-width: min(980px, 100%);
+  gap: 6px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.crowd-swarm {
+  max-width: min(1100px, 100%);
+  gap: 5px;
+  padding: 10px 6px;
+}
+
+/* —— Void pads (non-interactive “crossword black squares”) —— */
+.game-shell.simplified.phase-is-payout .hunt-void {
+  position: relative;
+  min-height: 96px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: 2px solid #1a2e24;
+  border-radius: 2px;
+  background: #0a1611;
+  box-shadow: inset 2px 2px #050a08, 2px 2px #050e0a;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.game-shell.simplified.phase-is-payout .hunt-void .hunt-void-inner {
+  position: absolute;
+  inset: 6px;
+  border: 2px dashed rgba(58, 92, 74, .35);
+  opacity: .85;
+  image-rendering: pixelated;
+}
+
+/* Floor tile */
+.game-shell.simplified.phase-is-payout .hunt-void.void-floor {
+  background:
+    repeating-linear-gradient(90deg, #0c1a14 0 6px, #0a1510 6px 12px),
+    #0a1510;
+}
+.game-shell.simplified.phase-is-payout .hunt-void.void-floor .hunt-void-inner {
+  border-style: solid;
+  border-color: rgba(40, 70, 55, .4);
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 8px,
+    rgba(255, 255, 255, .02) 8px 9px
+  );
+}
+
+/* Empty chair silhouette */
+.game-shell.simplified.phase-is-payout .hunt-void.void-chair .hunt-void-inner {
+  border: none;
+  inset: 18% 28% 14%;
+  background:
+    linear-gradient(#1e3228, #1e3228) center 0 / 70% 10px no-repeat,
+    linear-gradient(#1e3228, #1e3228) center 35% / 55% 8px no-repeat,
+    linear-gradient(#15241d, #15241d) 30% 100% / 12% 40% no-repeat,
+    linear-gradient(#15241d, #15241d) 70% 100% / 12% 40% no-repeat;
+  opacity: .7;
+}
+
+/* Spent chip stack */
+.game-shell.simplified.phase-is-payout .hunt-void.void-chips .hunt-void-inner {
+  border: none;
+  inset: auto;
+  left: 50%;
+  bottom: 22%;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #3a4a40, #1a281f 70%);
+  box-shadow:
+    0 -6px 0 -2px #2a3a30,
+    0 -12px 0 -4px #1e2c24,
+    0 0 0 2px #0a120e;
+  opacity: .75;
+}
+
+/* Pixel plant */
+.game-shell.simplified.phase-is-payout .hunt-void.void-plant .hunt-void-inner {
+  border: none;
+  inset: auto;
+  left: 50%;
+  bottom: 16%;
+  width: 10px;
+  height: 22px;
+  margin-left: -5px;
+  background: #2a4a28;
+  box-shadow:
+    -8px -10px 0 -1px #3d6b35,
+    8px -8px 0 -2px #3d6b35,
+    0 -16px 0 2px #4a7a3a,
+    0 18px 0 4px #3a2a18;
+  opacity: .8;
+}
+
+/* Rail / column block */
+.game-shell.simplified.phase-is-payout .hunt-void.void-rail {
+  background: linear-gradient(180deg, #14241c, #0c1611);
+}
+.game-shell.simplified.phase-is-payout .hunt-void.void-rail .hunt-void-inner {
+  border-color: rgba(90, 120, 100, .25);
+  background:
+    linear-gradient(90deg, transparent 40%, rgba(200, 170, 80, .12) 50%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 10px, rgba(255, 255, 255, .03) 10px 11px);
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-1 .hunt-void,
+.game-shell.simplified.phase-is-payout .seats.hunt-few.hunt-solid .hunt-void {
+  display: none; /* solid layouts have no voids from packer, guard anyway */
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-dense .hunt-void,
+.game-shell.simplified.phase-is-payout .seats.crowd-swarm .hunt-void {
+  min-height: 88px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-board .seat.seat-arena.seat-compact {
+  max-width: none;
+}
+
+/* Compact seat tile — fixed footprint, never height:100% of stretched row */
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact {
+  width: 100%;
+  height: auto;
+  min-height: 118px;
+  max-width: 200px;
+  margin-inline: auto;
+  padding: 20px 6px 8px;
+  gap: 3px;
+  border-width: 2px;
+  box-shadow: 2px 3px #050e0a;
+  justify-content: flex-end;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-1 .seat.seat-arena.seat-compact {
+  min-height: 148px;
+  max-width: 200px;
+  padding: 28px 10px 12px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-few .seat.seat-arena.seat-compact {
+  min-height: 132px;
+  max-width: 150px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-dense .seat.seat-arena.seat-compact,
+.game-shell.simplified.phase-is-payout .seats.crowd-swarm .seat.seat-arena.seat-compact {
+  min-height: 104px;
+  max-width: none;
+  padding: 16px 4px 6px;
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .seat-stage {
+  width: 48px;
+  height: 58px;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-1 .seat.seat-arena.seat-compact .seat-stage {
+  width: 64px;
+  height: 78px;
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .npc-avatar {
+  width: 44px;
+  height: 56px;
+  transform: scale(.82);
+  transform-origin: center bottom;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-1 .seat.seat-arena.seat-compact .npc-avatar {
+  width: 56px;
+  height: 72px;
+  transform: scale(1);
+}
+
+.game-shell.simplified.phase-is-payout .seats.crowd-swarm .seat.seat-arena.seat-compact .npc-avatar {
+  transform: scale(.68);
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .npc-name {
+  font-size: .58rem;
+  max-width: 100%;
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .seat-status {
+  font-size: .48rem;
+  letter-spacing: .04em;
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .seat-bankroll {
+  display: none;
+}
+
+/* —— Show phase: table vignette only (not the full roster) —— */
+.game-shell.simplified .show-crowd-wrap {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.game-shell.simplified .show-crowd-wrap .crowd-more {
+  margin: 0;
+  text-align: center;
+  font-size: .56rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #6a8576;
+}
+
+.game-shell.simplified .show-crowd-wrap .crowd-more b {
+  color: #c9a84a;
+}
+
+.game-shell.simplified .seats.crowd-arena.show-crowd {
+  /* Keep the neat bottom strip; cap is applied in markup (≤4 seats) */
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+/* WIN contrast in hunt: tile stays put (F-NPC-03), glow + marker dominate */
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena.winner {
+  z-index: 4;
+  border-color: #ffe36a;
+  border-width: 3px;
+  background: linear-gradient(180deg, #1f4a34, #123024 70%);
+  box-shadow:
+    0 0 0 2px rgba(255, 227, 106, .4),
+    0 0 20px rgba(255, 217, 85, .35),
+    3px 4px #050e0a;
+  filter: none;
+  opacity: 1;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena:not(.winner):not(.paid) {
+  filter: saturate(.38) brightness(.72);
+  opacity: .68;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena.winner .winner-marker {
+  top: -4px;
+  font-size: clamp(.62rem, 1.8vw, .78rem);
+  padding: 4px 7px;
+  letter-spacing: .06em;
+  box-shadow: 2px 2px #6e391b, 0 0 14px #ffe25f;
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena.seat-compact .npc-balloon {
+  max-width: 96px;
+  font-size: .48rem;
+  padding: 4px 5px;
+  bottom: calc(100% - 2px);
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena.paid {
+  opacity: .45;
+  filter: saturate(.55);
+}
+
+.game-shell.simplified.phase-is-payout .seats.hunt-grid .seat.seat-arena.paid:after {
+  top: 10px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  font-size: .75rem;
+}
+
+/* Score pops stay above tiles */
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .seat-score-pops {
+  top: 2px;
+}
+
+.game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .seat-score-pop {
+  font-size: .62rem;
+  padding: 3px 6px;
+}
+
+/* Arcade strip: keep metrics readable in hunt */
+.game-shell.simplified.phase-is-payout .arcade-strip {
+  flex: 0 0 auto;
+}
+
+.game-shell.simplified.phase-is-payout.fx-perfect .arcade-strip {
+  animation: perfectGlow .65s steps(3);
+}
+
+/* How-to still visible above hunt grid if present */
+.game-shell.simplified.phase-is-payout .howto-coach {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .hunt-banner {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "copy timer"
+      "progress timer";
+  }
+  .hunt-banner .hunt-copy { grid-area: copy; }
+  .hunt-banner .hunt-progress { grid-area: progress; justify-self: start; }
+  .hunt-banner .hunt-timer { grid-area: timer; align-self: stretch; display: grid; place-items: center; }
+
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board {
+    max-width: 100%;
+    gap: 6px;
+  }
+  .game-shell.simplified.phase-is-payout .hunt-void {
+    min-height: 84px;
+  }
+}
+
+@media (max-width: 560px) {
+  .hunt-banner {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "timer"
+      "copy"
+      "progress";
+    text-align: center;
+  }
+  .hunt-banner .hunt-progress { justify-self: center; }
+  .hunt-timer { min-width: 0; width: 100%; }
+
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-grid {
+    min-height: 0;
+    gap: 5px;
+    padding: 10px 4px;
+  }
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-sparse {
+    grid-template-columns: repeat(var(--hunt-cols, 4), minmax(0, 1fr));
+    padding: 8px 4px;
+  }
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid {
+    width: max-content;
+    max-width: 100%;
+    padding: 20px 16px;
+    gap: 12px;
+  }
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-1 .seat.seat-arena.seat-compact {
+    width: 150px;
+    min-height: 148px;
+    max-width: 150px;
+  }
+  .game-shell.simplified.phase-is-payout .seats.crowd-arena.hunt-board.hunt-solid.hunt-few:not(.hunt-1) .seat.seat-arena.seat-compact {
+    width: 128px;
+    min-height: 132px;
+    max-width: 128px;
+  }
+  .game-shell.simplified.phase-is-payout .hunt-void {
+    min-height: 72px;
+  }
+
+  .game-shell.simplified.phase-is-payout .seat.seat-arena.seat-compact .npc-balloon {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hunt-timer.critical {
+    animation: none;
+  }
+}

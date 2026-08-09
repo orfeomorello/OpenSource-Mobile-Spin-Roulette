@@ -78,6 +78,10 @@
   },
   "names": {
     "comment": "Display names can also live in i18n; optional pool here",
-    "pool": ["Alex", "Bea", "Chen", "Dee", "Evan", "Fay", "Gus", "Hana"]
+    "pool": [
+      "Alex", "Bea", "Chen", "Dee", "Evan", "Fay", "Gus", "Hana",
+      "Ivy", "Jo", "Kai", "Liv", "Mo", "Noa", "Oli", "Pip",
+      "Quin", "Rae", "Sam", "Tess", "Uma", "Val", "Wes", "Xan"
+    ]
   }
 }

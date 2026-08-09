@@ -1,0 +1,438 @@
+/* v0.35 crowd motion rewrite: articulated 8-bit puppets, FSM clips, stable hitbox.
+   Wheel and felt intentionally untouched. Complements v06 arena layout. */
+
+/* —— Articulated limbs (real elements; arms were previously box-shadow only) —— */
+.game-shell.simplified .seat.seat-arena .npc-avatar {
+  position: relative;
+  width: 56px;
+  height: 72px;
+  transform-origin: center bottom;
+  filter: drop-shadow(3px 5px rgba(0, 0, 0, .45));
+  /* body-* scale lives on .npc-puppet so outer transform is free for clips */
+  transform: none;
+}
+.game-shell.simplified .seat.seat-arena .npc-puppet {
+  position: absolute;
+  inset: 0;
+  transform-origin: center bottom;
+}
+.game-shell.simplified .seat.seat-arena .npc-avatar.body-1 .npc-puppet {
+  transform: scale(1.06, 0.94);
+}
+.game-shell.simplified .seat.seat-arena .npc-avatar.body-2 .npc-puppet {
+  transform: scale(0.92, 1.08);
+}
+.game-shell.simplified .seat.seat-arena .npc-avatar.body-3 .npc-body {
+  height: 22px;
+}
+
+.game-shell.simplified .seat.seat-arena .npc-shadow {
+  position: absolute;
+  left: 12px;
+  bottom: 2px;
+  width: 32px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .35);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.game-shell.simplified .seat.seat-arena .npc-arm {
+  position: absolute;
+  z-index: 1;
+  top: 42px;
+  width: 8px;
+  height: 14px;
+  background: var(--skin);
+  border: 2px solid #172017;
+  transform-origin: top center;
+  image-rendering: pixelated;
+}
+.game-shell.simplified .seat.seat-arena .npc-arm-l { left: 4px; }
+.game-shell.simplified .seat.seat-arena .npc-arm-r { right: 4px; left: auto; }
+
+.game-shell.simplified .seat.seat-arena .npc-leg {
+  position: absolute;
+  z-index: 1;
+  top: 60px;
+  width: 9px;
+  height: 12px;
+  background: #17241f;
+  border: 2px solid #0a120e;
+  transform-origin: top center;
+}
+.game-shell.simplified .seat.seat-arena .npc-leg-l { left: 16px; }
+.game-shell.simplified .seat.seat-arena .npc-leg-r { left: 31px; }
+
+/* Hide legacy combined legs when articulated legs exist */
+.game-shell.simplified .seat.seat-arena .npc-legs { display: none; }
+
+/* Soften legacy body arm shadows — real arms own the silhouette */
+.game-shell.simplified .seat.seat-arena .npc-body {
+  box-shadow: inset 0 -4px rgba(0, 0, 0, .22);
+  z-index: 2;
+}
+.game-shell.simplified .seat.seat-arena .npc-head { z-index: 3; }
+.game-shell.simplified .seat.seat-arena .npc-hair { z-index: 4; }
+.game-shell.simplified .seat.seat-arena .npc-hat { z-index: 5; }
+
+/* —— Hitbox stability (F-NPC-03): seat card does not translate for WIN —— */
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+  transform: none;
+  /* keep glow / border contrast; hop is on the avatar */
+  animation: winnerGlowArena .55s steps(2) infinite alternate;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner:hover {
+  transform: none;
+  filter: brightness(1.18);
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner:hover .npc-avatar {
+  filter: brightness(1.12) drop-shadow(3px 5px rgba(0, 0, 0, .45));
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.paid {
+  transform: none;
+}
+
+/* Winner marker stays above stage; does not move the button box */
+.game-shell.simplified .seat.seat-arena .winner-marker {
+  pointer-events: none;
+}
+
+/* —— Clip library: motion on .npc-avatar / limbs, delay from --stagger —— */
+.game-shell.simplified .seat.seat-arena .npc-avatar,
+.game-shell.simplified .seat.seat-arena .npc-arm,
+.game-shell.simplified .seat.seat-arena .npc-leg,
+.game-shell.simplified .seat.seat-arena .npc-shadow {
+  animation-delay: var(--stagger, 0ms);
+}
+
+/* ARRIVE — walk-in from below with leg cycle */
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-avatar {
+  animation: clipArriveWalk .75s steps(6) both;
+}
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-leg-l {
+  animation: legWalkL .22s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-leg-r {
+  animation: legWalkR .22s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-arm-l {
+  animation: armSwingL .22s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-arm-r {
+  animation: armSwingR .22s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-arrive .npc-shadow {
+  animation: shadowWalk .75s steps(4) both;
+}
+
+/* BET — lean + chip-place arm */
+.game-shell.simplified .seat.seat-arena.clip-bet .npc-avatar {
+  animation: clipBetBob .48s steps(3) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-bet .npc-arm-r {
+  animation: armPlaceChip .55s steps(3) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-bet .npc-head {
+  animation: headLookDown .6s steps(2) infinite alternate;
+}
+
+/* IDLE / WAITING — breathing sway + occasional look */
+.game-shell.simplified .seat.seat-arena.clip-idle .npc-avatar {
+  animation: clipIdleBreath 1.35s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-idle .npc-head {
+  animation: headLookSide 2.4s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-idle .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.clip-idle .npc-arm-r {
+  animation: armRest .9s steps(2) infinite alternate;
+}
+
+/* CHEER (spin) — hop + arms up, staggered */
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-avatar {
+  animation: clipCheerHop .34s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-arm-r {
+  animation: armCheerUp .34s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-leg-l,
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-leg-r {
+  animation: legCheer .34s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-shadow {
+  animation: shadowCheer .34s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-cheer .npc-mouth {
+  width: 10px;
+  height: 4px;
+  left: 9px;
+  background: #2a1810;
+}
+
+/* WIN — eager hop; seat box fixed */
+.game-shell.simplified .seat.seat-arena.clip-win .npc-avatar {
+  animation: clipWinHop .28s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-win .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.clip-win .npc-arm-r {
+  animation: armCheerUp .28s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-win .npc-mouth {
+  width: 10px;
+  height: 4px;
+  left: 9px;
+  background: #2a1810;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner.clip-win .npc-avatar {
+  animation: clipWinHop .28s steps(2) infinite alternate;
+}
+
+/* LOSE — slump / deflate */
+.game-shell.simplified .seat.seat-arena.clip-lose .npc-avatar {
+  animation: clipLoseSlump .6s steps(4) both;
+  filter: saturate(.5) brightness(.85) drop-shadow(3px 5px rgba(0, 0, 0, .45));
+}
+.game-shell.simplified .seat.seat-arena.clip-lose .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.clip-lose .npc-arm-r {
+  animation: armDrop .55s steps(3) both;
+}
+.game-shell.simplified .seat.seat-arena.clip-lose .npc-head {
+  animation: headDown .55s steps(3) both;
+}
+.game-shell.simplified .seat.seat-arena.clip-lose .npc-mouth {
+  width: 6px;
+  height: 2px;
+  left: 11px;
+}
+
+/* SELECTED — impatient bounce (autoplay / focus) */
+.game-shell.simplified .seat.seat-arena.clip-selected .npc-avatar {
+  animation: clipSelected .38s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.clip-selected .npc-arm-r {
+  animation: armWave .4s steps(2) infinite alternate;
+}
+
+/* PAID — thank hop */
+.game-shell.simplified .seat.seat-arena.clip-paid .npc-avatar {
+  animation: clipThanks .72s steps(4) both;
+}
+.game-shell.simplified .seat.seat-arena.clip-paid .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.clip-paid .npc-arm-r {
+  animation: armCheerUp .4s steps(2) 2 alternate;
+}
+
+/* LEAVE — walk off sideways */
+.game-shell.simplified .seat.seat-arena.clip-leave {
+  pointer-events: none;
+}
+.game-shell.simplified .seat.seat-arena.clip-leave .npc-avatar {
+  animation: clipLeaveWalk .85s steps(7) both;
+}
+.game-shell.simplified .seat.seat-arena.clip-leave .npc-leg-l {
+  animation: legWalkL .2s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-leave .npc-leg-r {
+  animation: legWalkR .2s steps(2) infinite;
+}
+.game-shell.simplified .seat.seat-arena.clip-leave .npc-shadow {
+  animation: shadowLeave .85s steps(5) both;
+}
+
+/* PAYOUT losers: soft idle if still clip-lose one-shot finished */
+.game-shell.simplified .seats.phase-payout .seat.seat-arena:not(.winner):not(.paid).clip-lose .npc-avatar {
+  animation: clipLoseSlump .6s steps(4) both;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena:not(.winner):not(.paid).clip-idle .npc-avatar {
+  animation: clipIdleBreath 1.4s steps(2) infinite alternate;
+}
+
+/* —— Juice (pay / wrong) — stronger motion, still inside seat —— */
+.game-shell.simplified .seat.seat-arena.juice-pay .npc-avatar {
+  animation: clipPayHit .48s steps(4) both !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-pay .npc-arm-l,
+.game-shell.simplified .seat.seat-arena.juice-pay .npc-arm-r {
+  animation: armCheerUp .3s steps(2) 2 alternate !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-pay .npc-shadow {
+  animation: shadowCheer .48s steps(3) both !important;
+}
+
+.game-shell.simplified .seat.seat-arena.juice-wrong .npc-avatar {
+  animation: clipWrongShake .42s steps(4) both !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-wrong .npc-head {
+  animation: headWrong .42s steps(3) both !important;
+}
+
+/* Spinning phase: slight arena pulse so cheer reads as crowd energy */
+.game-shell.simplified .seats.phase-spinning.crowd-arena:before {
+  animation: floorPulse .8s steps(2) infinite alternate;
+}
+
+/* —— Keyframes —— */
+@keyframes winnerGlowArena {
+  to {
+    filter: brightness(1.1);
+    box-shadow:
+      0 0 0 3px rgba(255, 227, 106, .5),
+      0 0 34px rgba(255, 217, 85, .48),
+      4px 6px #050e0a;
+  }
+}
+
+@keyframes clipArriveWalk {
+  0% { transform: translate(18px, 40px) scale(.72); opacity: 0; }
+  35% { opacity: 1; }
+  55% { transform: translate(6px, 8px) scale(.96); }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes clipBetBob {
+  to { transform: translateY(-5px) rotate(-4deg); }
+}
+@keyframes clipIdleBreath {
+  to { transform: translateY(-3px); }
+}
+@keyframes clipCheerHop {
+  to { transform: translateY(-14px) scale(1.06, .96); }
+}
+@keyframes clipWinHop {
+  0% { transform: translateY(0) rotate(0) scale(1); }
+  100% { transform: translateY(-16px) rotate(5deg) scale(1.1); filter: brightness(1.35) drop-shadow(3px 5px rgba(0, 0, 0, .45)); }
+}
+@keyframes clipLoseSlump {
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(8px) rotate(-8deg) scale(.97); }
+  100% { transform: translateY(6px) scale(.94, 1.02); }
+}
+@keyframes clipSelected {
+  to { transform: translateY(-6px) scale(1.08); filter: drop-shadow(0 0 8px #ffe063); }
+}
+@keyframes clipThanks {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-12px) rotate(-5deg); }
+  55% { transform: translateY(-12px) rotate(5deg); }
+  100% { transform: translateY(-2px); }
+}
+@keyframes clipLeaveWalk {
+  0% { transform: translate(0, 0); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(72px, 4px); opacity: 0; }
+}
+@keyframes clipPayHit {
+  0% { transform: scale(1); }
+  25% { transform: translateY(-18px) scale(1.18); filter: brightness(1.55) drop-shadow(3px 5px rgba(0, 0, 0, .45)); }
+  55% { transform: translateY(-10px) rotate(8deg); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes clipWrongShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-5deg); }
+  45% { transform: translateX(7px) rotate(5deg); }
+  70% { transform: translateX(-5px); }
+}
+
+@keyframes legWalkL {
+  to { transform: rotate(28deg) translateY(-1px); }
+}
+@keyframes legWalkR {
+  to { transform: rotate(-28deg) translateY(-1px); }
+}
+@keyframes armSwingL {
+  to { transform: rotate(-35deg); }
+}
+@keyframes armSwingR {
+  to { transform: rotate(35deg); }
+}
+@keyframes armPlaceChip {
+  from { transform: rotate(10deg) translateY(0); }
+  to { transform: rotate(55deg) translateY(6px); }
+}
+@keyframes armCheerUp {
+  from { transform: rotate(0) translateY(0); }
+  to { transform: rotate(-25deg) translateY(-16px); }
+}
+@keyframes armDrop {
+  to { transform: rotate(25deg) translateY(4px); }
+}
+@keyframes armRest {
+  to { transform: rotate(8deg); }
+}
+@keyframes armWave {
+  to { transform: rotate(-40deg) translateY(-8px); }
+}
+@keyframes legCheer {
+  to { transform: translateY(2px) scaleY(.85); }
+}
+@keyframes headLookDown {
+  to { transform: translateY(2px); }
+}
+@keyframes headLookSide {
+  to { transform: translateX(3px); }
+}
+@keyframes headDown {
+  to { transform: translateY(4px) rotate(-6deg); }
+}
+@keyframes headWrong {
+  50% { transform: translateX(-3px) rotate(-8deg); }
+}
+@keyframes shadowWalk {
+  0% { transform: scaleX(.5); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+@keyframes shadowCheer {
+  to { transform: scaleX(.7); opacity: .45; }
+}
+@keyframes shadowLeave {
+  to { transform: translateX(40px) scaleX(.4); opacity: 0; }
+}
+@keyframes floorPulse {
+  to { filter: brightness(1.12); }
+}
+
+/* Responsive: keep limbs readable */
+@media (max-width: 560px) {
+  .game-shell.simplified .seat.seat-arena .npc-arm { width: 7px; height: 12px; top: 40px; }
+  .game-shell.simplified .seat.seat-arena .npc-leg { width: 8px; height: 10px; top: 58px; }
+  .game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+    transform: none;
+  }
+  .game-shell.simplified .seat.seat-arena.clip-win .npc-avatar {
+    animation-duration: .32s;
+  }
+}
+
+/* Accessibility: respect reduced motion — freeze to end pose, no loops */
+@media (prefers-reduced-motion: reduce) {
+  .game-shell.simplified .seat.seat-arena .npc-avatar,
+  .game-shell.simplified .seat.seat-arena .npc-arm,
+  .game-shell.simplified .seat.seat-arena .npc-leg,
+  .game-shell.simplified .seat.seat-arena .npc-shadow,
+  .game-shell.simplified .seat.seat-arena .npc-head,
+  .game-shell.simplified .seat.seat-arena .winner-marker,
+  .game-shell.simplified .seat.seat-arena .seat-score-pop,
+  .game-shell.simplified .seats.phase-payout .seat.seat-arena.winner,
+  .game-shell.simplified .seats.phase-spinning.crowd-arena:before {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  /* Static pose hints when motion is off */
+  .game-shell.simplified .seat.seat-arena.clip-cheer .npc-arm-l,
+  .game-shell.simplified .seat.seat-arena.clip-cheer .npc-arm-r,
+  .game-shell.simplified .seat.seat-arena.clip-win .npc-arm-l,
+  .game-shell.simplified .seat.seat-arena.clip-win .npc-arm-r {
+    transform: translateY(-10px) rotate(-15deg);
+  }
+  .game-shell.simplified .seat.seat-arena.clip-lose .npc-avatar {
+    transform: translateY(4px);
+    filter: saturate(.5) brightness(.85);
+  }
+  .game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+    border-color: #ffe36a;
+    box-shadow: 0 0 0 3px rgba(255, 227, 106, .45), 4px 6px #050e0a;
+  }
+}

@@ -34,14 +34,43 @@ export function getSpinEndAngle(fromAngle: number, variant: TableVariant, result
   return fromAngle + Math.max(2, turns) * TAU + phaseDelta;
 }
 
+/** Resting ball sits in the middle of the numbered pocket ring (not the green bowl). */
+const BALL_RADIUS_TRACK = 0.86;
+const BALL_RADIUS_POCKET = 0.71;
+
+/** World-space angle of pocket center (matches pocket drawing + spin lock). */
+function pocketWorldAngle(wheelAngle: number, pocketIndex: number, pocketCount: number): number {
+  const slice = TAU / pocketCount;
+  return -Math.PI / 2 + wheelAngle + pocketIndex * slice;
+}
+
+function settledBallFrame(
+  variant: TableVariant,
+  wheelAngle: number,
+  result: string | null,
+): Pick<WheelFrame, "ballAngle" | "ballRadius" | "settle"> {
+  if (!result) {
+    // No result yet: park ball under the pointer on the outer track.
+    return { ballAngle: -Math.PI / 2, ballRadius: BALL_RADIUS_TRACK, settle: 0 };
+  }
+  const pockets = pocketsFor(variant);
+  const index = Math.max(0, pockets.indexOf(result));
+  return {
+    ballAngle: pocketWorldAngle(wheelAngle, index, pockets.length),
+    ballRadius: BALL_RADIUS_POCKET,
+    settle: 1,
+  };
+}
+
 export function drawStaticWheel(canvas: HTMLCanvasElement, variant: TableVariant, wheelAngle = 0, result: string | null = null): void {
+  const ball = settledBallFrame(variant, wheelAngle, result);
   drawFrame(canvas, variant, {
     wheelAngle,
-    ballAngle: -Math.PI / 2,
-    ballRadius: 0.344,
+    ballAngle: ball.ballAngle,
+    ballRadius: ball.ballRadius,
     speed: 0,
     result,
-    settle: result ? 1 : 0,
+    settle: ball.settle,
   });
   canvas.dataset.state = "settled";
 }
@@ -59,7 +88,8 @@ export function animateWheel(
   const pockets = pocketsFor(variant);
   const winnerIndex = Math.max(0, pockets.indexOf(plan.winningNumber));
   const endAngle = getSpinEndAngle(fromAngle, variant, plan.winningNumber, plan.turns);
-  const ballEnd = -Math.PI / 2;
+  // Ball ends in the winning pocket (same pose as drawStaticWheel after settle).
+  const ballEnd = pocketWorldAngle(endAngle, winnerIndex, pockets.length);
   const ballStart = ballEnd + (Math.max(6, plan.turns * 1.65) + 5) * TAU;
   const duration = reducedMotion ? 160 : durationMs;
   const startedAt = performance.now();
@@ -75,7 +105,7 @@ export function animateWheel(
 
     const lockStart = 0.82;
     if (t > lockStart) {
-      const pocketAngle = -Math.PI / 2 + wheelAngle + winnerIndex * (TAU / pockets.length);
+      const pocketAngle = pocketWorldAngle(wheelAngle, winnerIndex, pockets.length);
       const nearbyPocket = pocketAngle + Math.round((ballAngle - pocketAngle) / TAU) * TAU;
       const lock = smoothstep((t - lockStart) / (1 - lockStart));
       ballAngle += (nearbyPocket - ballAngle) * lock;
@@ -83,8 +113,9 @@ export function animateWheel(
 
     const dropStart = 0.62;
     const drop = t <= dropStart ? 0 : smoothstep((t - dropStart) / (1 - dropStart));
-    const bounce = drop > 0 ? Math.sin(drop * Math.PI * 9) * (1 - drop) * 0.018 : 0;
-    const ballRadius = 0.438 + (0.344 - 0.438) * drop + bounce;
+    const bounce = drop > 0 ? Math.sin(drop * Math.PI * 9) * (1 - drop) * 0.012 : 0;
+    // Outer track → into numbered pocket ring (was dropping into the green bowl by mistake).
+    const ballRadius = BALL_RADIUS_TRACK + (BALL_RADIUS_POCKET - BALL_RADIUS_TRACK) * drop + bounce;
     drawFrame(canvas, variant, {
       wheelAngle,
       ballAngle,
@@ -114,15 +145,19 @@ export function animateWheel(
 function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: WheelFrame): void {
   const rect = canvas.getBoundingClientRect();
   const cssSize = Math.max(240, Math.min(rect.width || 480, rect.height || rect.width || 480));
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const pixelSize = Math.round(cssSize * dpr);
+  // Cap 3× for retina/HiDPI; use exact scale so buffer ↔ CSS pixels stay 1:1 (less soft stretch).
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const pixelSize = Math.max(1, Math.round(cssSize * dpr));
+  const scale = pixelSize / cssSize;
   if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
     canvas.width = pixelSize;
     canvas.height = pixelSize;
   }
   const context = canvas.getContext("2d");
   if (!context) return;
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  context.setTransform(scale, 0, 0, scale, 0, 0);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
   context.clearRect(0, 0, cssSize, cssSize);
 
   const center = cssSize / 2;
@@ -182,12 +217,17 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
     let textAngle = centerAngle + Math.PI / 2;
     if (Math.cos(centerAngle) < 0) textAngle += Math.PI;
     context.rotate(textAngle);
-    context.fillStyle = "#fff8df";
-    context.font = `900 ${Math.max(7, radius * 0.052)}px "Arial Narrow", sans-serif`;
+    // Crisp pocket labels: integer px font, stroke outline (no shadowBlur — it softens glyphs).
+    const fontPx = Math.max(10, Math.round(radius * 0.058));
+    context.font = `800 ${fontPx}px system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.shadowColor = "#000";
-    context.shadowBlur = 2;
+    context.lineJoin = "round";
+    context.miterLimit = 2;
+    context.lineWidth = Math.max(1.25, fontPx * 0.16);
+    context.strokeStyle = "rgba(0,0,0,0.92)";
+    context.fillStyle = "#fffef6";
+    context.strokeText(pocket, 0, 0);
     context.fillText(pocket, 0, 0);
     context.restore();
   });

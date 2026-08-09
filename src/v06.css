@@ -1,0 +1,533 @@
+/* v0.6 arcade crowd: whack-a-mole arena, WIN contrast, puppet juice.
+   Wheel and felt are intentionally untouched. */
+
+/* —— Menu session chrome —— */
+.session-actions {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.session-button {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 3px solid #e5c45e;
+  background: #173c2c;
+  color: #fff4c5;
+  font: 900 .68rem/1.2 var(--pixel-font, monospace);
+  letter-spacing: .04em;
+  box-shadow: 4px 5px #030a06;
+  cursor: pointer;
+  text-align: center;
+}
+.session-button.primary { background: linear-gradient(180deg, #2a6b4a, #174432); }
+.session-button:hover:not(:disabled) { filter: brightness(1.2); transform: translateY(-1px); }
+.session-button:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.4); }
+.session-button.file-load { cursor: pointer; }
+.wallet-ribbon .best-score {
+  display: block;
+  margin-top: 4px;
+  font-size: .52rem;
+  color: #8eab9a;
+  letter-spacing: .06em;
+}
+.wallet-ribbon .best-score b { color: #ffe177; }
+
+.game-over-stats {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0;
+  padding: 0;
+}
+.game-over-stats li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 2px solid #3a5c4a;
+  background: #0c2118;
+  text-align: left;
+}
+.game-over-stats span { font-size: .52rem; color: #8eab9a; letter-spacing: .08em; }
+.game-over-stats b { color: #ffe177; font-size: .95rem; }
+.game-over-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+.game-over-panel .new-record {
+  display: block;
+  margin: 8px 0 4px;
+  color: #ffe064;
+  font-style: normal;
+  font-weight: 1000;
+  letter-spacing: .08em;
+  animation: comboPulse .7s steps(2) infinite alternate;
+}
+
+/* Puppet body variety + accessories */
+.npc-avatar .npc-hat {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  left: 10px;
+  top: 0;
+  width: 34px;
+  height: 8px;
+  background: #1b281f;
+  box-shadow: 0 4px #c64667;
+}
+.npc-avatar.acc-1 .npc-hat,
+.npc-avatar.acc-3 .npc-hat { display: block; }
+.npc-avatar.acc-3 .npc-hat { background: #2a4a8a; box-shadow: 0 4px #e8c260; width: 30px; left: 12px; }
+.npc-avatar .npc-mouth {
+  position: absolute;
+  left: 10px;
+  bottom: 4px;
+  width: 8px;
+  height: 3px;
+  background: #5a2e24;
+  font-style: normal;
+}
+.npc-avatar.body-1 { transform: scale(1.06, 0.94); transform-origin: center bottom; }
+.npc-avatar.body-2 { transform: scale(0.92, 1.08); transform-origin: center bottom; }
+.npc-avatar.body-3 .npc-body { height: 22px; }
+.seat.winner .npc-mouth { background: #2a1810; height: 4px; width: 10px; left: 9px; }
+.seat.npc-state-loser-react .npc-mouth { width: 6px; height: 2px; left: 11px; }
+
+/* —— Arena strip: puppets first, text secondary —— */
+.game-shell.simplified .seats.crowd-arena {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 10px 8px;
+  justify-content: center;
+  align-items: end;
+  margin-top: 10px;
+  padding: 18px 10px 12px;
+  min-height: 168px;
+}
+.game-shell.simplified .seats.crowd-arena:before {
+  inset: 38% -8px -8px;
+  border-radius: 4px 4px 0 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 2px, transparent 2px 6px),
+    linear-gradient(#1a3a2c, #0a1b14 70%);
+}
+.game-shell.simplified .seats.crowd-arena.crowd-1 {
+  grid-template-columns: minmax(140px, 200px);
+  justify-content: center;
+}
+.game-shell.simplified .seats.crowd-arena.crowd-2 {
+  grid-template-columns: repeat(2, minmax(120px, 180px));
+}
+.game-shell.simplified .seats.crowd-arena.crowd-3,
+.game-shell.simplified .seats.crowd-arena.crowd-4 {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+/* Seat = character stage (hit target = whole card) */
+.game-shell.simplified .seat.seat-arena {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 148px;
+  width: 100%;
+  margin: 0;
+  padding: 28px 6px 10px;
+  border: 3px solid #2a4a3a;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(16, 40, 30, .55), #0c1f17 72%);
+  box-shadow: 3px 4px #050e0a;
+  text-align: center;
+  overflow: visible;
+  transition: filter .12s steps(2), border-color .12s, transform .12s steps(2), opacity .15s;
+}
+.game-shell.simplified .seat.seat-arena:nth-child(2n) { margin-top: 0; }
+.game-shell.simplified .seat.seat-arena:nth-child(3n) { margin-top: 0; }
+.game-shell.simplified .seat.seat-arena .seat-stage {
+  position: relative;
+  width: 72px;
+  height: 88px;
+  display: grid;
+  place-items: end center;
+  flex: 0 0 auto;
+  pointer-events: none; /* hitbox stays on button */
+}
+.game-shell.simplified .seat.seat-arena .npc-avatar {
+  width: 56px;
+  height: 72px;
+  transform-origin: center bottom;
+  filter: drop-shadow(3px 5px rgba(0, 0, 0, .45));
+}
+.game-shell.simplified .seat.seat-arena .npc-head {
+  left: 14px;
+  top: 12px;
+  width: 28px;
+  height: 24px;
+  border-width: 3px;
+}
+.game-shell.simplified .seat.seat-arena .npc-head b {
+  top: 9px;
+  width: 5px;
+  height: 5px;
+}
+.game-shell.simplified .seat.seat-arena .npc-hair {
+  left: 10px;
+  top: 6px;
+  width: 36px;
+  height: 12px;
+}
+.game-shell.simplified .seat.seat-arena .npc-body {
+  left: 10px;
+  top: 40px;
+  width: 36px;
+  height: 20px;
+}
+.game-shell.simplified .seat.seat-arena .npc-legs {
+  left: 16px;
+  top: 62px;
+  width: 9px;
+  height: 10px;
+  box-shadow: 16px 0 #17241f;
+}
+.game-shell.simplified .seat.seat-arena .seat-meta {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  justify-items: center;
+  pointer-events: none;
+}
+.game-shell.simplified .seat.seat-arena .npc-name {
+  font-size: .72rem;
+  font-weight: 1000;
+  letter-spacing: .04em;
+  color: #f2ead8;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game-shell.simplified .seat.seat-arena .seat-bankroll {
+  font-size: .58rem;
+  color: #c9a84a;
+  font-weight: 900;
+  opacity: .85;
+}
+.game-shell.simplified .seat.seat-arena .seat-status {
+  font-size: .52rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: #6a8576;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game-shell.simplified .seat.seat-arena > em,
+.game-shell.simplified .seat.seat-arena .seat-detail {
+  display: none;
+}
+
+/* Balloon / marker above puppet */
+.game-shell.simplified .seat.seat-arena .npc-balloon {
+  left: 50%;
+  right: auto;
+  bottom: calc(100% - 4px);
+  transform: translateX(-50%);
+  max-width: 120px;
+  font-size: .52rem;
+}
+.game-shell.simplified .seat.seat-arena .npc-balloon:after {
+  left: 50%;
+  margin-left: -4px;
+}
+.game-shell.simplified .seat.seat-arena.winner .npc-balloon {
+  left: 50%;
+  background: #fff0a2;
+}
+.game-shell.simplified .seat.seat-arena .winner-marker {
+  left: 50%;
+  top: -6px;
+  transform: translateX(-50%);
+  font-size: .78rem;
+  letter-spacing: .08em;
+  padding: 6px 10px;
+  box-shadow: 3px 3px #6e391b, 0 0 18px #ffe25f;
+  animation: winnerMarkerPulse .42s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena .winner-marker:after {
+  left: 50%;
+  margin-left: -4px;
+}
+
+/* —— PAYOUT hunt contrast (talpa) —— */
+.game-shell.simplified .seats.phase-payout .seat.seat-arena:not(.winner):not(.paid) {
+  filter: saturate(.42) brightness(.78);
+  opacity: .72;
+  border-color: #24382e;
+  box-shadow: 2px 3px #050e0a;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena:not(.winner):not(.paid) .npc-avatar {
+  animation: npcIdleSway 1.4s steps(2) infinite alternate;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+  z-index: 6;
+  transform: translateY(-10px) scale(1.06);
+  border-color: #ffe36a;
+  background: linear-gradient(180deg, #1f4a34, #123024 70%);
+  box-shadow:
+    0 0 0 3px rgba(255, 227, 106, .35),
+    0 0 28px rgba(255, 217, 85, .4),
+    4px 6px #050e0a;
+  filter: none;
+  opacity: 1;
+  cursor: pointer;
+  animation: winnerCallArena .55s steps(2) infinite alternate;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner .seat-status {
+  color: #ffe26b;
+  font-size: .58rem;
+  animation: clickPrompt .48s steps(2) infinite alternate;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner:hover {
+  transform: translateY(-14px) scale(1.09);
+  filter: brightness(1.18);
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.winner:focus-visible {
+  outline: 3px solid #fff0a0;
+  outline-offset: 3px;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena:not(.winner):not(.paid)[data-pay-seat]:hover {
+  filter: saturate(.55) brightness(.95);
+  border-color: #e65c4c;
+  opacity: .9;
+}
+.game-shell.simplified .seats.phase-payout .seat.seat-arena.paid {
+  opacity: .55;
+  filter: saturate(.7);
+  border-color: #3d7a55;
+  transform: none;
+}
+
+/* Spin / cheer: staggered crowd life */
+.game-shell.simplified .seat.seat-arena.npc-state-cheering .npc-avatar {
+  animation: npcCheerArena .36s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena:nth-child(1) .npc-avatar { animation-delay: 0ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(2) .npc-avatar { animation-delay: 60ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(3) .npc-avatar { animation-delay: 120ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(4) .npc-avatar { animation-delay: 40ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(5) .npc-avatar { animation-delay: 100ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(6) .npc-avatar { animation-delay: 20ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(7) .npc-avatar { animation-delay: 80ms; }
+.game-shell.simplified .seat.seat-arena:nth-child(8) .npc-avatar { animation-delay: 140ms; }
+
+.game-shell.simplified .seat.seat-arena.npc-state-arriving .npc-avatar {
+  animation: npcArriveArena .65s steps(6) both;
+}
+.game-shell.simplified .seat.seat-arena.npc-state-betting .npc-avatar {
+  animation: npcBetArena .5s steps(3) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.npc-state-waiting .npc-avatar {
+  animation: npcIdleSway 1.2s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.npc-state-winner-waiting .npc-avatar {
+  animation: npcWinnerHop .3s steps(2) infinite alternate;
+}
+.game-shell.simplified .seat.seat-arena.npc-state-loser-react .npc-avatar {
+  animation: npcLoseArena .55s steps(3) both;
+  filter: saturate(.5) brightness(.85);
+}
+.game-shell.simplified .seat.seat-arena.npc-state-paid .npc-avatar {
+  animation: npcThanksArena .7s steps(4) both;
+}
+.game-shell.simplified .seat.seat-arena.npc-state-selected .npc-avatar {
+  animation: npcSelected .4s steps(2) infinite alternate;
+}
+
+/* Arms up on cheer / win */
+.game-shell.simplified .seat.seat-arena.npc-state-cheering .npc-body,
+.game-shell.simplified .seat.seat-arena.npc-state-winner-waiting .npc-body {
+  box-shadow:
+    inset 0 -4px rgba(0, 0, 0, .22),
+    -11px -10px var(--skin),
+    11px -10px var(--skin);
+}
+
+/* —— Local juice on click —— */
+.game-shell.simplified .seat.seat-arena .seat-score-pops {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 4px;
+  pointer-events: none;
+  width: max-content;
+  max-width: 140px;
+}
+.game-shell.simplified .seat.seat-arena .seat-score-pop {
+  padding: 4px 8px;
+  border: 2px solid #f3d96c;
+  background: #122b20;
+  color: #ffe064;
+  font-size: .72rem;
+  font-weight: 1000;
+  box-shadow: 3px 3px #06100b;
+  animation: seatScoreFly 1.1s cubic-bezier(.2, .8, .25, 1) both;
+  white-space: nowrap;
+}
+.game-shell.simplified .seat.seat-arena .seat-score-pop.negative {
+  border-color: #ff705d;
+  background: #471d1a;
+  color: #ff8a78;
+}
+.game-shell.simplified .seat.seat-arena.juice-pay .npc-avatar {
+  animation: npcPayHit .45s steps(4) both !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-wrong {
+  animation: seatWrongFlash .4s steps(4);
+  border-color: #ff5a48 !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-wrong .npc-avatar {
+  animation: npcWrongShake .4s steps(4) both !important;
+}
+.game-shell.simplified .seat.seat-arena.juice-wrong:after {
+  content: "−5";
+  position: absolute;
+  z-index: 22;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  padding: 4px 8px;
+  border: 2px solid #ff8a78;
+  background: #3a1512;
+  color: #ffb0a4;
+  font-size: .85rem;
+  font-weight: 1000;
+  pointer-events: none;
+  animation: seatScoreFly .9s ease-out both;
+}
+
+/* Combo / timer arcade emphasis (HUD only) */
+.game-shell.simplified.phase-is-payout .metric.score i {
+  color: #6ee7a4;
+  animation: comboPulse .7s steps(2) infinite alternate;
+}
+.game-shell.simplified.phase-is-payout .phase-row time.critical {
+  animation: timerCritical .45s steps(2) infinite alternate;
+}
+.game-shell.simplified.fx-perfect .arcade-strip {
+  animation: perfectGlow .65s steps(3);
+}
+.game-shell.simplified.fx-pay .seats.phase-payout .seat.juice-pay {
+  z-index: 8;
+}
+.game-shell.simplified .score-pop-stack.global-only .score-pop {
+  min-width: 180px;
+}
+
+/* Paid check chip */
+.game-shell.simplified .seat.seat-arena.paid:after {
+  content: "✓";
+  left: 50%;
+  top: 22px;
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  font-size: .9rem;
+  border-radius: 2px;
+  animation: directChip .55s ease-out both;
+}
+
+@keyframes winnerMarkerPulse {
+  to { transform: translateX(-50%) translateY(-5px) scale(1.06); filter: brightness(1.15); }
+}
+@keyframes winnerCallArena {
+  to { filter: brightness(1.12); box-shadow: 0 0 0 3px rgba(255, 227, 106, .5), 0 0 34px rgba(255, 217, 85, .5), 4px 6px #050e0a; }
+}
+@keyframes npcIdleSway {
+  to { transform: translateY(-2px); }
+}
+@keyframes npcCheerArena {
+  to { transform: translateY(-12px) scale(1.05); }
+}
+@keyframes npcWinnerHop {
+  to { transform: translateY(-14px) rotate(4deg) scale(1.08); filter: brightness(1.35); }
+}
+@keyframes npcArriveArena {
+  from { transform: translateY(36px) scale(.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes npcBetArena {
+  to { transform: translateY(-4px) rotate(-3deg); }
+}
+@keyframes npcLoseArena {
+  40% { transform: translateY(6px) rotate(-6deg); }
+  100% { transform: translateY(4px) scale(.96); }
+}
+@keyframes npcThanksArena {
+  30% { transform: translateY(-10px) rotate(-4deg); }
+  60% { transform: translateY(-10px) rotate(4deg); }
+  100% { transform: translateY(-2px); }
+}
+@keyframes npcPayHit {
+  0% { transform: scale(1); }
+  25% { transform: translateY(-16px) scale(1.15); filter: brightness(1.5); }
+  55% { transform: translateY(-8px) rotate(6deg); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes npcWrongShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px) rotate(-4deg); }
+  50% { transform: translateX(6px) rotate(4deg); }
+  75% { transform: translateX(-4px); }
+}
+@keyframes seatWrongFlash {
+  50% { background: #3a1814; }
+}
+@keyframes seatScoreFly {
+  0% { opacity: 0; transform: translateY(12px) scale(.7); }
+  20%, 65% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-28px) scale(1.05); }
+}
+@keyframes comboPulse {
+  to { filter: brightness(1.4); transform: scale(1.05); }
+}
+
+@media (max-width: 900px) {
+  .game-shell.simplified .seats.crowd-arena {
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    min-height: 150px;
+  }
+  .game-shell.simplified .seat.seat-arena { min-height: 132px; padding-top: 24px; }
+  .game-shell.simplified .seat.seat-arena .seat-stage { width: 64px; height: 78px; }
+  .game-shell.simplified .seat.seat-arena .npc-avatar { transform: scale(.92); transform-origin: center bottom; }
+}
+@media (max-width: 560px) {
+  .game-shell.simplified .seats.crowd-arena {
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 6px;
+    padding: 14px 4px 8px;
+  }
+  .game-shell.simplified .seat.seat-arena {
+    min-height: 118px;
+    padding: 22px 4px 8px;
+  }
+  .game-shell.simplified .seat.seat-arena .seat-bankroll { display: none; }
+  .game-shell.simplified .seat.seat-arena .npc-balloon { display: none; }
+  .game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+    transform: translateY(-6px) scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-shell.simplified .seat.seat-arena .npc-avatar,
+  .game-shell.simplified .seat.seat-arena .winner-marker,
+  .game-shell.simplified .seat.seat-arena .seat-score-pop,
+  .game-shell.simplified .seats.phase-payout .seat.seat-arena.winner {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
