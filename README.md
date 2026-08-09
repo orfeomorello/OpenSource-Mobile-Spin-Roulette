@@ -55,16 +55,6 @@ npm.cmd run build
 npm.cmd run preview
 ```
 
-## Internal documentation order
-
-The internal Markdown documents are not required in the public repository. When working locally, read them in this order:
-
-1. `checkpoint.md` - entry point, current runtime state and next work.
-2. `REQUISITI.md` - especially section 0, SpinEngine and section 6bis. The checkpoint UX overrides it if they conflict.
-3. `config/README.md` and `config/*.json` - particularly betting, Player mode and `wheel-spin.json`.
-4. `UI_USE_CASES.md` - screens and use cases.
-5. `devLaw.md` - privacy.
-
 ## Stack
 
 Vite and TypeScript, with:
