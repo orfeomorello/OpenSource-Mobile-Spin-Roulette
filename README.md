@@ -16,8 +16,6 @@ An **8-bit roulette web game** for the browser, designed to work **local-first**
 
 English is the default language. English and Italian can be selected from the home screen or Settings. The UI refers only to **score**, never to a wallet or real money.
 
-The current runtime authority is `checkpoint.md`; it overrides older documents when their UX specifications conflict.
-
 ## SpinEngine v2
 
 The winning number is not produced by a basic `Math.random` call and is not influenced by score or difficulty:
