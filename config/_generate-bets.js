@@ -144,7 +144,7 @@ function buildEuropean() {
   return {
     schemaVersion: 1,
     $schemaComment:
-      "RouletteLife — European full bet catalog (B1). Docs: config/README.md. amountDue on win = stake * multiplier (winnings only, B2).",
+      "MobileSpinRoulette — European full bet catalog (B1). amountDue on win = stake * multiplier (winnings only, B2).",
     tableVariant: "european",
     accounting: {
       payWinningsOnly: true,
@@ -468,7 +468,7 @@ function buildAmerican() {
   return {
     schemaVersion: 1,
     $schemaComment:
-      "RouletteLife — American full bet catalog (B1). Docs: config/README.md. Includes 00 and five-number. amountDue = stake * multiplier (B2).",
+      "MobileSpinRoulette — American full bet catalog (B1). Includes 00 and five-number. amountDue = stake * multiplier (B2).",
     tableVariant: "american",
     accounting: {
       payWinningsOnly: true,

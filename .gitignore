@@ -9,7 +9,7 @@ public/audio/*.mp3
 public/audio/*.wav
 
 # Generated distribution package.
-bitcroupier-itch.zip
+mobilespinroulette-itch.zip
 
 # Keep internal design notes local; publish only the public documentation.
 *.md
