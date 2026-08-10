@@ -1,4 +1,4 @@
-# BitCroupier audio credits
+# MobileSpinRoulette audio credits
 
 The tracks listed below may be used commercially in the game under their respective licenses. Keep this file with redistributed builds that contain these audio assets.
 
@@ -8,7 +8,7 @@ The tracks listed below may be used commercially in the game under their respect
 - **Source:** [OpenGameArt](https://opengameart.org/content/bossa-nova)
 - **Author:** Joth, as listed on the source page
 - **License:** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), public-domain dedication
-- **Use in BitCroupier:** looping music for the home screen and Settings
+- **Use in MobileSpinRoulette:** looping music for the home screen and Settings
 
 ## `mus_dealer_loop.wav`
 
@@ -16,7 +16,7 @@ The tracks listed below may be used commercially in the game under their respect
 - **Source:** [OpenGameArt](https://opengameart.org/content/jazz-n-brass-loop)
 - **Author:** Emma M. Andersson, as listed in the original WAV metadata
 - **License:** CC0 / public domain, as stated on the source page
-- **Use in BitCroupier:** looping music during Dealer gameplay
+- **Use in MobileSpinRoulette:** looping music during Dealer gameplay
 - **Format:** original WAV downloaded during audio preparation
 
 ## Player playlist - Andrii H (Pixabay)
@@ -28,7 +28,7 @@ All tracks in this section are published by **Andrii H** on Pixabay under the sa
 - **Permitted use:** commercial use as part of a larger creative work, such as this game
 - **Restriction:** do not sell or redistribute the tracks as standalone audio files
 - **Attribution:** not required by the license, but included here for transparency
-- **Use in BitCroupier:** randomized Player-mode playlist with an approximately two-second gap and no immediate repetition
+- **Use in MobileSpinRoulette:** randomized Player-mode playlist with an approximately two-second gap and no immediate repetition
 
 | Local file | Official source page |
 |------------|----------------------|

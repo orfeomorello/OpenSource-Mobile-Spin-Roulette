@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "$schemaComment": "BitCroupier — American full bet catalog (B1). Docs: config/README.md. Includes 00 and five-number. amountDue = stake * multiplier (B2).",
+  "$schemaComment": "MobileSpinRoulette — American full bet catalog (B1). Docs: config/README.md. Includes 00 and five-number. amountDue = stake * multiplier (B2).",
   "tableVariant": "american",
   "accounting": {
     "payWinningsOnly": true,

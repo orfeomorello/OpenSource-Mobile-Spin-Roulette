@@ -1,5 +1,5 @@
 {
-  "$schemaComment": "BitCroupier — SpinEngine v2 (ball–wheel ODE + CSPRNG). Outcome only; canvas is presenter. Docs: config/README.md · src/spin/spinEngine.ts",
+  "$schemaComment": "MobileSpinRoulette — SpinEngine v2 (ball–wheel ODE + CSPRNG). Outcome only; canvas is presenter. Docs: config/README.md · src/spin/spinEngine.ts",
   "schemaVersion": 2,
   "engine": "ball_wheel_ode_v1",
   "rules": {

@@ -1,5 +1,5 @@
 /**
- * BitCroupier SpinEngine v2 — serious **outcome** engine.
+ * MobileSpinRoulette SpinEngine v2 — serious **outcome** engine.
  *
  * Presentation (canvas wheel / reveal) is separate: this module only decides
  * the winning pocket and a compact plan the UI can animate toward.
@@ -27,7 +27,7 @@
  *    a long spin or instant reveal.
  *
  * Dealer “signature” profiles are intentionally **not** used: one table physics
- * for the whole product (BitCroupier runtime).
+ * for the whole product (MobileSpinRoulette runtime).
  */
 
 import wheelConfig from "../../config/wheel-spin.json" with { type: "json" };

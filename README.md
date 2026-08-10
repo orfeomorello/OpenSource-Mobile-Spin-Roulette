@@ -1,4 +1,4 @@
-# BitCroupier
+# MobileSpinRoulette
 
 *Roulette from both sides of the table*
 
@@ -68,11 +68,11 @@ Vite and TypeScript, with:
 
 | Key | Content |
 |-----|---------|
-| `bitcroupier.profile.v1` | Score (`walletUnits`) and best service |
-| `bitcroupier.settings.v1` | Roulette variant, animations, preset and mute setting |
-| `bitcroupier.session.v3` | Dealer/Player session resume data |
-| `bitcroupier.betTemplates.v1` | Betting strategies and custom bet templates, up to 24 |
-| `bitcroupier.locale.v1` | UI language |
+| `mobilespinroulette.profile.v1` | Score (`walletUnits`) and best service |
+| `mobilespinroulette.settings.v1` | Roulette variant, animations, preset and mute setting |
+| `mobilespinroulette.session.v3` | Dealer/Player session resume data |
+| `mobilespinroulette.betTemplates.v1` | Betting strategies and custom bet templates, up to 24 |
+| `mobilespinroulette.locale.v1` | UI language |
 
 ## Optional audio assets
 
@@ -83,7 +83,7 @@ Both commands automatically run `npm run prepare:audio`, which checks the tracks
 Pixabay blocks automated downloads from its source pages. Those tracks must be downloaded manually or served by an authorized asset host:
 
 ```powershell
-$env:BITCROUPIER_AUDIO_BASE_URL = "https://your-authorized-host.example/bitcroupier-audio"
+$env:MOBILESPINROULETTE_AUDIO_BASE_URL = "https://your-authorized-host.example/mobilespinroulette-audio"
 npm.cmd run prepare:audio
 ```
 

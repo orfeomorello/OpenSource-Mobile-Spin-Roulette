@@ -1,4 +1,5 @@
 import type { PlacedBet, TableVariant } from "../core/types.ts";
+import { LEGACY_APP_PREFIX, readMigratedStorage } from "./storageMigration.ts";
 
 /** Saved bet layout / strategy (live-roulette style favourite bets). */
 export interface BetTemplate {
@@ -10,7 +11,7 @@ export interface BetTemplate {
   updatedAt: string;
 }
 
-export const BET_TEMPLATES_STORAGE_KEY = "bitcroupier.betTemplates.v1";
+export const BET_TEMPLATES_STORAGE_KEY = "mobilespinroulette.betTemplates.v1";
 export const MAX_BET_TEMPLATES = 24;
 
 export function templateTotal(bets: PlacedBet[]): number {
@@ -20,7 +21,8 @@ export function templateTotal(bets: PlacedBet[]): number {
 export function loadBetTemplates(): BetTemplate[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = JSON.parse(localStorage.getItem(BET_TEMPLATES_STORAGE_KEY) ?? "null") as unknown;
+    const stored = readMigratedStorage(BET_TEMPLATES_STORAGE_KEY, [`${LEGACY_APP_PREFIX}.betTemplates.v1`]);
+    const raw = JSON.parse(stored ?? "null") as unknown;
     if (!raw || typeof raw !== "object") return [];
     const list = (raw as { templates?: unknown }).templates;
     if (!Array.isArray(list)) return [];

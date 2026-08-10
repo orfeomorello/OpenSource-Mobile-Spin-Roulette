@@ -502,13 +502,28 @@ export function createBetCreatorDraft(
     ? opts.selectedChip
     : cfg.defaultChip;
   const bets = structuredClone(opts?.bets ?? []);
+  const chipHistory: PlayerChipAction[] = [];
+  const descendingChips = [...cfg.chipDenominations].sort((a, b) => b - a);
+  for (const bet of bets) {
+    let remaining = Math.max(0, Math.floor(bet.stake));
+    const betActions: PlayerChipAction[] = [];
+    for (const denomination of descendingChips) {
+      while (remaining >= denomination) {
+        betActions.push({ betId: bet.betId, denomination });
+        remaining -= denomination;
+      }
+    }
+    // Store the largest reconstructed chip last, so the first press on X
+    // removes the visible/top chip from the last saved bet.
+    chipHistory.push(...betActions.reverse());
+  }
   return {
     editingId: opts?.editingId ?? null,
     name: (opts?.name ?? "").slice(0, 40),
     variant,
     selectedChip: chip,
     bets,
-    chipHistory: [],
+    chipHistory,
   };
 }
 

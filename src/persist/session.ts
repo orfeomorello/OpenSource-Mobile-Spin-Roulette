@@ -1,11 +1,13 @@
 import type { SessionSnapshot } from "../core/types.ts";
+import { LEGACY_APP_PREFIX, readMigratedStorage } from "./storageMigration.ts";
 
-export const SESSION_STORAGE_KEY = "bitcroupier.session.v3";
+export const SESSION_STORAGE_KEY = "mobilespinroulette.session.v3";
 
 export function readStoredSession(): SessionSnapshot | null {
   if (typeof localStorage === "undefined") return null;
   try {
-    const raw = JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY) ?? "null") as unknown;
+    const stored = readMigratedStorage(SESSION_STORAGE_KEY, [`${LEGACY_APP_PREFIX}.session.v3`]);
+    const raw = JSON.parse(stored ?? "null") as unknown;
     if (!raw || typeof raw !== "object") return null;
     const data = raw as Partial<SessionSnapshot>;
     if (data.schemaVersion !== 3 && data.schemaVersion !== 4 && data.schemaVersion !== 5) return null;

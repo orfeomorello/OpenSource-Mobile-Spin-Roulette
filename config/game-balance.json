@@ -1,5 +1,5 @@
 {
-  "$schemaComment": "BitCroupier — bilanciamento giocabile (B3/B4). Documentazione completa: config/README.md. Modificare qui senza toccare il codice core.",
+  "$schemaComment": "MobileSpinRoulette — bilanciamento giocabile (B3/B4). Documentazione completa: config/README.md. Modificare qui senza toccare il codice core.",
   "schemaVersion": 3,
   "accounting": {
     "payWinningsOnly": true,
@@ -44,7 +44,7 @@
   },
   "playerMode": {
     "minBuyIn": 5,
-    "starterScore": 1000,
+    "starterScore": 2000000,
     "chipDenominations": [1, 2, 5, 10, 100, 500],
     "defaultChip": 10,
     "scenicNpcCount": 3,

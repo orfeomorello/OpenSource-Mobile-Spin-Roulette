@@ -59,13 +59,6 @@
   color: #80e0b0;
 }
 
-.stats-help {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #7a8a80;
-  line-height: 1.35;
-}
-
 .stats-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -717,39 +710,9 @@
   pointer-events: none;
 }
 
-/* Stacks already on felt stay grabbable (drag to move); parent must not block them */
-.player-felt.snap-felt.interactive .inside-hit:has(.player-stack) {
-  pointer-events: auto;
-  cursor: grab;
-}
-
 .player-felt.snap-felt.interactive .player-stack {
-  pointer-events: auto;
-  cursor: grab;
-  z-index: 16;
-  touch-action: none;
-}
-
-.player-felt.snap-felt.interactive .player-stack:active,
-.player-felt.is-moving-stack {
-  cursor: grabbing;
-}
-
-.player-felt .player-stack.is-lifting {
-  opacity: 0.28;
-  filter: grayscale(0.2);
-}
-
-.player-felt .chip-ghost {
-  position: absolute;
-  z-index: 40;
   pointer-events: none;
-  width: 1.35rem;
-  height: 1.35rem;
-  min-width: 1.35rem;
-  transform: translate(-50%, -50%) scale(1.12);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
-  opacity: 0.95;
+  z-index: 16;
 }
 
 .player-felt.snap-felt.interactive .felt-cell,
@@ -1192,8 +1155,7 @@
   }
 }
 
-.player-stack .player-chip,
-.player-felt .player-chip.chip-ghost {
+.player-stack .player-chip {
   background: radial-gradient(circle at 35% 30%, #ffe08a, #c9921a 55%, #6a4a08);
   color: #1a1000;
   font-weight: 800;

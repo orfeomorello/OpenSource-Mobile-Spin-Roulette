@@ -18,7 +18,7 @@ async function fetchBuffer(url, referer) {
   const response = await fetch(url, {
     redirect: "follow",
     headers: {
-      "User-Agent": "BitCroupier asset preparation/1.0",
+      "User-Agent": "MobileSpinRoulette asset preparation/1.0",
       ...(referer ? { Referer: referer } : {}),
     },
   });
@@ -28,13 +28,13 @@ async function fetchBuffer(url, referer) {
 
 async function resolveTrack(track) {
   if (track.url) return [{ url: track.url }];
-  const baseUrl = process.env.BITCROUPIER_AUDIO_BASE_URL?.replace(/\/$/, "");
+  const baseUrl = process.env.MOBILESPINROULETTE_AUDIO_BASE_URL?.replace(/\/$/, "");
   if (baseUrl) {
     return [{ url: `${baseUrl}/${encodeURIComponent(track.file)}` }];
   }
   throw new Error(
     `Missing ${track.file}. Pixabay blocks automated source-page downloads. ` +
-      "Restore the licensed local file or set BITCROUPIER_AUDIO_BASE_URL to an authorized asset host.",
+      "Restore the licensed local file or set MOBILESPINROULETTE_AUDIO_BASE_URL to an authorized asset host.",
   );
 }
 

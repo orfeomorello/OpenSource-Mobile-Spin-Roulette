@@ -72,6 +72,34 @@ function pickNearest(lx: number, ly: number, anchors: Anchor[]): FeltSnapResult 
   return { betId: best.betId, kind: best.kind, anchorX: best.x, anchorY: best.y };
 }
 
+/**
+ * Corners need a real touch target, not only a nearest-point calculation.
+ * Roughly one third of each cell edge is magnetic: on a portrait phone this
+ * gives an intersection a finger-sized target while leaving the centre and
+ * single-edge bands available for straight and split bets.
+ */
+function pickMagneticCorner(col: number, row: number, lx: number, ly: number): FeltSnapResult | null {
+  const band = 0.32;
+  const nearLeft = lx <= band;
+  const nearRight = lx >= 1 - band;
+  const nearTop = ly <= band;
+  const nearBottom = ly >= 1 - band;
+
+  if (nearLeft && nearTop && col > 0 && row > 0) {
+    return { betId: cornerId(col - 1, row - 1), kind: "corner", anchorX: 0, anchorY: 0 };
+  }
+  if (nearRight && nearTop && col < 11 && row > 0) {
+    return { betId: cornerId(col, row - 1), kind: "corner", anchorX: 1, anchorY: 0 };
+  }
+  if (nearLeft && nearBottom && col > 0 && row < 2) {
+    return { betId: cornerId(col - 1, row), kind: "corner", anchorX: 0, anchorY: 1 };
+  }
+  if (nearRight && nearBottom && col < 11 && row < 2) {
+    return { betId: cornerId(col, row), kind: "corner", anchorX: 1, anchorY: 1 };
+  }
+  return null;
+}
+
 /** Number grid cell (col 0–11, row 0–2). lx/ly in 0–1 relative to cell. */
 export function resolveNumberCellSnap(
   col: number,
@@ -80,6 +108,11 @@ export function resolveNumberCellSnap(
   ly: number,
   variant: TableVariant = "european",
 ): FeltSnapResult {
+  const clampedX = Math.min(1, Math.max(0, lx));
+  const clampedY = Math.min(1, Math.max(0, ly));
+  const magneticCorner = pickMagneticCorner(col, row, clampedX, clampedY);
+  if (magneticCorner) return magneticCorner;
+
   const n = pocketAt(col, row);
   const anchors: Anchor[] = [
     { betId: `straight_${n}`, kind: "straight", x: 0.5, y: 0.5, weight: 1.05 },
@@ -148,7 +181,7 @@ export function resolveNumberCellSnap(
     }
   }
 
-  return pickNearest(Math.min(1, Math.max(0, lx)), Math.min(1, Math.max(0, ly)), anchors);
+  return pickNearest(clampedX, clampedY, anchors);
 }
 
 /**

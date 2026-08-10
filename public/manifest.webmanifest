@@ -1,9 +1,17 @@
 {
-  "name": "BitCroupier",
-  "short_name": "BitCroupier",
-  "description": "Roulette from both sides of the table",
+  "name": "MobileSpinRoulette",
+  "short_name": "MobileSpinRoulette",
+  "description": "MobileSpinRoulette open-source mobile roulette game",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#06100d",
-  "theme_color": "#081611"
+  "theme_color": "#081611",
+  "icons": [
+    {
+      "src": "./roulette-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

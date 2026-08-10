@@ -6,6 +6,8 @@ import "./v06.css";
 import "./v07.css";
 import "./v08.css";
 import "./v09.css";
+import "./v10.css";
+import "./v11.css";
 import balanceConfig from "../config/game-balance.json" with { type: "json" };
 import europeanBets from "../config/bets-european.json" with { type: "json" };
 import americanBets from "../config/bets-american.json" with { type: "json" };
@@ -14,7 +16,7 @@ import {
   applySavedBets, canEnterPlayer, cashOutPlayer, clearDraftBets, clearPlayerBets,
   createBetCreatorDraft, createPlayerGame, doubleBets, draftTotal, finishPlayerRound,
   getPlayerModeConfig, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip, placeDraftChip,
-  movePlayerStake, playerProfit, rebetLast, requestPlayerSpin, setDraftChip, setSelectedChip,
+  playerProfit, rebetLast, requestPlayerSpin, setDraftChip, setSelectedChip,
   settlePlayerRound, snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip, undoDraftChip,
   type BetCreatorDraft, type PlayerGameState,
 } from "./core/player.ts";
@@ -34,8 +36,8 @@ import {
   type NeighborRadius,
   wheelPockets,
 } from "./core/callBets.ts";
-import type { BetDefinition, GameMode, Locale, PlacedBet, Seat, SpinResult, TableVariant } from "./core/types.ts";
-import { isLocale, LOCALE_META, LOCALE_STORAGE_KEY, numberFormatTag, readStoredLocale, storeLocale, translate } from "./i18n.ts";
+import type { BetDefinition, Locale, PlacedBet, PlayerChipAction, Seat, SpinResult, TableVariant } from "./core/types.ts";
+import { isLocale, LOCALE_META, LOCALE_STORAGE_KEY, readStoredLocale, storeLocale, translate } from "./i18n.ts";
 import { AuthoredNpcDialogueProvider } from "./npc/dialogue.ts";
 import { buildHuntBoard, huntBoardClassList, huntSeedKey, renderHuntVoidCell } from "./npc/huntBoard.ts";
 import { renderSeatCard } from "./npc/presenter.ts";
@@ -43,11 +45,10 @@ import {
   deleteBetTemplate, loadBetTemplates, MAX_BET_TEMPLATES, saveBetTemplates, templateTotal, upsertBetTemplate,
   type BetTemplate, BET_TEMPLATES_STORAGE_KEY,
 } from "./persist/betTemplates.ts";
-import { commitDealerRun, loadUserProfile, noteBestScore, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
+import { commitDealerRun, loadUserProfile, noteBestScore, refillEmptyProfile, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
 import { clearStoredSession, readStoredSession, writeStoredSession, SESSION_STORAGE_KEY } from "./persist/session.ts";
 import {
   asBackgroundAnimation,
-  BACKGROUND_ANIMATION_OPTIONS,
   buildDataExport,
   loadSettings,
   saveSettings,
@@ -57,9 +58,10 @@ import {
   type DifficultyPresetId,
   SETTINGS_STORAGE_KEY,
 } from "./persist/settings.ts";
+import { LEGACY_APP_PREFIX } from "./persist/storageMigration.ts";
 import { animateWheel, drawStaticWheel, getSpinEndAngle, type WheelAnimationHandle } from "./wheel/canvasWheel.ts";
 import { spin } from "./spin/spinEngine.ts";
-import { isMuted, playSound, setMusic, setMusicVolume, setMuted } from "./audio.ts";
+import { isMuted, playSound, PLAYER_MUSIC_TRACKS, setMusic, setMusicVolume, setMuted, setPlayerMusicMode, type PlayerMusicMode } from "./audio.ts";
 import {
   resolveNumberCellSnap,
   resolveZeroSnap,
@@ -68,15 +70,14 @@ import {
 } from "./player/feltSnap.ts";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
-/** Creator credit on home — X handle without @ (change if needed). */
-const CREATOR_X_HANDLE = "orfeomorello";
-const CREATOR_X_URL = `https://x.com/${CREATOR_X_HANDLE}`;
+const SOURCE_CODE_URL = "https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette";
 /** Default English; user can switch EN/IT from home or Settings. */
 let locale: Locale = readStoredLocale() ?? "en";
 let profile = loadUserProfile();
 let appSettings: AppSettings = loadSettings();
 setMuted(appSettings.muted);
 setMusicVolume(appSettings.musicVolume);
+setPlayerMusicMode(appSettings.playerMusicMode);
 
 function toggleMute(): void {
   const nextMuted = !isMuted();
@@ -135,10 +136,15 @@ let strategyPanelOpen = false;
 let racetrackOpen = false;
 /** Session stats overlay (Player). */
 let statsPanelOpen = false;
+/** Compact Player options sheet (mobile-first replacement for scattered toolbar buttons). */
+let playerMenuOpen = false;
+/** Compact chip picker; the live table normally exposes only the last-used chip. */
+let playerChipMenuOpen = false;
+/** Player sound configuration overlay. */
+let soundPanelOpen = false;
 /** Neighbor radius: 0→1 number, 2→5 (classic). */
 let racetrackNeighborRadius: NeighborRadius = 2;
 let timer: number | null = null;
-let selectedMode: GameMode = "dealer";
 let lastFx = "";
 let lastWalletEarned = 0;
 let lastPlayerNet: number | null = null;
@@ -167,6 +173,7 @@ let pendingScoreEvents: ScoreEvent[] = [];
 let spinTickTimers: number[] = [];
 let activeSpinPlan: SpinResult | null = null;
 let spinDurationMs = 0;
+let playerSpinTimer: number | null = null;
 let wheelRestAngle = 0;
 let wheelAnimation: WheelAnimationHandle | null = null;
 /** How-to lesson step; drives coach copy and gated Next (not used in Dealer). */
@@ -191,30 +198,6 @@ function menuDefaults(): { preset: DifficultyPresetId; variant: TableVariant; an
   };
 }
 
-function startDealerSession(): void {
-  try {
-    const defaults = menuDefaults();
-    selectedMode = "dealer";
-    playerGame = null;
-    lastPlayerNet = null;
-    lastWalletEarned = 0;
-    game = createGame("dealer", defaults.preset, defaults.variant, defaults.animation, Math.random, locale);
-    syncScreenMusic("dealer");
-    try {
-      playSound("bet");
-    } catch {
-      /* audio must never block starting */
-    }
-    saveLocal();
-    renderTable();
-    window.setTimeout(nextRound, 700);
-  } catch (error) {
-    console.error("Failed to start dealer", error);
-    playSound("error");
-    window.alert(t("menu.startFailed"));
-  }
-}
-
 function showMenu(): void {
   stopTimer();
   wheelAnimation?.cancel();
@@ -222,64 +205,54 @@ function showMenu(): void {
   game = null;
   playerGame = null;
   lastPlayerNet = null;
+  playerMenuOpen = false;
+  playerChipMenuOpen = false;
+  soundPanelOpen = false;
   clearHowtoDelay();
   syncScreenMusic("menu");
-  const playerCfg = getPlayerModeConfig();
-  const playerUnlocked = canEnterPlayer(profile.walletUnits, playerCfg.minBuyIn);
-  if (selectedMode === "autoplay" || (selectedMode === "player" && !playerUnlocked)) {
-    selectedMode = "dealer";
-  }
 
   appSettings = loadSettings();
   const homeFx = appSettings.backgroundAnimation;
   app.innerHTML = `
     <main class="landing home-clean ${landingBgClass(homeFx)}">
       ${landingFxMarkup(homeFx)}
-      <button type="button" id="open-settings" class="home-settings-btn" aria-label="${t("menu.settingsAria")}" title="${t("menu.settings")}">
-        <span class="home-settings-gear" aria-hidden="true">⚙</span>
-        <span class="home-settings-label">${t("menu.settings")}</span>
-      </button>
-      <div class="home-lang" role="group" aria-label="${t("menu.language")}">
-        ${LOCALE_META.map((meta) =>
-          `<button type="button" class="lang-pill ${locale === meta.id ? "active" : ""}" data-locale="${meta.id}" title="${meta.native}">${meta.short}</button>`
-        ).join("")}
-      </div>
+      <header class="home-topbar">
+        <button type="button" id="open-settings" class="home-settings-btn" aria-label="${t("menu.settingsAria")}" title="${t("menu.settings")}">
+          <span class="home-settings-gear" aria-hidden="true">⚙</span>
+          <span class="home-settings-label">${t("menu.settings")}</span>
+        </button>
+        <label class="home-lang" aria-label="${t("menu.language")}">
+          <span class="home-lang-icon" aria-hidden="true">&#127760;</span>
+          <select id="home-language" class="home-lang-select" aria-label="${t("menu.language")}">
+            ${LOCALE_META.map((meta) =>
+              `<option value="${meta.id}" ${locale === meta.id ? "selected" : ""}>${meta.native}</option>`
+            ).join("")}
+          </select>
+        </label>
+      </header>
       <section class="brand-card home-hero">
         <div class="home-glow" aria-hidden="true"></div>
-        <h1 class="home-title">BIT<span>CROUPIER</span></h1>
-        <p class="tagline home-enter">${t("menu.tagline")}</p>
-        <p class="home-hint home-enter">${t("menu.clickRole")}</p>
-        <div class="mode-grid mode-grid-roles home-enter" role="group" aria-label="${t("menu.chooseRole")}">
-          <button class="mode-card role-card role-dealer" data-mode="dealer" type="button">
-            <span class="role-kicker">${t("menu.playAs")}</span>
-            <b>${t("menu.dealer")}</b>
-            <span class="role-help">${t("menu.dealerHelp")}</span>
-            <em class="role-go">${t("menu.tapToPlay")}</em>
-          </button>
-          ${playerUnlocked
-            ? `<button class="mode-card role-card role-player" data-mode="player" type="button">
-                <span class="role-kicker">${t("menu.playAs")}</span>
-                <b>${t("menu.player")}</b>
-                <span class="role-help">${t("menu.playerHelp")}</span>
-                <em class="role-go">${t("menu.tapToPlay")}</em>
-              </button>`
-            : `<button class="mode-card role-card role-player locked" type="button" data-mode-locked="player" aria-disabled="true">
-                <span class="role-kicker">${t("menu.playAs")}</span>
-                <b>${t("menu.player")}</b>
-                <span class="role-help">${t("menu.playerLocked", { min: playerCfg.minBuyIn })}</span>
-                <em class="role-go muted">${t("menu.playerNeedDealer")}</em>
-              </button>`}
+        <div class="home-table-emblem" aria-hidden="true">
+          <span class="home-emblem-wheel"><i></i><b></b></span>
+          <span class="home-emblem-ball"></span>
         </div>
-        <footer class="home-footer">
-          <p class="home-legal">${t("menu.footer")}</p>
-          <p class="home-credit">
-            ${t("menu.creditVibe")}
-            <a class="home-credit-link" href="${CREATOR_X_URL}" target="_blank" rel="noopener noreferrer">@${CREATOR_X_HANDLE}</a>
-            <span class="home-credit-sep">·</span>
-            <a class="home-credit-link" href="${CREATOR_X_URL}" target="_blank" rel="noopener noreferrer">${t("menu.creditContact")}</a>
-          </p>
-        </footer>
+        <p class="home-eyebrow">${t("menu.tableTypes")}</p>
+        <h1 class="home-title">${t("menu.titlePrimary")}<br><span>${t("menu.titleAccent")}</span></h1>
+        <p class="tagline home-enter">${t("menu.tagline")}</p>
+        <div class="mode-grid mode-grid-roles">
+          <button class="mode-card role-card role-player" id="start-game" type="button">
+            <span class="home-play-icon" aria-hidden="true"></span>
+            <span class="home-play-copy"><small>${t("table.live")}</small><b>${t("menu.start")}</b></span>
+            <span class="home-play-arrow" aria-hidden="true">&#8594;</span>
+          </button>
+        </div>
       </section>
+      <footer class="home-footer">
+        <p class="home-legal">${t("menu.footer")}</p>
+        <p class="home-credit">
+          <a class="home-credit-link" href="${SOURCE_CODE_URL}" target="_blank" rel="noopener noreferrer">${t("menu.sourceCode")}</a>
+        </p>
+      </footer>
     </main>`;
 
   app.querySelector<HTMLButtonElement>("#open-settings")?.addEventListener("click", () => {
@@ -287,33 +260,18 @@ function showMenu(): void {
     showSettings();
   });
 
-  app.querySelectorAll<HTMLButtonElement>("[data-locale]").forEach((button) => {
-    button.addEventListener("click", () => {
-      locale = button.dataset.locale as Locale;
-      storeLocale(locale);
-      showMenu();
-    });
+  app.querySelector<HTMLSelectElement>("#home-language")?.addEventListener("change", (event) => {
+    const selectedLocale = (event.currentTarget as HTMLSelectElement).value;
+    if (!isLocale(selectedLocale)) return;
+    locale = selectedLocale;
+    storeLocale(locale);
+    playSound("bet");
+    showMenu();
   });
 
-  app.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const mode = button.dataset.mode;
-      if (mode === "dealer") {
-        startDealerSession();
-        return;
-      }
-      if (mode === "player") {
-        const defaults = menuDefaults();
-        startPlayerSession(defaults.variant, defaults.animation);
-      }
-    });
-  });
-
-  app.querySelector<HTMLButtonElement>("[data-mode-locked='player']")?.addEventListener("click", () => {
-    playSound("error");
-    const dealerCard = app.querySelector<HTMLButtonElement>("[data-mode='dealer']");
-    dealerCard?.classList.add("pulse-hint");
-    window.setTimeout(() => dealerCard?.classList.remove("pulse-hint"), 900);
+  app.querySelector<HTMLButtonElement>("#start-game")?.addEventListener("click", () => {
+    const defaults = menuDefaults();
+    startPlayerSession(defaults.variant, defaults.animation);
   });
 }
 
@@ -325,7 +283,6 @@ function showSettings(): void {
   setMuted(appSettings.muted);
   setMusicVolume(appSettings.musicVolume);
   syncScreenMusic("settings");
-  const presets: DifficultyPresetId[] = ["training", "standard", "busy", "rush"];
   const settingsFx = appSettings.backgroundAnimation;
 
   app.innerHTML = `
@@ -368,21 +325,6 @@ function showSettings(): void {
             <button type="button" class="settings-option ${!appSettings.animationEnabled ? "active" : ""}" data-animation="off">${t("settings.animationOff")}</button>
           </div>
 
-          <label class="settings-label">${t("settings.backgroundAnimation")}</label>
-          <p class="settings-help">${t("settings.backgroundAnimationHelp")}</p>
-          <div class="settings-segment settings-segment-wrap" role="group" aria-label="${t("settings.backgroundAnimation")}">
-            ${BACKGROUND_ANIMATION_OPTIONS.map((id) => `
-              <button type="button" class="settings-option ${appSettings.backgroundAnimation === id ? "active" : ""}" data-bg-anim="${id}">${t(`settings.bgAnim.${id}`)}</button>
-            `).join("")}
-          </div>
-
-          <label class="settings-label">${t("settings.difficulty")}</label>
-          <p class="settings-help">${t("settings.difficultyHelp")}</p>
-          <div class="settings-segment settings-segment-wrap" role="group" aria-label="${t("settings.difficulty")}">
-            ${presets.map((id) => `
-              <button type="button" class="settings-option ${appSettings.defaultPresetId === id ? "active" : ""}" data-preset="${id}">${t(`settings.preset.${id}`)}</button>
-            `).join("")}
-          </div>
         </section>
 
         <section class="settings-block">
@@ -456,24 +398,6 @@ function showSettings(): void {
     });
   });
 
-  app.querySelectorAll<HTMLButtonElement>("[data-bg-anim]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = asBackgroundAnimation(button.dataset.bgAnim) as BackgroundAnimationId;
-      appSettings = updateSettings({ backgroundAnimation: id });
-      playSound("bet");
-      showSettings();
-    });
-  });
-
-  app.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = button.dataset.preset as DifficultyPresetId;
-      appSettings = updateSettings({ defaultPresetId: id });
-      playSound("bet");
-      showSettings();
-    });
-  });
-
   app.querySelectorAll<HTMLButtonElement>("[data-sound]").forEach((button) => {
     button.addEventListener("click", () => {
       const muted = button.dataset.sound === "off";
@@ -510,7 +434,7 @@ function showSettings(): void {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `bitcroupier-export-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = `mobilespinroulette-export-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
     playSound("settle");
@@ -534,19 +458,24 @@ function showSettings(): void {
       };
       if (parsed.schemaVersion !== 1) throw new Error("bad schema");
       if (parsed.settings?.schemaVersion === 1) {
+        const importedSettings = parsed.settings;
         const importedVolume =
-          typeof parsed.settings.musicVolume === "number" && Number.isFinite(parsed.settings.musicVolume)
-            ? Math.min(1, Math.max(0, parsed.settings.musicVolume))
+          typeof importedSettings.musicVolume === "number" && Number.isFinite(importedSettings.musicVolume)
+            ? Math.min(1, Math.max(0, importedSettings.musicVolume))
             : 0.5;
+        const importedMusicMode = importedSettings.playerMusicMode;
         saveSettings({
           schemaVersion: 1,
-          defaultTableVariant: parsed.settings.defaultTableVariant === "american" ? "american" : "european",
-          animationEnabled: parsed.settings.animationEnabled !== false,
-          muted: parsed.settings.muted === true,
+          defaultTableVariant: importedSettings.defaultTableVariant === "american" ? "american" : "european",
+          animationEnabled: importedSettings.animationEnabled !== false,
+          muted: importedSettings.muted === true,
           musicVolume: importedVolume,
-          backgroundAnimation: asBackgroundAnimation(parsed.settings.backgroundAnimation),
-          defaultPresetId: (["training", "standard", "busy", "rush"] as const).includes(parsed.settings.defaultPresetId as DifficultyPresetId)
-            ? (parsed.settings.defaultPresetId as DifficultyPresetId)
+          playerMusicMode: PLAYER_MUSIC_TRACKS.some((track) => track.id === importedMusicMode)
+            ? importedMusicMode
+            : "random",
+          backgroundAnimation: asBackgroundAnimation(importedSettings.backgroundAnimation),
+          defaultPresetId: (["training", "standard", "busy", "rush"] as const).includes(importedSettings.defaultPresetId as DifficultyPresetId)
+            ? (importedSettings.defaultPresetId as DifficultyPresetId)
             : "standard",
         });
         setMusicVolume(importedVolume);
@@ -581,6 +510,14 @@ function showSettings(): void {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     localStorage.removeItem(BET_TEMPLATES_STORAGE_KEY);
     localStorage.removeItem(LOCALE_STORAGE_KEY);
+    [
+      `${LEGACY_APP_PREFIX}.profile.v1`,
+      `${LEGACY_APP_PREFIX}.settings.v1`,
+      `${LEGACY_APP_PREFIX}.session.v3`,
+      `${LEGACY_APP_PREFIX}.betTemplates.v1`,
+      `${LEGACY_APP_PREFIX}.locale.v1`,
+      `open-source-mobile-${"spin-roulette"}.profile.v1`,
+    ].forEach((key) => localStorage.removeItem(key));
     playSound("error");
     window.alert(t("settings.resetDone"));
     window.location.reload();
@@ -590,9 +527,13 @@ function showSettings(): void {
 /** Enter Player using the full score as the live bankroll (single pool — no separate “bring”). */
 function startPlayerSession(variant: TableVariant, animationEnabled: boolean): void {
   try {
+    const refilledProfile = refillEmptyProfile(profile);
+    if (refilledProfile !== profile) {
+      profile = refilledProfile;
+      saveUserProfile(profile);
+    }
     if (!canEnterPlayer(profile.walletUnits)) {
       playSound("error");
-      selectedMode = "dealer";
       showMenu();
       return;
     }
@@ -602,13 +543,14 @@ function startPlayerSession(variant: TableVariant, animationEnabled: boolean): v
       showMenu();
       return;
     }
-    selectedMode = "player";
     playerGame = createPlayerGame(variant, result.tableScore, animationEnabled, locale);
     game = null;
     lastPlayerNet = null;
     strategyPanelOpen = false;
     racetrackOpen = false;
     statsPanelOpen = false;
+    playerMenuOpen = false;
+    soundPanelOpen = false;
     creatorDraft = null;
     syncScreenMusic("player");
     try {
@@ -705,7 +647,7 @@ function renderTable(): void {
       <header class="arcade-strip">
         <div class="metric"><span>${t("hud.level")}</span><strong>${pad(game.level)}</strong></div>
         <div class="metric"><span>${t("hud.energy")}</span><strong class="energy">${game.mode === "autoplay" ? "∞" : energyBar(game.energy, game.energyMax)}</strong></div>
-        <div class="metric score" title="Performance as croupier"><span>${t("hud.score")}</span><strong>${format(game.serviceScore)}</strong><i>COMBO ×${game.serviceComboStep + 1}</i></div>
+        <div class="metric score" title="${t("hud.score")}"><span>${t("hud.score")}</span><strong>${format(game.serviceScore)}</strong><i>${t("hud.combo")} ×${game.serviceComboStep + 1}</i></div>
         <div class="meta"><b>${game.variant === "european" ? "EU" : "US"}</b> · ${game.presetId.toUpperCase()} · ${t("hud.round")} ${game.round} · NPC ${game.activeSeatCount}${game.mode === "autoplay" ? `<em>${t("howto.badge")}</em>` : ""}</div>
         <nav><button id="sound" class="chrome-button" aria-label="Toggle sound">${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}</button><button id="exit" class="chrome-button danger">${t("hud.exit")}</button></nav>
       </header>
@@ -775,7 +717,6 @@ function retryLastShift(): void {
   clearStoredSession();
   game = createGame("dealer", presetId, variant, animationEnabled, Math.random, locale);
   lastWalletEarned = 0;
-  selectedMode = "dealer";
   playSound("level");
   saveLocal();
   renderTable();
@@ -822,7 +763,13 @@ function showExitConfirm(): void {
   const wasHowto = game.mode === "autoplay";
   const overlay = document.createElement("div");
   overlay.className = "exit-confirm";
-  overlay.innerHTML = `<section><h2>${t("exit.title")}</h2><p>${t("exit.help")}</p><strong>+${game.mode === "dealer" ? game.serviceScore : 0}</strong><div><button id="exit-cancel">${t("exit.cancel")}</button><button id="exit-confirm">${t("exit.confirm")}</button></div></section>`;
+  overlay.innerHTML = `<section class="exit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="exit-confirm-title">
+    <span class="exit-confirm-icon" aria-hidden="true"><i></i></span>
+    <h2 id="exit-confirm-title">${t("exit.title")}</h2>
+    <p>${t("exit.help")}</p>
+    <div class="exit-confirm-score"><small>${t("hud.score")}</small><strong>+${game.mode === "dealer" ? game.serviceScore : 0}</strong></div>
+    <div class="exit-confirm-actions"><button type="button" id="exit-cancel" class="exit-cancel">${t("exit.cancel")}</button><button type="button" id="exit-confirm" class="exit-danger">${t("exit.confirm")}</button></div>
+  </section>`;
   app.append(overlay);
   overlay.querySelector<HTMLButtonElement>("#exit-cancel")!.addEventListener("click", () => {
     overlay.remove();
@@ -843,7 +790,13 @@ function showPlayerExitConfirm(): void {
   const residual = playerGame.tableScore + (playerGame.phase === "BETTING_OPEN" || playerGame.phase === "PREPARE" ? totalStaked(playerGame) : 0);
   const overlay = document.createElement("div");
   overlay.className = "exit-confirm";
-  overlay.innerHTML = `<section><h2>${t("player.exitTitle")}</h2><p>${t("player.exitHelp")}</p><strong>${t("player.score")}: ${format(residual)}</strong><div><button id="exit-cancel">${t("player.exitCancel")}</button><button id="exit-confirm">${t("player.exitConfirm")}</button></div></section>`;
+  overlay.innerHTML = `<section class="exit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="exit-confirm-title">
+    <span class="exit-confirm-icon" aria-hidden="true"><i></i></span>
+    <h2 id="exit-confirm-title">${t("player.exitTitle")}</h2>
+    <p>${t("player.exitHelp")}</p>
+    <div class="exit-confirm-score"><small>${t("player.score")}</small><strong>${format(residual)}</strong></div>
+    <div class="exit-confirm-actions"><button type="button" id="exit-cancel" class="exit-cancel">${t("player.exitCancel")}</button><button type="button" id="exit-confirm" class="exit-danger">${t("player.exitConfirm")}</button></div>
+  </section>`;
   app.append(overlay);
   overlay.querySelector<HTMLButtonElement>("#exit-cancel")!.addEventListener("click", () => {
     overlay.remove();
@@ -1063,11 +1016,17 @@ function performPlayerSpin(): void {
   triggerFx("spin", spinDurationMs);
   scheduleSpinTicks(playerGame.animationEnabled ? spinDurationMs : 0);
   renderPlayerTable();
-  window.setTimeout(() => {
-    if (!playerGame) return;
-    wheelRestAngle = getSpinEndAngle(wheelRestAngle, playerGame.variant, generatedPlan.winningNumber, generatedPlan.turns);
+  playerSpinTimer = window.setTimeout(settleActivePlayerSpin, spinDurationMs);
+}
+
+function settleActivePlayerSpin(): void {
+    if (!playerGame || !activeSpinPlan || playerGame.phase !== "SPINNING") return;
+    if (playerSpinTimer !== null) window.clearTimeout(playerSpinTimer);
+    playerSpinTimer = null;
+    const completedPlan = activeSpinPlan;
+    wheelRestAngle = getSpinEndAngle(wheelRestAngle, playerGame.variant, completedPlan.winningNumber, completedPlan.turns);
     activeSpinPlan = null;
-    const settle = settlePlayerRound(playerGame, generatedPlan.winningNumber);
+    const settle = settlePlayerRound(playerGame, completedPlan.winningNumber);
     lastPlayerNet = settle.netDelta;
     clearSpinTicks();
     playSound(settle.netDelta > 0 ? "pay" : settle.totalStaked === 0 ? "settle" : "error");
@@ -1075,7 +1034,7 @@ function performPlayerSpin(): void {
     persistPlayerScore();
     savePlayerLocal();
     scheduleResultReveal({
-      winningNumber: generatedPlan.winningNumber,
+      winningNumber: completedPlan.winningNumber,
       context: "player",
       playerNet: settle.netDelta,
       playerFreeSpin: settle.totalStaked === 0,
@@ -1084,7 +1043,6 @@ function performPlayerSpin(): void {
       completePlayerRound();
     });
     renderPlayerTable();
-  }, spinDurationMs);
 }
 
 function completePlayerRound(): void {
@@ -1362,7 +1320,10 @@ function triggerFx(name: string, duration = 480): void {
   }, duration);
 }
 function pad(value: number): string { return String(value).padStart(2, "0"); }
-function format(value: number): string { return new Intl.NumberFormat(numberFormatTag(locale)).format(value); }
+/** Score, stakes and bankroll are always shown as plain integers. */
+function format(value: number): string {
+  return String(Math.trunc(Number.isFinite(value) ? value : 0));
+}
 function energyBar(value: number, max: number): string { return Array.from({ length: max }, (_, index) => index < value ? "◆" : "◇").join(""); }
 const redNumbers = new Set(["1","3","5","7","9","12","14","16","18","19","21","23","25","27","30","32","34","36"]);
 function isRed(value: string | null): boolean { return value ? redNumbers.has(value) : false; }
@@ -1427,6 +1388,22 @@ function renderPlayerTable(): void {
         : lastPlayerNet === 0 && playerGame.lastSettle?.totalStaked === 0
           ? t("player.resultFree")
           : t("player.resultEven");
+  const wheelOutcomeLabel = lastPlayerNet === null
+    ? ""
+    : lastPlayerNet > 0
+      ? t("reveal.playerWin", { net: format(lastPlayerNet) })
+      : lastPlayerNet < 0
+        ? t("reveal.playerLose", { net: format(Math.abs(lastPlayerNet)) })
+        : playerGame.lastSettle?.totalStaked === 0
+          ? t("reveal.playerFree")
+          : t("reveal.playerEven");
+  const wheelOutcomeClass = lastPlayerNet === null
+    ? ""
+    : lastPlayerNet > 0
+      ? "is-win"
+      : lastPlayerNet < 0
+        ? "is-lose"
+        : "is-even";
   const lastCost = playerGame.lastBets.reduce((sum, bet) => sum + bet.stake, 0);
   // Rebet replaces open bets with one copy of last hand (needs free+staked ≥ cost)
   const canRebet = betting && lastCost > 0 && free + staked >= lastCost;
@@ -1435,9 +1412,12 @@ function renderPlayerTable(): void {
   const canSpin = betting;
   const canOpenStrategies = betting && playerGame.phase === "BETTING_OPEN";
   const canOpenRacetrack = betting && playerGame.phase === "BETTING_OPEN";
-  const showWheel = playerGame.animationEnabled;
+  /** Betting is table-first; after SPIN the wheel always shows the result. */
+  const showWheelStage = !betting;
   const templates = loadBetTemplates().filter((item) => item.variant === playerGame!.variant);
-  const historyHtml = `<div class="history ${showWheel ? "" : "history-bar"}"><span>${t("table.lastNumbers")}</span><div>${playerGame.history.length ? playerGame.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
+  const historyHtml = `<div class="history history-bar"><span>${t("table.lastNumbers")}</span><div>${playerGame.history.length ? playerGame.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
+  const selectedChip = playerGame.selectedChip;
+  const selectedChipDigits = String(selectedChip).length;
 
   const playerRevealing = resultReveal !== null && resultReveal.context === "player";
   // Stats are read-only — open between hands and mid-bet (not during spin/reveal)
@@ -1461,22 +1441,67 @@ function renderPlayerTable(): void {
     && !bettingStatusNoise.has(playerGame.message);
   // After spin: one mark only (e.g. "+30 QUESTA MANO") — do not also show "17 · hai vinto +30"
   const phaseStatusHtml = betting
-    ? `<mark class="player-stake-total ${staked > 0 ? "has-stake" : ""}" title="${t("player.betTotalHelp")}">${t("player.betTotal", { amount: format(staked) })}</mark>${
-        showBettingFeedback
-          ? `<b class="player-phase-feedback">${t(playerGame.message, playerGame.messageParams)}</b>`
-          : ""
-      }`
+    ? (showBettingFeedback
+        ? `<b class="player-phase-feedback">${t(playerGame.message, playerGame.messageParams)}</b>`
+        : "")
     : handOutcomeLabel
       ? `<mark class="player-hand-result">${handOutcomeLabel}</mark>`
       : `<b>${t(playerGame.message, playerGame.messageParams)}</b>`;
+  const moreSheetHtml = playerMenuOpen ? `
+    <div class="player-more-backdrop" id="player-more-backdrop">
+      <aside class="player-more-sheet" role="dialog" aria-modal="true" aria-labelledby="player-more-title">
+        <header>
+          <span><strong id="player-more-title">${t("settings.title")}</strong></span>
+          <button type="button" id="player-more-close" class="player-sheet-close" aria-label="${t("player.statsClose")}">×</button>
+        </header>
+        <div class="player-tools">
+          <button type="button" id="player-racetrack" class="chrome-button racetrack-btn tool-primary" ${canOpenRacetrack ? "" : "disabled"} title="${t("racetrack.aria")}" aria-label="${t("racetrack.aria")}"><i class="tool-icon tool-track" aria-hidden="true"></i><span><b>${t("racetrack.btn")}</b></span></button>
+          <button type="button" id="player-strategies" class="chrome-button strategy-btn tool-primary" ${canOpenStrategies ? "" : "disabled"} title="${t("player.strategyAria")}" aria-label="${t("player.strategyAria")}"><i class="tool-icon tool-star" aria-hidden="true"></i><span><b>${t("player.strategy")}${templates.length ? ` (${templates.length})` : ""}</b></span></button>
+          <button type="button" id="player-stats" class="chrome-button stats-btn tool-primary" ${canOpenStats ? "" : "disabled"} title="${t("player.statsAria")}" aria-label="${t("player.statsAria")}"><i class="tool-icon tool-stats" aria-hidden="true"></i><span><b>${t("player.stats")}</b></span></button>
+          <button type="button" id="player-anim" class="chrome-button anim-toggle tool-quick" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""} title="${t("settings.animationHelp")}" aria-label="${t("settings.animation")}"><i class="tool-icon tool-motion" aria-hidden="true"></i><span><b>${playerGame.animationEnabled ? t("hud.animationOn") : t("hud.animationOff")}</b></span></button>
+          <button type="button" id="exit" class="chrome-button danger tool-exit" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""}><i class="tool-icon tool-door" aria-hidden="true"></i><span><b>${t("player.exit")}</b></span></button>
+        </div>
+      </aside>
+    </div>` : "";
+  const soundPanelHtml = soundPanelOpen ? `
+    <div class="sound-panel-backdrop" id="sound-panel-backdrop">
+      <section class="sound-panel-card" role="dialog" aria-modal="true" aria-labelledby="sound-panel-title">
+        <header>
+          <h2 id="sound-panel-title">${t("soundPanel.title")}</h2>
+          <button type="button" id="sound-panel-close" class="player-sheet-close" aria-label="${t("soundPanel.close")}">×</button>
+        </header>
+        <div class="sound-panel-section">
+          <span class="sound-panel-label">${t("settings.sound")}</span>
+          <div class="sound-panel-options" role="group" aria-label="${t("settings.sound")}">
+            <button type="button" data-player-sound="on" class="${!appSettings.muted ? "active" : ""}">${t("settings.soundOn")}</button>
+            <button type="button" data-player-sound="off" class="${appSettings.muted ? "active" : ""}">${t("settings.soundOff")}</button>
+          </div>
+        </div>
+        <div class="sound-panel-section">
+          <label class="sound-panel-label" for="player-music-volume">${t("settings.musicVolume")}</label>
+          <div class="sound-panel-volume">
+            <input type="range" id="player-music-volume" min="0" max="100" step="1" value="${Math.round(appSettings.musicVolume * 100)}" aria-label="${t("settings.musicVolume")}" />
+            <output id="player-music-volume-value" for="player-music-volume">${Math.round(appSettings.musicVolume * 100)}%</output>
+          </div>
+        </div>
+        <div class="sound-panel-section">
+          <span class="sound-panel-label">${t("soundPanel.track")}</span>
+          <div class="sound-track-list">
+            <button type="button" data-player-music="random" class="${appSettings.playerMusicMode === "random" ? "active" : ""}"><b>${t("soundPanel.random")}</b><small>${t("soundPanel.randomHelp")}</small></button>
+            ${PLAYER_MUSIC_TRACKS.map((track) => `<button type="button" data-player-music="${track.id}" class="${appSettings.playerMusicMode === track.id ? "active" : ""}"><b>${track.label}</b><small>${t("soundPanel.track")}</small></button>`).join("")}
+          </div>
+        </div>
+      </section>
+    </div>` : "";
   app.innerHTML = `
-    <main class="game-shell player-mode ${showWheel ? "" : "player-nowheel"} ${playerRevealing ? "is-result-reveal" : ""} ${playerGame.phase === "SPINNING" ? "phase-is-spinning" : ""} ${playerGame.phase === "PAYOUT" ? "phase-is-payout" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
-      <header class="arcade-strip player-strip">
-        <div class="metric score"><span>${t("player.score")}</span><strong>${format(total)}</strong></div>
-        <nav>
-          <button type="button" id="player-anim" class="chrome-button anim-toggle" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""} title="${t("settings.animationHelp")}" aria-label="${t("settings.animation")}">${playerGame.animationEnabled ? t("hud.animationOn") : t("hud.animationOff")}</button>
-          <button type="button" id="sound" class="chrome-button">${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}</button>
-          <button type="button" id="exit" class="chrome-button danger" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""}>${t("player.exit")}</button>
+    <main class="game-shell player-mode mobile-first-player ${showWheelStage ? "" : "player-nowheel"} ${betting ? "is-betting" : "is-wheel-stage"} ${playerRevealing ? "is-result-reveal" : ""} ${playerGame.phase === "SPINNING" ? "phase-is-spinning" : ""} ${playerGame.phase === "PAYOUT" ? "phase-is-payout" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
+      <header class="player-hud">
+        <div class="player-hud-brand" aria-hidden="true"><i></i><span>R</span></div>
+        <div class="player-hud-metric player-hud-score"><span>${t("player.score")}</span><strong>${format(total)}</strong></div>
+        <div class="player-hud-metric player-hud-bet"><span>${t("player.staked")}</span><strong>${format(staked)}</strong></div>
+        <nav class="player-hud-actions">
+          <button type="button" id="sound" class="player-hud-button hud-sound ${isMuted() ? "is-muted" : ""}" aria-label="${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}" title="${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}"><i aria-hidden="true"></i></button>
+          <button type="button" id="exit" class="player-hud-button hud-exit" ${playerGame.phase === "SPINNING" || playerRevealing ? "disabled" : ""} aria-label="${t("player.exit")}" title="${t("player.exit")}"><i aria-hidden="true"></i></button>
         </nav>
       </header>
       <section class="phase-row player-phase-row">
@@ -1498,45 +1523,57 @@ function renderPlayerTable(): void {
             <strong class="table-coverage-pct">${coverage.percent}%</strong>
           </div>` : ""}
       </section>
-      <section class="table-grid ${showWheel ? "" : "table-grid-nowheel"}">
-        ${showWheel ? `<aside class="wheel-panel">
+      <section class="table-grid player-stage ${showWheelStage ? "" : "table-grid-nowheel"}">
+        ${showWheelStage ? `<aside class="wheel-panel">
+          ${wheelOutcomeLabel ? `<p class="wheel-outcome ${wheelOutcomeClass}" aria-live="assertive">${wheelOutcomeLabel}</p>` : ""}
           ${buildWheel(playerGame.variant, playerGame.phase === "SPINNING")}
           ${historyHtml}
+          <button type="button" id="player-anim" class="wheel-animation-toggle ${playerGame.animationEnabled ? "active" : ""}" title="${t("settings.animationHelp")}" aria-label="${t("settings.animation")}"><i class="tool-icon tool-motion" aria-hidden="true"></i><span>${playerGame.animationEnabled ? t("hud.animationOn") : t("hud.animationOff")}</span></button>
         </aside>` : ""}
         <section class="felt-panel player-felt casino-felt ${betting ? "interactive snap-felt" : ""}">
-          ${showWheel ? "" : historyHtml}
+          ${showWheelStage ? "" : historyHtml}
           <div class="felt-heading"><span>${t("table.live")} / ${playerGame.variant.toUpperCase()}</span><small>${betting ? t("player.placeHint") : t("player.manualSpinHelp")}</small></div>
-          <div class="felt-grid">${buildPlayerFelt(playerGame.variant, playerGame.result, feltDisplayBets(playerGame), betting)}</div>
+          <div class="felt-grid">${buildPlayerFelt(playerGame.variant, playerGame.result, feltDisplayBets(playerGame), betting, playerGame.chipHistory)}</div>
           <div class="felt-snap-guide" hidden aria-live="polite"></div>
+          <section class="player-controls player-bet-dock" aria-label="${t("player.chipTray")}">
+            ${playerChipMenuOpen ? `<button type="button" id="chip-picker-dismiss" class="chip-picker-dismiss" aria-label="${t("player.statsClose")}"></button>` : ""}
+            <div class="chip-tray chip-selector">
+              <span class="tray-label">${t("player.chipTray")}</span>
+              <button
+                type="button"
+                id="player-chip-trigger"
+                class="chip-btn chip-${selectedChip} digits-${selectedChipDigits} active"
+                aria-haspopup="menu"
+                aria-expanded="${playerChipMenuOpen}"
+                aria-label="${t("player.chipTray")}: ${selectedChip}"
+                ${betting ? "" : "disabled"}
+              ><span>${selectedChip}</span><i class="chip-menu-caret" aria-hidden="true"></i></button>
+              ${playerChipMenuOpen ? `<div class="chip-picker-menu" role="menu" aria-label="${t("player.chipTray")}">
+                ${cfg.chipDenominations.map((d) => {
+                  const disabled = !betting || free < d;
+                  const digits = String(d).length;
+                  return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${selectedChip === d}" ${disabled ? "disabled" : ""}><span>${d}</span></button>`;
+                }).join("")}
+              </div>` : ""}
+            </div>
+            <div class="spin-cluster">
+              <button type="button" id="player-undo" class="quick-action action-clear" ${!betting || (!playerGame.chipHistory.length && !playerGame.bets.length) ? "disabled" : ""} aria-label="${t("player.undoClearHelp")}" title="${t("player.undoClearHelp")}"><i aria-hidden="true"></i></button>
+              <button type="button" id="player-double" class="quick-action quick-double" ${canDouble ? "" : "disabled"} title="${t("player.doubleHelp")}" aria-label="${t("player.double")}"><i aria-hidden="true">2&times;</i></button>
+              <button type="button" id="player-rebet" class="quick-action quick-rebet" ${canRebet ? "" : "disabled"} title="${t("player.rebetHelp")}" aria-label="${t("player.rebet")}"><i aria-hidden="true"></i></button>
+              <button type="button" id="player-spin" class="player-spin-btn" ${canSpin ? "" : "disabled"} aria-label="${t("player.spin")}">
+                <span class="spin-label">${t("player.spin")}</span>
+              </button>
+            </div>
+          </section>
+          <nav class="player-service-bar" aria-label="${t("settings.title")}">
+            <button type="button" id="player-racetrack" ${canOpenRacetrack ? "" : "disabled"} title="${t("racetrack.aria")}" aria-label="${t("racetrack.aria")}"><i class="tool-icon tool-track" aria-hidden="true"></i></button>
+            <button type="button" id="player-strategies" ${canOpenStrategies ? "" : "disabled"} title="${t("player.strategyAria")}" aria-label="${t("player.strategyAria")}"><i class="tool-icon tool-star" aria-hidden="true"></i></button>
+            <button type="button" id="player-stats" ${canOpenStats ? "" : "disabled"} title="${t("player.statsAria")}" aria-label="${t("player.statsAria")}"><i class="tool-icon tool-stats" aria-hidden="true"></i></button>
+          </nav>
         </section>
       </section>
-      <section class="player-controls">
-        <div class="player-tools">
-          <button type="button" id="player-racetrack" class="chrome-button racetrack-btn" ${canOpenRacetrack ? "" : "disabled"} title="${t("racetrack.aria")}" aria-label="${t("racetrack.aria")}">◎ ${t("racetrack.btn")}</button>
-          <button type="button" id="player-strategies" class="chrome-button strategy-btn" ${canOpenStrategies ? "" : "disabled"} title="${t("player.strategyAria")}" aria-label="${t("player.strategyAria")}">★ ${t("player.strategy")}${templates.length ? ` (${templates.length})` : ""}</button>
-          <button type="button" id="player-stats" class="chrome-button stats-btn" ${canOpenStats ? "" : "disabled"} title="${t("player.statsAria")}" aria-label="${t("player.statsAria")}">▣ ${t("player.stats")}</button>
-        </div>
-        <div class="chip-tray" role="group" aria-label="${t("player.chipTray")}">
-          <span class="tray-label">${t("player.chipTray")}</span>
-          <div class="chip-row">
-            ${cfg.chipDenominations.map((d) => {
-              const disabled = !betting || free < d;
-              const digits = String(d).length;
-              return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${playerGame!.selectedChip === d ? "active" : ""}" data-chip="${d}" ${disabled ? "disabled" : ""}><span>${d}</span></button>`;
-            }).join("")}
-          </div>
-        </div>
-        <button type="button" id="player-spin" class="player-spin-btn" ${canSpin ? "" : "disabled"} aria-label="${t("player.spin")}">
-          <span class="spin-label">${t("player.spin")}</span>
-        </button>
-        <div class="bet-actions">
-          <button type="button" id="player-undo" class="chrome-button" ${!betting || !playerGame.chipHistory.length ? "disabled" : ""}>${t("player.undo")}</button>
-          <button type="button" id="player-clear" class="chrome-button" ${!betting || !playerGame.bets.length ? "disabled" : ""}>${t("player.clear")}</button>
-          <button type="button" id="player-rebet" class="chrome-button" ${canRebet ? "" : "disabled"} title="${t("player.rebetHelp")}">${t("player.rebet")}</button>
-          <button type="button" id="player-double" class="chrome-button" ${canDouble ? "" : "disabled"} title="${t("player.doubleHelp")}">${t("player.double")}</button>
-        </div>
-      </section>
-      <footer class="table-footer"><span>${t("table.houseFloor")}</span></footer>
+      ${moreSheetHtml}
+      ${soundPanelHtml}
       ${playerGame.phase === "GAME_OVER" ? buildPlayerOutPanel() : ""}
       ${strategyPanelOpen && canOpenStrategies ? buildStrategyPanel(templates, free) : ""}
       ${racetrackOpen && canOpenRacetrack ? buildRacetrackPanel(playerGame, free) : ""}
@@ -1544,23 +1581,120 @@ function renderPlayerTable(): void {
       ${buildResultRevealOverlay()}
     </main>`;
 
-  if (showWheel) mountWheel();
+  if (showWheelStage) mountWheel();
+  const chipTrigger = app.querySelector<HTMLButtonElement>("#player-chip-trigger");
+  let chipHoldTimer: number | null = null;
+  let chipHoldOpened = false;
+  const cancelChipHold = () => {
+    if (chipHoldTimer !== null) window.clearTimeout(chipHoldTimer);
+    chipHoldTimer = null;
+  };
+  chipTrigger?.addEventListener("pointerdown", (event) => {
+    if (!betting || event.pointerType === "mouse" && event.button !== 0) return;
+    cancelChipHold();
+    chipHoldOpened = false;
+    chipHoldTimer = window.setTimeout(() => {
+      chipHoldOpened = true;
+      playerChipMenuOpen = true;
+      playSound("tick");
+      renderPlayerTable();
+    }, 420);
+  });
+  chipTrigger?.addEventListener("pointerup", cancelChipHold);
+  chipTrigger?.addEventListener("pointercancel", cancelChipHold);
+  chipTrigger?.addEventListener("click", () => {
+    cancelChipHold();
+    if (!betting || chipHoldOpened) return;
+    playerChipMenuOpen = !playerChipMenuOpen;
+    playSound("tick");
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#chip-picker-dismiss")?.addEventListener("click", () => {
+    playerChipMenuOpen = false;
+    renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-more")?.addEventListener("click", () => {
+    if (playerGame?.phase === "SPINNING" || playerRevealing) return;
+    playerChipMenuOpen = false;
+    playerMenuOpen = true;
+    playSound("tick");
+    renderPlayerTable();
+  });
+  const closePlayerMenu = () => {
+    if (!playerMenuOpen) return;
+    playerMenuOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+  };
+  app.querySelector<HTMLButtonElement>("#player-more-close")?.addEventListener("click", closePlayerMenu);
+  app.querySelector<HTMLElement>("#player-more-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closePlayerMenu();
+  });
   app.querySelector<HTMLButtonElement>("#player-anim")?.addEventListener("click", () => {
-    if (!playerGame || playerGame.phase === "SPINNING" || playerRevealing) return;
+    if (!playerGame) return;
     const next = !playerGame.animationEnabled;
     playerGame.animationEnabled = next;
     appSettings = updateSettings({ animationEnabled: next });
     playSound("tick");
+    if (!next && playerGame.phase === "SPINNING") {
+      wheelAnimation?.cancel();
+      clearSpinTicks();
+      settleActivePlayerSpin();
+      return;
+    }
     renderPlayerTable();
   });
   app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => {
-    toggleMute();
-    if (!isMuted()) playSound("bet");
+    soundPanelOpen = true;
     renderPlayerTable();
+  });
+  const closeSoundPanel = () => {
+    if (!soundPanelOpen) return;
+    soundPanelOpen = false;
+    renderPlayerTable();
+  };
+  app.querySelector<HTMLButtonElement>("#sound-panel-close")?.addEventListener("click", closeSoundPanel);
+  app.querySelector<HTMLElement>("#sound-panel-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeSoundPanel();
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-player-sound]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const muted = button.dataset.playerSound === "off";
+      appSettings = updateSettings({ muted });
+      setMuted(muted);
+      syncScreenMusic("player");
+      if (!muted) playSound("bet");
+      renderPlayerTable();
+    });
+  });
+  const playerMusicVolume = app.querySelector<HTMLInputElement>("#player-music-volume");
+  const playerMusicVolumeValue = app.querySelector<HTMLOutputElement>("#player-music-volume-value");
+  const applyPlayerMusicVolume = (persist: boolean) => {
+    if (!playerMusicVolume) return;
+    const pct = Math.min(100, Math.max(0, Number(playerMusicVolume.value) || 0));
+    const volume = pct / 100;
+    setMusicVolume(volume);
+    if (playerMusicVolumeValue) playerMusicVolumeValue.textContent = `${pct}%`;
+    if (persist) appSettings = updateSettings({ musicVolume: volume });
+  };
+  playerMusicVolume?.addEventListener("input", () => applyPlayerMusicVolume(false));
+  playerMusicVolume?.addEventListener("change", () => applyPlayerMusicVolume(true));
+  app.querySelectorAll<HTMLButtonElement>("[data-player-music]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const mode = button.dataset.playerMusic;
+      if (mode !== "random" && !PLAYER_MUSIC_TRACKS.some((track) => track.id === mode)) return;
+      const playerMusicMode = mode as PlayerMusicMode;
+      appSettings = updateSettings({ playerMusicMode });
+      setPlayerMusicMode(playerMusicMode);
+      setMusic("player");
+      if (!isMuted()) playSound("tick");
+      renderPlayerTable();
+    });
   });
   app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", showPlayerExitConfirm);
   app.querySelector<HTMLButtonElement>("#player-strategies")?.addEventListener("click", () => {
     if (!canOpenStrategies || creatorNameDialogOpen) return;
+    playerMenuOpen = false;
     strategyPanelOpen = !strategyPanelOpen;
     if (strategyPanelOpen) {
       racetrackOpen = false;
@@ -1571,6 +1705,7 @@ function renderPlayerTable(): void {
   });
   app.querySelector<HTMLButtonElement>("#player-racetrack")?.addEventListener("click", () => {
     if (!canOpenRacetrack || creatorNameDialogOpen) return;
+    playerMenuOpen = false;
     racetrackOpen = !racetrackOpen;
     if (racetrackOpen) {
       strategyPanelOpen = false;
@@ -1581,6 +1716,7 @@ function renderPlayerTable(): void {
   });
   app.querySelector<HTMLButtonElement>("#player-stats")?.addEventListener("click", () => {
     if (!canOpenStats || creatorNameDialogOpen) return;
+    playerMenuOpen = false;
     statsPanelOpen = !statsPanelOpen;
     if (statsPanelOpen) {
       strategyPanelOpen = false;
@@ -1600,20 +1736,39 @@ function renderPlayerTable(): void {
     btn.addEventListener("click", () => {
       if (!playerGame || !betting) return;
       setSelectedChip(playerGame, Number(btn.dataset.chip));
+      playerChipMenuOpen = false;
       playSound("tick");
+      savePlayerLocal();
       renderPlayerTable();
     });
   });
-  app.querySelector<HTMLButtonElement>("#player-undo")?.addEventListener("click", () => {
-    if (!playerGame || !undoChip(playerGame)) return;
-    playSound("tick");
-    persistPlayerScore();
-    savePlayerLocal();
-    renderPlayerTable();
+  const undoButton = app.querySelector<HTMLButtonElement>("#player-undo");
+  let undoHoldTimer: number | null = null;
+  let undoHoldHandled = false;
+  const cancelUndoHold = () => {
+    if (undoHoldTimer !== null) window.clearTimeout(undoHoldTimer);
+    undoHoldTimer = null;
+  };
+  undoButton?.addEventListener("pointerdown", (event) => {
+    if (!playerGame || !betting || event.pointerType === "mouse" && event.button !== 0) return;
+    cancelUndoHold();
+    undoHoldHandled = false;
+    undoHoldTimer = window.setTimeout(() => {
+      undoHoldHandled = true;
+      if (!playerGame || !clearPlayerBets(playerGame)) return;
+      playSound("close");
+      persistPlayerScore();
+      savePlayerLocal();
+      renderPlayerTable();
+    }, 550);
   });
-  app.querySelector<HTMLButtonElement>("#player-clear")?.addEventListener("click", () => {
-    if (!playerGame || !clearPlayerBets(playerGame)) return;
-    playSound("close");
+  undoButton?.addEventListener("pointerup", cancelUndoHold);
+  undoButton?.addEventListener("pointercancel", cancelUndoHold);
+  undoButton?.addEventListener("pointerleave", cancelUndoHold);
+  undoButton?.addEventListener("click", () => {
+    cancelUndoHold();
+    if (undoHoldHandled || !playerGame || !undoChip(playerGame)) return;
+    playSound("tick");
     persistPlayerScore();
     savePlayerLocal();
     renderPlayerTable();
@@ -1624,6 +1779,8 @@ function renderPlayerTable(): void {
       renderPlayerTable();
       return;
     }
+    playerMenuOpen = false;
+    playerChipMenuOpen = false;
     playSound("bet");
     persistPlayerScore();
     savePlayerLocal();
@@ -1635,6 +1792,8 @@ function renderPlayerTable(): void {
       renderPlayerTable();
       return;
     }
+    playerMenuOpen = false;
+    playerChipMenuOpen = false;
     playSound("bet");
     persistPlayerScore();
     savePlayerLocal();
@@ -1645,26 +1804,16 @@ function renderPlayerTable(): void {
     strategyPanelOpen = false;
     racetrackOpen = false;
     statsPanelOpen = false;
+    playerMenuOpen = false;
+    playerChipMenuOpen = false;
     performPlayerSpin();
   });
   bindResultRevealDismiss();
-  if (betting && !strategyPanelOpen && !racetrackOpen && !statsPanelOpen) {
+  if (betting && !strategyPanelOpen && !racetrackOpen && !statsPanelOpen && !playerMenuOpen && !playerChipMenuOpen && !soundPanelOpen) {
     bindFeltSnapPlacement(app.querySelector<HTMLElement>(".player-felt"), playerGame.variant, {
       onPlace: (betId) => {
         if (!playerGame) return false;
         if (!placeChip(playerGame, betId)) {
-          playSound("error");
-          return false;
-        }
-        playSound("bet");
-        persistPlayerScore();
-        savePlayerLocal();
-        renderPlayerTable();
-        return true;
-      },
-      onMove: (fromBetId, toBetId) => {
-        if (!playerGame) return false;
-        if (!movePlayerStake(playerGame, fromBetId, toBetId)) {
           playSound("error");
           return false;
         }
@@ -1685,18 +1834,6 @@ function renderPlayerTable(): void {
     strategyPanelOpen = false;
     racetrackOpen = false;
     statsPanelOpen = false;
-    showMenu();
-  });
-  app.querySelector<HTMLButtonElement>("#player-out-dealer")?.addEventListener("click", () => {
-    clearStoredSession();
-    playerGame = null;
-    creatorDraft = null;
-    creatorNameDialogOpen = false;
-    creatorNameBuffer = "";
-    strategyPanelOpen = false;
-    racetrackOpen = false;
-    statsPanelOpen = false;
-    selectedMode = "dealer";
     showMenu();
   });
 }
@@ -1984,7 +2121,6 @@ function buildStatsPanel(state: PlayerGameState): string {
         <h2 id="stats-title">${t("player.statsTitle")}</h2>
         <button type="button" id="stats-close" class="chrome-button">${t("player.statsClose")}</button>
       </header>
-      <p class="stats-help">${t("player.statsHelp")}</p>
       <div class="stats-metrics" role="group" aria-label="${t("player.statsTitle")}">
         <div class="stats-metric profit ${profitClass}">
           <span>${t("player.statsProfit")}</span>
@@ -2017,12 +2153,6 @@ function buildStatsPanel(state: PlayerGameState): string {
 function buildBankrollChartSvg(values: number[]): string {
   const w = 320;
   const h = 140;
-  const padL = 36;
-  const padR = 10;
-  const padT = 12;
-  const padB = 22;
-  const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
   const series = values.length ? values : [0];
   let minV = Math.min(...series);
   let maxV = Math.max(...series);
@@ -2031,6 +2161,15 @@ function buildBankrollChartSvg(values: number[]): string {
     maxV = maxV + 10;
   }
   const range = maxV - minV || 1;
+  const mid = minV + range / 2;
+  const yValues = [maxV, mid, minV];
+  const longestAxisLabel = Math.max(...yValues.map((value) => format(Math.round(value)).length));
+  const padL = Math.min(92, Math.max(44, Math.ceil(longestAxisLabel * 6 + 12)));
+  const padR = 10;
+  const padT = 12;
+  const padB = 22;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
   const n = series.length;
   const xAt = (i: number): number => (n <= 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW);
   const yAt = (v: number): number => padT + plotH - ((v - minV) / range) * plotH;
@@ -2043,7 +2182,6 @@ function buildBankrollChartSvg(values: number[]): string {
   const last = series[n - 1]!;
   const first = series[0]!;
   const stroke = last > first ? "#5fd08a" : last < first ? "#e07070" : "#c69e45";
-  const mid = minV + range / 2;
   const yLabels = [
     { v: maxV, y: yAt(maxV) },
     { v: mid, y: yAt(mid) },
@@ -2103,6 +2241,7 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
     if (!playerGame) return;
     strategyPanelOpen = false;
     creatorNameDialogOpen = false;
+    playerChipMenuOpen = false;
     creatorDraft = createBetCreatorDraft(playerGame.variant, {
       selectedChip: playerGame.selectedChip,
     });
@@ -2143,6 +2282,7 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
       if (!item) return;
       strategyPanelOpen = false;
       creatorNameDialogOpen = false;
+      playerChipMenuOpen = false;
       creatorDraft = createBetCreatorDraft(playerGame.variant, {
         editingId: item.id,
         name: item.name,
@@ -2182,47 +2322,58 @@ function renderBetCreator(): void {
   const draft = creatorDraft;
   const cost = draftTotal(draft);
   const free = playerGame.tableScore + totalStaked(playerGame);
+  const selectedChipDigits = String(draft.selectedChip).length;
+  const historyHtml = `<div class="history history-bar"><span>${t("table.lastNumbers")}</span><div>${playerGame.history.length ? playerGame.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
 
   app.innerHTML = `
-    <main class="game-shell player-mode bet-creator-mode">
-      <header class="arcade-strip player-strip creator-strip">
-        <div class="metric score"><span>${t("player.creatorTotal")}</span><strong>${format(cost)}</strong><i>${t("player.score")}: ${format(free)}</i></div>
-        <div class="meta"><b>${draft.variant === "european" ? "EU" : "US"}</b> · ${t("player.creatorTitle")}</div>
-        <nav>
-          <button type="button" id="creator-back" class="chrome-button">${t("player.creatorBack")}</button>
+    <main class="game-shell player-mode mobile-first-player player-nowheel is-betting creator-standard-table">
+      <header class="player-hud">
+        <div class="player-hud-brand" aria-hidden="true"><i></i><span>R</span></div>
+        <div class="player-hud-metric player-hud-score"><span>${t("player.creatorTotal")}</span><strong>${format(cost)}</strong></div>
+        <div class="player-hud-metric player-hud-bet"><span>${t("player.score")}</span><strong>${format(free)}</strong></div>
+        <nav class="player-hud-actions">
+          <button type="button" id="creator-back" class="player-hud-button hud-exit" aria-label="${t("player.creatorBack")}" title="${t("player.creatorBack")}"><i aria-hidden="true"></i></button>
         </nav>
       </header>
-      <section class="phase-row player-phase-row creator-help-row">
+      <section class="phase-row player-phase-row">
         <span>${t("player.creatorTitle")}</span>
         <b>${t("player.creatorHelp")}</b>
       </section>
-      <section class="table-grid creator-grid">
-        <section class="felt-panel player-felt casino-felt interactive snap-felt creator-felt">
+      <section class="table-grid player-stage table-grid-nowheel">
+        <section class="felt-panel player-felt casino-felt interactive snap-felt">
+          ${historyHtml}
           <div class="felt-heading">
-            <span>${t("player.creatorTitle")} / ${draft.variant.toUpperCase()}</span>
+            <span>${t("table.live")} / ${draft.variant.toUpperCase()}</span>
             <small>${t("player.placeHint")}</small>
           </div>
-          <div class="felt-grid">${buildPlayerFelt(draft.variant, null, draft.bets, true)}</div>
+          <div class="felt-grid">${buildPlayerFelt(draft.variant, null, draft.bets, true, draft.chipHistory)}</div>
           <div class="felt-snap-guide" hidden aria-live="polite"></div>
+          <section class="player-controls player-bet-dock" aria-label="${t("player.chipTray")}">
+            ${playerChipMenuOpen ? `<button type="button" id="chip-picker-dismiss" class="chip-picker-dismiss" aria-label="${t("player.statsClose")}"></button>` : ""}
+            <div class="chip-tray chip-selector">
+              <span class="tray-label">${t("player.chipTray")}</span>
+              <button
+                type="button"
+                id="player-chip-trigger"
+                class="chip-btn chip-${draft.selectedChip} digits-${selectedChipDigits} active"
+                aria-haspopup="menu"
+                aria-expanded="${playerChipMenuOpen}"
+                aria-label="${t("player.chipTray")}: ${draft.selectedChip}"
+              ><span>${draft.selectedChip}</span><i class="chip-menu-caret" aria-hidden="true"></i></button>
+              ${playerChipMenuOpen ? `<div class="chip-picker-menu" role="menu" aria-label="${t("player.chipTray")}">
+                ${cfg.chipDenominations.map((d) => {
+                  const digits = String(d).length;
+                  return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${draft.selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${draft.selectedChip === d}"><span>${d}</span></button>`;
+                }).join("")}
+              </div>` : ""}
+            </div>
+            <div class="spin-cluster creator-standard-actions">
+              <button type="button" id="creator-undo" class="quick-action action-clear" ${!draft.chipHistory.length && !draft.bets.length ? "disabled" : ""} aria-label="${t("player.undoClearHelp")}" title="${t("player.undoClearHelp")}"><i aria-hidden="true"></i></button>
+              <button type="button" id="creator-save" class="player-spin-btn creator-save-action" ${cost > 0 ? "" : "disabled"} aria-label="${t("player.creatorSave")}"><span class="spin-label">${t("player.creatorSaveShort")}</span></button>
+            </div>
+          </section>
         </section>
       </section>
-      <section class="player-controls creator-controls">
-        <div class="chip-tray" role="group" aria-label="${t("player.chipTray")}">
-          <span class="tray-label">${t("player.chipTray")}</span>
-          <div class="chip-row">
-            ${cfg.chipDenominations.map((d) => {
-              const digits = String(d).length;
-              return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${draft.selectedChip === d ? "active" : ""}" data-chip="${d}"><span>${d}</span></button>`;
-            }).join("")}
-          </div>
-        </div>
-        <div class="bet-actions creator-actions">
-          <button type="button" id="creator-undo" class="chrome-button" ${draft.chipHistory.length ? "" : "disabled"}>${t("player.undo")}</button>
-          <button type="button" id="creator-clear" class="chrome-button" ${draft.bets.length ? "" : "disabled"}>${t("player.clear")}</button>
-          <button type="button" id="creator-save" class="creator-save-btn" ${cost > 0 ? "" : "disabled"}>${t("player.creatorSave")}</button>
-        </div>
-      </section>
-      <footer class="table-footer"><span>${t("player.creatorHelp")}</span><span>${format(cost)}</span></footer>
     </main>`;
 
   // Re-attach name dialog after a full re-render without wiping the typed buffer.
@@ -2234,27 +2385,54 @@ function renderBetCreator(): void {
     creatorDraft = null;
     creatorNameDialogOpen = false;
     creatorNameBuffer = "";
+    playerChipMenuOpen = false;
     playSound("tick");
     renderPlayerTable();
+  });
+  app.querySelector<HTMLButtonElement>("#player-chip-trigger")?.addEventListener("click", () => {
+    if (creatorNameDialogOpen) return;
+    playerChipMenuOpen = !playerChipMenuOpen;
+    playSound("tick");
+    renderBetCreator();
+  });
+  app.querySelector<HTMLButtonElement>("#chip-picker-dismiss")?.addEventListener("click", () => {
+    playerChipMenuOpen = false;
+    renderBetCreator();
   });
   app.querySelectorAll<HTMLButtonElement>("[data-chip]").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (!creatorDraft || creatorNameDialogOpen) return;
       setDraftChip(creatorDraft, Number(btn.dataset.chip));
+      playerChipMenuOpen = false;
       playSound("tick");
       renderBetCreator();
     });
   });
-  app.querySelector<HTMLButtonElement>("#creator-undo")?.addEventListener("click", () => {
-    if (!creatorDraft || creatorNameDialogOpen) return;
-    if (!undoDraftChip(creatorDraft)) return;
-    playSound("tick");
-    renderBetCreator();
+  const undoButton = app.querySelector<HTMLButtonElement>("#creator-undo");
+  let undoHoldTimer: number | null = null;
+  let undoHoldHandled = false;
+  const cancelUndoHold = () => {
+    if (undoHoldTimer !== null) window.clearTimeout(undoHoldTimer);
+    undoHoldTimer = null;
+  };
+  undoButton?.addEventListener("pointerdown", (event) => {
+    if (!creatorDraft || creatorNameDialogOpen || event.pointerType === "mouse" && event.button !== 0) return;
+    cancelUndoHold();
+    undoHoldHandled = false;
+    undoHoldTimer = window.setTimeout(() => {
+      undoHoldHandled = true;
+      if (!creatorDraft || !clearDraftBets(creatorDraft)) return;
+      playSound("close");
+      renderBetCreator();
+    }, 550);
   });
-  app.querySelector<HTMLButtonElement>("#creator-clear")?.addEventListener("click", () => {
-    if (!creatorDraft || creatorNameDialogOpen) return;
-    if (!clearDraftBets(creatorDraft)) return;
-    playSound("close");
+  undoButton?.addEventListener("pointerup", cancelUndoHold);
+  undoButton?.addEventListener("pointercancel", cancelUndoHold);
+  undoButton?.addEventListener("pointerleave", cancelUndoHold);
+  undoButton?.addEventListener("click", () => {
+    cancelUndoHold();
+    if (undoHoldHandled || !creatorDraft || creatorNameDialogOpen || !undoDraftChip(creatorDraft)) return;
+    playSound("tick");
     renderBetCreator();
   });
   app.querySelector<HTMLButtonElement>("#creator-save")?.addEventListener("click", () => {
@@ -2270,6 +2448,7 @@ function renderBetCreator(): void {
       return;
     }
     // Open dialog in-place (no full re-render) so typing is never wiped by DOM rebuild.
+    playerChipMenuOpen = false;
     creatorNameBuffer = creatorDraft.name ?? "";
     creatorNameDialogOpen = true;
     playSound("tick");
@@ -2293,62 +2472,35 @@ function renderBetCreator(): void {
 
 interface FeltSnapHandlers {
   onPlace: (betId: string) => boolean;
-  /** Move whole stack already on felt (Player only). */
-  onMove?: (fromBetId: string, toBetId: string) => boolean;
 }
 
-/**
- * Magnetic snap placement: pointer → nearest bet (straight/split/corner/…).
- * With onMove: grab an existing chip stack and drag it to a new snap target
- * (short click on stack still places another chip of the selected denomination).
- */
+/** Magnetic snap placement: pointer → nearest bet (straight/split/corner/…). */
 function bindFeltSnapPlacement(
   felt: HTMLElement | null,
   variant: TableVariant,
   handlers: FeltSnapHandlers,
 ): void {
   if (!felt || !felt.classList.contains("interactive")) return;
-  const { onPlace, onMove } = handlers;
+  const { onPlace } = handlers;
   const guide = felt.querySelector<HTMLElement>(".felt-snap-guide");
   let activeSnap: FeltSnapResult | null = null;
   let activeCell: HTMLElement | null = null;
   let dragging = false;
-  /** Pending place-or-move started on an existing stack. */
-  let stackFromBetId: string | null = null;
-  let stackDragActive = false;
-  let startX = 0;
-  let startY = 0;
-  let ghost: HTMLElement | null = null;
-  const DRAG_THRESHOLD_PX = 10;
+  const snapBetPockets = new Map(
+    ((variant === "european" ? europeanBets.bets : americanBets.bets) as BetDefinition[])
+      .map((bet) => [bet.id, bet.pockets] as const),
+  );
 
   const clearGuide = () => {
     activeSnap = null;
     if (activeCell) activeCell.classList.remove("snap-target");
     activeCell = null;
     felt.querySelectorAll(".snap-target").forEach((el) => el.classList.remove("snap-target"));
+    felt.querySelectorAll(".snap-pocket").forEach((el) => el.classList.remove("snap-pocket"));
     if (guide) {
       guide.hidden = true;
       guide.textContent = "";
     }
-  };
-
-  const clearGhost = () => {
-    ghost?.remove();
-    ghost = null;
-    felt.querySelectorAll(".player-stack.is-lifting").forEach((el) => el.classList.remove("is-lifting"));
-    felt.classList.remove("is-moving-stack");
-  };
-
-  const ensureGhost = (stakeLabel: string, clientX: number, clientY: number) => {
-    if (!ghost) {
-      ghost = document.createElement("span");
-      ghost.className = `felt-chip player-chip chip-ghost ${playerChipSizeClass(stakeLabel)}`;
-      ghost.textContent = stakeLabel;
-      felt.append(ghost);
-    }
-    const feltRect = felt.getBoundingClientRect();
-    ghost.style.left = `${clientX - feltRect.left}px`;
-    ghost.style.top = `${clientY - feltRect.top}px`;
   };
 
   const showGuide = (cell: HTMLElement, snap: FeltSnapResult, clientX: number, clientY: number) => {
@@ -2357,6 +2509,15 @@ function bindFeltSnapPlacement(
       activeCell?.classList.remove("snap-target");
       activeCell = cell;
       cell.classList.add("snap-target");
+    }
+    // Illuminate every pocket covered by the snapped bet (split, street,
+    // corner, six-line and zero families), not only the cell under the pointer.
+    felt.querySelectorAll(".snap-pocket").forEach((el) => el.classList.remove("snap-pocket"));
+    for (const pocket of snapBetPockets.get(snap.betId) ?? []) {
+      const selector = pocket === "0" || pocket === "00"
+        ? `.zero-zone [data-zero="${CSS.escape(pocket)}"]`
+        : `.felt-cell[data-pocket="${CSS.escape(pocket)}"]`;
+      felt.querySelector<HTMLElement>(selector)?.classList.add("snap-pocket");
     }
     // Mark matching hit marker if present (chip stack host)
     felt.querySelectorAll(".inside-hit.snap-target").forEach((el) => el.classList.remove("snap-target"));
@@ -2367,9 +2528,7 @@ function bindFeltSnapPlacement(
       const kind = t(snapKindLabelKey(snap.kind));
       const betLabel = snap.betId.replace(/_/g, " ");
       guide.hidden = false;
-      guide.textContent = stackDragActive
-        ? t("player.snap.moveGuide", { kind, bet: betLabel })
-        : t("player.snap.guide", { kind, bet: betLabel });
+      guide.textContent = t("player.snap.guide", { kind, bet: betLabel });
       const feltRect = felt.getBoundingClientRect();
       const gx = clientX - feltRect.left;
       const gy = clientY - feltRect.top;
@@ -2379,7 +2538,7 @@ function bindFeltSnapPlacement(
   };
 
   const resolveFromEvent = (event: PointerEvent | MouseEvent): { cell: HTMLElement; snap: FeltSnapResult } | null => {
-    // elementFromPoint so we resolve under a chip-ghost / stack (pointer-events none on ghost)
+    // elementFromPoint lets placement resolve through visual chip stacks.
     const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
     const target = el && felt.contains(el) ? el : (event.target as HTMLElement | null);
     if (!target) return null;
@@ -2400,9 +2559,15 @@ function bindFeltSnapPlacement(
     if (rect.width <= 0 || rect.height <= 0) return null;
     const lx = (event.clientX - rect.left) / rect.width;
     const ly = (event.clientY - rect.top) / rect.height;
+    // Portrait felt is the physical table rotated into 3 columns × 12 rows.
+    // Convert screen coordinates back to the canonical horizontal felt used by the rules engine.
+    const portraitFelt = window.matchMedia("(max-width: 720px) and (orientation: portrait)").matches
+      && felt.closest(".mobile-first-player") !== null;
+    const logicalX = portraitFelt ? ly : lx;
+    const logicalY = portraitFelt ? 1 - lx : ly;
 
     if (cell.dataset.zero === "0" || cell.dataset.zero === "00") {
-      const snap = resolveZeroSnap(variant, cell.dataset.zero as "0" | "00", lx, ly);
+      const snap = resolveZeroSnap(variant, cell.dataset.zero as "0" | "00", logicalX, logicalY);
       return { cell, snap };
     }
     const col = Number(cell.dataset.col);
@@ -2413,31 +2578,11 @@ function bindFeltSnapPlacement(
       if (!betId) return null;
       return { cell, snap: { betId, kind: "straight", anchorX: 0.5, anchorY: 0.5 } };
     }
-    return { cell, snap: resolveNumberCellSnap(col, row, lx, ly, variant) };
-  };
-
-  const betIdFromChipTarget = (target: HTMLElement | null): string | null => {
-    if (!target || !onMove) return null;
-    const stack = target.closest<HTMLElement>(".player-stack");
-    if (stack && felt.contains(stack)) {
-      return stack.closest<HTMLElement>("[data-bet]")?.dataset.bet || null;
-    }
-    // inside-hit hosts re-enable pointer-events when they hold a stack
-    const hit = target.closest<HTMLElement>(".inside-hit[data-bet]");
-    if (hit && felt.contains(hit) && hit.querySelector(".player-stack")) {
-      return hit.dataset.bet || null;
-    }
-    return null;
+    return { cell, snap: resolveNumberCellSnap(col, row, logicalX, logicalY, variant) };
   };
 
   const onPointerMove = (event: PointerEvent) => {
     if (!dragging && event.pointerType === "mouse" && event.buttons === 0) {
-      // Hover preview (desktop) — skip while over a draggable stack (grab affordance)
-      const overStack = betIdFromChipTarget(event.target as HTMLElement);
-      if (overStack) {
-        clearGuide();
-        return;
-      }
       const resolved = resolveFromEvent(event);
       if (!resolved) {
         clearGuide();
@@ -2449,25 +2594,6 @@ function bindFeltSnapPlacement(
     if (!dragging) return;
     event.preventDefault();
 
-    // Promote stack click → move once past threshold
-    if (stackFromBetId && !stackDragActive) {
-      const dist = Math.hypot(event.clientX - startX, event.clientY - startY);
-      if (dist >= DRAG_THRESHOLD_PX) {
-        stackDragActive = true;
-        felt.classList.add("is-moving-stack");
-        const sourceStack = felt.querySelector<HTMLElement>(
-          `[data-bet="${CSS.escape(stackFromBetId)}"] .player-stack`,
-        );
-        sourceStack?.classList.add("is-lifting");
-        const stakeLabel = sourceStack?.querySelector(".player-chip")?.textContent?.trim() || "•";
-        ensureGhost(stakeLabel, event.clientX, event.clientY);
-      }
-    }
-
-    if (stackDragActive && ghost) {
-      ensureGhost(ghost.textContent || "•", event.clientX, event.clientY);
-    }
-
     const resolved = resolveFromEvent(event);
     if (!resolved) {
       clearGuide();
@@ -2478,15 +2604,8 @@ function bindFeltSnapPlacement(
 
   const onDown = (event: PointerEvent) => {
     if (event.button !== 0 && event.pointerType === "mouse") return;
-    const fromStack = betIdFromChipTarget(event.target as HTMLElement);
-    stackFromBetId = fromStack;
-    stackDragActive = false;
-    startX = event.clientX;
-    startY = event.clientY;
-
-    // Place path: need a snap target under pointer (stack click still ok — places on that bet)
     const resolved = resolveFromEvent(event);
-    if (!resolved && !fromStack) return;
+    if (!resolved) return;
 
     dragging = true;
     felt.classList.add("is-snapping");
@@ -2509,31 +2628,14 @@ function bindFeltSnapPlacement(
     }
 
     const resolved = resolveFromEvent(event) ?? (activeSnap && activeCell ? { cell: activeCell, snap: activeSnap } : null);
-    const fromId = stackFromBetId;
-    const didMoveDrag = stackDragActive;
-    clearGhost();
     clearGuide();
-    stackFromBetId = null;
-    stackDragActive = false;
-
-    if (didMoveDrag && fromId && onMove) {
-      const toId = resolved?.snap.betId;
-      if (!toId || toId === fromId) return; // drop on same / invalid → cancel
-      onMove(fromId, toId);
-      return;
-    }
-
-    // Short click on stack (or empty felt place): add selected chip
     if (!resolved?.snap.betId) return;
     onPlace(resolved.snap.betId);
   };
 
   const onCancel = () => {
     dragging = false;
-    stackFromBetId = null;
-    stackDragActive = false;
     felt.classList.remove("is-snapping");
-    clearGhost();
     clearGuide();
   };
 
@@ -2543,6 +2645,14 @@ function bindFeltSnapPlacement(
   felt.addEventListener("pointercancel", onCancel);
   felt.addEventListener("pointerleave", () => {
     if (!dragging) clearGuide();
+  });
+  felt.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-bet]");
+    const betId = target?.dataset.bet;
+    if (!betId || !felt.contains(target)) return;
+    event.preventDefault();
+    onPlace(betId);
   });
 }
 
@@ -2678,9 +2788,7 @@ function buildPlayerOutPanel(): string {
     <section>
       <small>${t("player.badge")}</small>
       <h2>${t("player.outTitle")}</h2>
-      <p>${t("player.outHelp")}</p>
       <div class="game-over-actions">
-        <button type="button" id="player-out-dealer">${t("player.outDealer")}</button>
         <button type="button" id="player-out-menu">${t("player.outMenu")}</button>
       </div>
     </section>
@@ -2704,12 +2812,19 @@ function feltDisplayBets(state: PlayerGameState): PlacedBet[] {
   return [];
 }
 
-function playerChipMap(bets: PlacedBet[]): Map<string, number> {
-  const map = new Map<string, number>();
+interface FeltChipMap {
+  stakes: Map<string, number>;
+  denominations: Map<string, number>;
+}
+
+function playerChipMap(bets: PlacedBet[], actions: PlayerChipAction[]): FeltChipMap {
+  const stakes = new Map<string, number>();
   for (const bet of bets) {
-    map.set(bet.betId, (map.get(bet.betId) ?? 0) + bet.stake);
+    stakes.set(bet.betId, (stakes.get(bet.betId) ?? 0) + bet.stake);
   }
-  return map;
+  const denominations = new Map<string, number>();
+  for (const action of actions) denominations.set(action.betId, action.denomination);
+  return { stakes, denominations };
 }
 
 /** Digit / label length → chip shell class (circle → pill as totals grow). */
@@ -2721,12 +2836,14 @@ function playerChipSizeClass(label: string): string {
   return "chip-sz-xl";
 }
 
-function playerChipAt(betId: string, chips: Map<string, number>): string {
-  const stake = chips.get(betId) ?? 0;
+function playerChipAt(betId: string, chips: FeltChipMap): string {
+  const stake = chips.stakes.get(betId) ?? 0;
   if (stake <= 0) return "";
   const label = String(stake);
   const size = playerChipSizeClass(label);
-  return `<span class="chip-stack player-stack" data-stack-bet="${betId}" title="${stake}"><i class="felt-chip player-chip ${size}" title="${stake}">${label}</i></span>`;
+  const denomination = chips.denominations.get(betId);
+  const denominationClass = denomination ? ` chip-${denomination}` : "";
+  return `<span class="chip-stack player-stack" data-stack-bet="${betId}" title="${stake}"><i class="felt-chip player-chip ${size}${denominationClass}" title="${stake}">${label}</i></span>`;
 }
 
 /** Roulette pocket at player felt grid (col 0..11 left→right, row 0..2 top→bottom). */
@@ -2766,7 +2883,7 @@ function insideHit(
   betId: string,
   className: string,
   clickAttr: string,
-  chips: Map<string, number>,
+  chips: FeltChipMap,
   title: string,
   options?: { showChip?: boolean },
 ): string {
@@ -2775,8 +2892,8 @@ function insideHit(
   return `<i class="inside-hit ${className}" ${clickAttr}="${betId}" role="button" title="${title}" aria-label="${title}">${chip}</i>`;
 }
 
-function buildPlayerFelt(variant: TableVariant, result: string | null, bets: PlacedBet[], interactive: boolean): string {
-  const chips = playerChipMap(bets);
+function buildPlayerFelt(variant: TableVariant, result: string | null, bets: PlacedBet[], interactive: boolean, actions: PlayerChipAction[] = []): string {
+  const chips = playerChipMap(bets, actions);
   const click = interactive ? "data-bet" : "data-preview";
   // Inside-hit markers remain for chip stacks; pointer-events off in snap mode — placement uses magnetic resolve.
   const numberCells: string[] = [];
@@ -2803,7 +2920,7 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
         }
       }
       numberCells.push(
-        `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}" ${click}="${betId}" data-col="${col}" data-row="${row}" data-pocket="${number}" role="button" tabindex="0"><span>${number}</span>${playerChipAt(betId, chips)}${hits.join("")}</b>`,
+        `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}" style="--mobile-row:${col + 1};--mobile-col:${3 - row}" ${click}="${betId}" data-col="${col}" data-row="${row}" data-pocket="${number}" role="button" tabindex="0"><span>${number}</span>${playerChipAt(betId, chips)}${hits.join("")}</b>`,
       );
     }
   }
@@ -2843,10 +2960,10 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
     return "";
   };
   const zeroCells = variant === "american"
-    ? `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b><b class="green ${result === "00" ? "hit" : ""}" ${click}="straight_00" data-zero="00" role="button"><span>00</span>${playerChipAt("straight_00", chips)}${zeroHits("00")}</b>`
-    : `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b>`;
+    ? `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b><b class="green ${result === "00" ? "hit" : ""}" ${click}="straight_00" data-zero="00" role="button" tabindex="0"><span>00</span>${playerChipAt("straight_00", chips)}${zeroHits("00")}</b>`
+    : `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b>`;
   const outside = (id: string, label: string, extraClass = "") =>
-    `<span class="${extraClass}" ${click}="${id}" role="button">${label}${playerChipAt(id, chips)}</span>`;
+    `<span class="${extraClass}" ${click}="${id}" role="button" tabindex="0">${label}${playerChipAt(id, chips)}</span>`;
   return `<div class="zero-zone">${zeroCells}</div>
     <div class="numbers player-numbers">${numberCells.join("")}</div>
     <div class="column-pays">${outside("column3", "2 TO 1")}${outside("column2", "2 TO 1")}${outside("column1", "2 TO 1")}</div>
@@ -2999,6 +3116,22 @@ document.addEventListener("keydown", (event) => {
   if (typing) return;
   if (creatorNameDialogOpen) return;
   if (event.code === "Escape") {
+    if (soundPanelOpen && playerGame) {
+      soundPanelOpen = false;
+      renderPlayerTable();
+      return;
+    }
+    if (playerChipMenuOpen && playerGame) {
+      playerChipMenuOpen = false;
+      renderPlayerTable();
+      return;
+    }
+    if (playerMenuOpen && playerGame) {
+      playerMenuOpen = false;
+      playSound("tick");
+      renderPlayerTable();
+      return;
+    }
     if (statsPanelOpen && playerGame) {
       statsPanelOpen = false;
       playSound("tick");

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createNpcBehavior, reduceNpcBehavior } from "../npc/behavior.ts";
 import { buildHuntBoard, hashSeed, huntSeedKey } from "../npc/huntBoard.ts";
 import { clipForBehavior, renderSeatCard, staggerDelayMs } from "../npc/presenter.ts";
-import { commitDealerRun, createEmptyProfile, normalizeUserProfile, STARTER_SCORE } from "../persist/profile.ts";
+import { commitDealerRun, createEmptyProfile, normalizeUserProfile, refillEmptyProfile, STARTER_SCORE } from "../persist/profile.ts";
 import {
   closeBets, createGame, finishRound, getActiveSeats, getForcedWinningNumber, markSpinning,
   openBetting, paySeat, payoutTimeout, resolveSpin, restoreFromSnapshot, snapshot,
@@ -12,7 +12,7 @@ import {
   finishPlayerRound, getPlayerModeConfig, leaveTable, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip,
   applySavedBets, clearDraftBets, createBetCreatorDraft, draftTotal, placeDraftChip, movePlayerStake,
   playerProfit, rebetLast, requestPlayerSpin, restorePlayerFromSnapshot, setSelectedChip, settlePlayerRound,
-  snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip,
+  snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip, undoDraftChip,
 } from "./player.ts";
 import {
   expandRecipe, getNeighborsPackage, getSectorPackage, neighborPockets, packageCost, SECTOR_POCKETS,
@@ -267,10 +267,10 @@ test("Dealer wallet commit is 1:1 and idempotent; Autoplay earns zero", () => {
   assert.equal(commitDealerRun(first.profile, autoplay).earnedUnits, 0);
 });
 
-test("new and legacy-zero profiles receive 1000 starter score exactly once", () => {
+test("new and legacy-zero profiles receive 2000000 starter score exactly once", () => {
   const fresh = createEmptyProfile();
-  assert.equal(STARTER_SCORE, 1000);
-  assert.equal(fresh.walletUnits, 1000);
+  assert.equal(STARTER_SCORE, 2_000_000);
+  assert.equal(fresh.walletUnits, 2_000_000);
   assert.equal(fresh.starterScoreGranted, true);
 
   const migrated = normalizeUserProfile({
@@ -279,10 +279,17 @@ test("new and legacy-zero profiles receive 1000 starter score exactly once", () 
     committedDealerRuns: [],
     bestServiceScore: 0,
   });
-  assert.equal(migrated.walletUnits, 1000, "legacy zero profile gets the onboarding grant");
+  assert.equal(migrated.walletUnits, 2_000_000, "legacy zero profile gets the onboarding grant");
 
   const spent = normalizeUserProfile({ ...fresh, walletUnits: 0 });
   assert.equal(spent.walletUnits, 0, "the grant is not repeated after losing the starter score");
+});
+
+test("starting again after reaching zero refills the configured starter score", () => {
+  const depleted = { ...createEmptyProfile(), walletUnits: 0 };
+  assert.equal(refillEmptyProfile(depleted).walletUnits, STARTER_SCORE);
+  const active = { ...depleted, walletUnits: 25 };
+  assert.equal(refillEmptyProfile(active), active, "positive balances are never replaced");
 });
 
 test("snapshot v4 persists active crowd, score and mid-round payout fields", () => {
@@ -352,7 +359,7 @@ test("Player gate: minBuyIn 5 and single score pool (no debit on enter)", () => 
   assert.ok(opened);
   assert.equal(opened!.tableScore, 80);
   assert.equal(opened!.profile.walletUnits, 80, "score is not zeroed on enter");
-  assert.equal(openPlayerBankroll(createEmptyProfile())?.tableScore, 1000);
+  assert.equal(openPlayerBankroll(createEmptyProfile())?.tableScore, 2_000_000);
   // red + even on 14 both win (1:1 each)
   const win = computePlayerPayout("european", [
     { betId: "red", stake: 10 },
@@ -683,6 +690,12 @@ test("Felt magnetic snap: cell edges resolve to split/corner/street/first-four",
   const se = resolveNumberCellSnap(0, 1, 0.98, 0.98);
   assert.equal(se.kind, "corner");
   assert.equal(se.betId, "corner_1_2_4_5");
+
+  // Finger-friendly magnetic area: users need not hit the exact intersection.
+  assert.equal(resolveNumberCellSnap(5, 1, 0.69, 0.69).kind, "corner");
+  assert.equal(resolveNumberCellSnap(5, 1, 0.31, 0.31).kind, "corner");
+  assert.equal(resolveNumberCellSnap(5, 1, 0.69, 0.31).kind, "corner");
+  assert.equal(resolveNumberCellSnap(5, 1, 0.31, 0.69).kind, "corner");
   // Bottom of street 1 (col 0 row 2 = number 1)
   const street = resolveNumberCellSnap(0, 2, 0.5, 0.98);
   assert.equal(street.kind, "street");
@@ -730,6 +743,27 @@ test("Player Bet Creator draft does not spend score; apply strategy places on ta
 
   clearDraftBets(draft);
   assert.equal(draftTotal(draft), 0);
+});
+
+test("editing a saved Bet Creator strategy reconstructs undoable chip history", () => {
+  const draft = createBetCreatorDraft("european", {
+    editingId: "saved-layout",
+    bets: [
+      { betId: "red", stake: 15 },
+      { betId: "straight_17", stake: 2 },
+    ],
+    selectedChip: 10,
+  });
+
+  assert.deepEqual(draft.chipHistory, [
+    { betId: "red", denomination: 5 },
+    { betId: "red", denomination: 10 },
+    { betId: "straight_17", denomination: 2 },
+  ]);
+  assert.equal(undoDraftChip(draft), true);
+  assert.equal(draft.bets.some((bet) => bet.betId === "straight_17"), false);
+  assert.equal(undoDraftChip(draft), true);
+  assert.equal(draft.bets.find((bet) => bet.betId === "red")?.stake, 5);
 });
 
 test("Racetrack call packages expand to catalog bets with classic chip counts", () => {

@@ -2,6 +2,27 @@ export type SoundId = "bet" | "close" | "spin" | "tick" | "settle" | "pay" | "er
 
 /** Looping BGM beds / modes (files in `public/audio/`). */
 export type MusicTrackId = "menu" | "dealer" | "player";
+export type PlayerMusicTrackId =
+  | "bossa-nova-jazz"
+  | "bossa-nova-lounge"
+  | "bossa-nova-restaurant"
+  | "cooking-music"
+  | "elevator-jazz"
+  | "hotel-cafe-restaurant";
+export type PlayerMusicMode = "random" | PlayerMusicTrackId;
+
+export const PLAYER_MUSIC_TRACKS: readonly { id: PlayerMusicTrackId; label: string; url: string }[] = [
+  { id: "bossa-nova-jazz", label: "Bossa Nova Jazz", url: "./audio/andriih-bossa-nova-bossa-nova-jazz-575813.mp3" },
+  { id: "bossa-nova-lounge", label: "Bossa Nova Lounge", url: "./audio/andriih-bossa-nova-lounge-music-571055.mp3" },
+  { id: "bossa-nova-restaurant", label: "Bossa Nova Restaurant", url: "./audio/andriih-bossa-nova-restaurant-music-572268.mp3" },
+  { id: "cooking-music", label: "Cooking Music", url: "./audio/andriih-cooking-cooking-music-575825.mp3" },
+  { id: "elevator-jazz", label: "Elevator Jazz", url: "./audio/andriih-elevator-elevator-jazz-579808.mp3" },
+  { id: "hotel-cafe-restaurant", label: "Hotel Cafe Restaurant", url: "./audio/andriih-hotel-cafe-restaurant-music-579812.mp3" },
+];
+
+const PLAYER_MUSIC_URLS = Object.fromEntries(
+  PLAYER_MUSIC_TRACKS.map(({ id, url }) => [id, url]),
+) as Record<PlayerMusicTrackId, string>;
 
 /** Relative paths — required for itch.io / non-root hosting. */
 const MUSIC_URLS: Record<"menu" | "dealer", string> = {
@@ -13,15 +34,6 @@ const MUSIC_URLS: Record<"menu" | "dealer", string> = {
  * Player mode: random playlist (Andrii H / Pixabay).
  * Each track plays once, then a short gap, then another track ≠ previous.
  */
-const PLAYER_PLAYLIST: readonly string[] = [
-  "./audio/andriih-bossa-nova-bossa-nova-jazz-575813.mp3",
-  "./audio/andriih-bossa-nova-lounge-music-571055.mp3",
-  "./audio/andriih-bossa-nova-restaurant-music-572268.mp3",
-  "./audio/andriih-cooking-cooking-music-575825.mp3",
-  "./audio/andriih-elevator-elevator-jazz-579808.mp3",
-  "./audio/andriih-hotel-cafe-restaurant-music-579812.mp3",
-];
-
 /** Silence between player tracks (ms). */
 const PLAYER_GAP_MS = 2000;
 
@@ -33,6 +45,7 @@ let muted = false;
 /** Linear 0–1 user music gain (before mute). */
 let musicVolume = DEFAULT_MUSIC_VOLUME;
 let desiredMusic: MusicTrackId | null = null;
+let playerMusicMode: PlayerMusicMode = "random";
 let musicEl: HTMLAudioElement | null = null;
 let unlockBound = false;
 /** Last player playlist URL (avoid immediate repeat). */
@@ -79,6 +92,19 @@ export function setMusic(track: MusicTrackId | null): void {
 
 export function getMusic(): MusicTrackId | null {
   return desiredMusic;
+}
+
+export function setPlayerMusicMode(mode: PlayerMusicMode): void {
+  if (playerMusicMode === mode) return;
+  playerMusicMode = mode;
+  if (desiredMusic === "player") {
+    disposeMusicElement();
+    applyMusic();
+  }
+}
+
+export function getPlayerMusicMode(): PlayerMusicMode {
+  return playerMusicMode;
 }
 
 export function playSound(id: SoundId): void {
@@ -141,7 +167,7 @@ function disposeMusicElement(): void {
 }
 
 function pickNextPlayerUrl(): string {
-  const list = PLAYER_PLAYLIST;
+  const list = Object.values(PLAYER_MUSIC_URLS);
   if (list.length === 0) return "";
   if (list.length === 1) return list[0]!;
   let next = list[Math.floor(Math.random() * list.length)]!;
@@ -163,7 +189,7 @@ function scheduleNextPlayerTrack(): void {
   }, PLAYER_GAP_MS);
 }
 
-function startPlayerTrack(url: string): void {
+function startPlayerTrack(url: string, loop = false): void {
   if (!url || typeof Audio === "undefined") return;
   detachPlayerEnded();
   clearPlayerGap();
@@ -173,16 +199,18 @@ function startPlayerTrack(url: string): void {
     musicEl.load();
   }
   musicEl = new Audio(url);
-  musicEl.loop = false;
+  musicEl.loop = loop;
   musicEl.preload = "auto";
   musicEl.dataset.track = "player";
   musicEl.dataset.url = url;
   playerLastUrl = url;
-  playerEndedHandler = () => {
-    if (desiredMusic !== "player") return;
-    scheduleNextPlayerTrack();
-  };
-  musicEl.addEventListener("ended", playerEndedHandler);
+  if (!loop) {
+    playerEndedHandler = () => {
+      if (desiredMusic !== "player") return;
+      scheduleNextPlayerTrack();
+    };
+    musicEl.addEventListener("ended", playerEndedHandler);
+  }
   musicEl.volume = effectiveMusicVolume();
   void musicEl.play().catch(() => {
     /* Autoplay blocked until unlock gesture. */
@@ -203,15 +231,16 @@ function applyMusic(): void {
 
   // Player: random playlist, no self-loop; gap then next ≠ previous.
   if (desiredMusic === "player") {
-    if (musicEl?.dataset.track === "player" && musicEl.getAttribute("src")) {
-      musicEl.loop = false;
+    const fixedUrl = playerMusicMode === "random" ? null : PLAYER_MUSIC_URLS[playerMusicMode];
+    if (musicEl?.dataset.track === "player" && musicEl.getAttribute("src") && (!fixedUrl || musicEl.dataset.url === fixedUrl)) {
+      musicEl.loop = fixedUrl !== null;
       musicEl.volume = effectiveMusicVolume();
       void musicEl.play().catch(() => {
         /* wait for unlock */
       });
       return;
     }
-    startPlayerTrack(pickNextPlayerUrl());
+    startPlayerTrack(fixedUrl ?? pickNextPlayerUrl(), fixedUrl !== null);
     return;
   }
 

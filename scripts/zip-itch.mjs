@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 
 const root = cwd();
 const dist = path.join(root, "dist");
-const out = path.join(root, "bitcroupier-itch.zip");
+const out = path.join(root, "mobilespinroulette-itch.zip");
 
 if (!existsSync(path.join(dist, "index.html"))) {
   console.error("Missing dist/index.html — run npm run build first");

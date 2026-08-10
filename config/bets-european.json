@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "$schemaComment": "BitCroupier — European full bet catalog (B1). Docs: config/README.md. amountDue on win = stake * multiplier (winnings only, B2).",
+  "$schemaComment": "MobileSpinRoulette — European full bet catalog (B1). Docs: config/README.md. amountDue on win = stake * multiplier (winnings only, B2).",
   "tableVariant": "european",
   "accounting": {
     "payWinningsOnly": true,

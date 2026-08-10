@@ -1,6 +1,7 @@
 import type { Locale } from "./core/types.ts";
 import { extraCatalogs } from "./i18n/extraCatalogs.ts";
 import { isLocale, localeMeta, LOCALE_IDS, LOCALE_META, numberFormatTag } from "./i18n/localeMeta.ts";
+import { LEGACY_APP_PREFIX, readMigratedStorage } from "./persist/storageMigration.ts";
 
 export { isLocale, localeMeta, LOCALE_IDS, LOCALE_META, numberFormatTag };
 
@@ -18,7 +19,11 @@ const en: Record<string, string> = {
   "language.korean": "한국어",
   "language.japanese": "日本語",
   "language.chinese": "中文",
-  "menu.tagline": "Roulette from both sides of the table",
+  "menu.tagline": "Free roulette optimized for your mobile device",
+  "menu.tableTypes": "EUROPEAN & AMERICAN TABLES",
+  "menu.titlePrimary": "MOBILE",
+  "menu.titleAccent": "SPIN ROULETTE",
+  "menu.start": "START",
   "menu.dealer": "DEALER",
   "menu.dealerHelp": "Spot every winner and click them before time runs out.",
   "menu.player": "PLAYER",
@@ -36,8 +41,7 @@ const en: Record<string, string> = {
   "menu.settings": "Settings",
   "menu.settingsAria": "Open settings",
   "menu.footer": "Entertainment only · No real money",
-  "menu.creditVibe": "A vibe-coded game by",
-  "menu.creditContact": "Say hi on X",
+  "menu.sourceCode": "Get the open-source code on GitHub",
   "settings.title": "SETTINGS",
   "settings.back": "← Back",
   "settings.sectionPlay": "Table & play",
@@ -70,6 +74,11 @@ const en: Record<string, string> = {
   "settings.soundHelp": "Turn game audio on or off. Shortcut in play: M.",
   "settings.musicVolume": "Music volume",
   "settings.musicVolumeHelp": "Background music level. Sound effects are not affected.",
+  "soundPanel.title": "Sound & music",
+  "soundPanel.random": "Random",
+  "soundPanel.randomHelp": "Play the available tracks in random order",
+  "soundPanel.track": "Loop track",
+  "soundPanel.close": "Close sound settings",
   "settings.languageHelp": "Language of menus and game text.",
   "settings.privacyNote": "Everything stays on this device — nothing is sent to a server. The game autosaves locally. Export / Import is the full backup (score, settings, strategies, session).",
   "settings.export": "Export all data",
@@ -83,6 +92,7 @@ const en: Record<string, string> = {
   "hud.level": "LEVEL",
   "hud.energy": "ENERGY",
   "hud.score": "SERVICE SCORE",
+  "hud.combo": "COMBO",
   "hud.round": "ROUND",
   "hud.save": "SAVE",
   "hud.exit": "END SHIFT",
@@ -122,13 +132,13 @@ const en: Record<string, string> = {
   "table.winningNumber": "WINNING NUMBER",
   "table.autoplayFooter": "HOW TO PLAY · PRACTICE SCORE · ACCUMULATED SCORE +0",
   "table.autosave": "LOCAL AUTOSAVE ACTIVE",
-  "table.houseFloor": "BITCROUPIER · HOUSE FLOOR 01",
+  "table.houseFloor": "MOBILESPINROULETTE · HOUSE FLOOR 01",
   "howto.badge": "HOW TO PLAY",
   "howto.step": "STEP {n}/{total}",
   "howto.next": "NEXT →",
   "howto.watching": "Watch the table…",
   "howto.demoPaying": "Watch the demo pay winners…",
-  "howto.goal.title": "What is BitCroupier?",
+  "howto.goal.title": "What is MobileSpinRoulette?",
   "howto.goal.body": "You are the croupier. The table runs itself — your skill is spotting winners and paying them fast. Your Service Score from a real shift adds to Accumulated Score. Read each tip, then press NEXT.",
   "howto.betting.title": "Customers bet alone",
   "howto.betting.body": "NPC just placed bets on the felt. You never place bets for them. Look at the table, then press NEXT to lock bets.",
@@ -241,7 +251,8 @@ const en: Record<string, string> = {
   "player.score": "SCORE",
   "player.chipTray": "CHIPS",
   "player.undo": "UNDO",
-  "player.clear": "CLEAR BETS",
+  "player.clear": "REMOVE",
+  "player.undoClearHelp": "Tap to undo the last action; hold to remove all chips",
   "player.rebet": "REBET",
   "player.rebetHelp": "Replace open bets with your last hand once",
   "player.double": "DOUBLE",
@@ -258,7 +269,7 @@ const en: Record<string, string> = {
   "player.free": "FREE",
   "player.badge": "PLAYER",
   "player.role": "THE CLIENT",
-  "player.placeHint": "Tap to place · drag a stack to move it (snap: straight · split · corner · street…)",
+  "player.placeHint": "Tap to place (snap: straight · split · corner · street…)",
   "player.snap.straight": "Straight",
   "player.snap.split": "Split",
   "player.snap.corner": "Corner",
@@ -273,7 +284,6 @@ const en: Record<string, string> = {
   "player.stats": "Stats",
   "player.statsAria": "Session statistics and bankroll chart",
   "player.statsTitle": "STATISTICS",
-  "player.statsHelp": "This table session only · score = points",
   "player.statsProfit": "Profit",
   "player.statsWins": "Wins",
   "player.statsLosses": "Losses",
@@ -306,6 +316,7 @@ const en: Record<string, string> = {
   "player.creatorNameHelp": "Choose a short name so you can find it later.",
   "player.creatorTotal": "Layout total",
   "player.creatorSave": "SAVE STRATEGY",
+  "player.creatorSaveShort": "SAVE",
   "player.creatorConfirm": "Confirm",
   "player.creatorCancel": "Cancel",
   "player.creatorBack": "← Back to table",
@@ -394,7 +405,11 @@ const it: Record<string, string> = {
   ...en,
   "language.title": "Scegli la lingua",
   "language.help": "Potrai cambiarla in seguito dal menu principale.",
-  "menu.tagline": "La roulette da entrambi i lati del tavolo",
+  "menu.tagline": "Roulette gratis ottimizzata per il tuo dispositivo mobile",
+  "menu.tableTypes": "TAVOLI EUROPEI E AMERICANI",
+  "menu.titlePrimary": "ROULETTE",
+  "menu.titleAccent": "MOBILE",
+  "menu.start": "AVVIA",
   "menu.dealerHelp": "Trova i vincitori e cliccali prima che scada il tempo.",
   "menu.playerHelp": "Gioca alla roulette classica col tuo punteggio. Guadagnane altro lavorando come Dealer.",
   "menu.playerLocked": "Lavora come Dealer per guadagnare almeno {min} punti.",
@@ -410,8 +425,7 @@ const it: Record<string, string> = {
   "menu.settings": "Impostazioni",
   "menu.settingsAria": "Apri impostazioni",
   "menu.footer": "Solo intrattenimento · Nessun denaro reale",
-  "menu.creditVibe": "Un gioco in vibe coding di",
-  "menu.creditContact": "Scrivimi su X",
+  "menu.sourceCode": "Codice open source su GitHub",
   "settings.title": "IMPOSTAZIONI",
   "settings.back": "← Indietro",
   "settings.sectionPlay": "Tavolo e gioco",
@@ -444,6 +458,11 @@ const it: Record<string, string> = {
   "settings.soundHelp": "Attiva o disattiva l’audio di gioco. Scorciatoia in partita: M.",
   "settings.musicVolume": "Volume musica",
   "settings.musicVolumeHelp": "Volume della musica di sottofondo. Gli effetti sonori non cambiano.",
+  "soundPanel.title": "Audio e musica",
+  "soundPanel.random": "Casuale",
+  "soundPanel.randomHelp": "Riproduci le tracce disponibili in ordine casuale",
+  "soundPanel.track": "Traccia in loop",
+  "soundPanel.close": "Chiudi configurazione audio",
   "settings.languageHelp": "Lingua di menu e testi di gioco.",
   "settings.privacyNote": "Tutto resta su questo dispositivo — nulla viene inviato a un server. La partita si salva da sola in locale. Esporta / Importa è il backup completo (punteggio, impostazioni, strategie, sessione).",
   "settings.export": "Esporta tutti i dati",
@@ -456,6 +475,7 @@ const it: Record<string, string> = {
   "settings.resetDone": "Dati locali cancellati.",
   "hud.energy": "ENERGIA",
   "hud.score": "PUNTI SERVIZIO",
+  "hud.combo": "COMBO",
   "hud.round": "MANO",
   "hud.save": "SALVA",
   "hud.exit": "FINE TURNO",
@@ -500,7 +520,7 @@ const it: Record<string, string> = {
   "howto.next": "AVANTI →",
   "howto.watching": "Guarda il tavolo…",
   "howto.demoPaying": "Guarda la demo saldare i vincitori…",
-  "howto.goal.title": "Cos'è BitCroupier?",
+  "howto.goal.title": "Cos'è MobileSpinRoulette?",
   "howto.goal.body": "Sei il croupier. Il tavolo gira da solo: la skill è trovare i vincitori e saldarli in tempo. I Punti Servizio di un turno vero si sommano al Punteggio accumulato. Leggi ogni consiglio, poi premi AVANTI.",
   "howto.betting.title": "I clienti puntano da soli",
   "howto.betting.body": "Gli NPC hanno appena piazzato le puntate sul tavolo. Tu non piazzi le loro scommesse. Guarda il tavolo, poi premi AVANTI per chiudere le puntate.",
@@ -608,7 +628,8 @@ const it: Record<string, string> = {
   "player.score": "PUNTEGGIO",
   "player.chipTray": "CHIP",
   "player.undo": "ANNULLA",
-  "player.clear": "SVUOTA PUNTATE",
+  "player.clear": "RIMUOVI",
+  "player.undoClearHelp": "Premi per annullare l'ultima azione; tieni premuto per rimuovere tutte le chip",
   "player.rebet": "RIPETI",
   "player.rebetHelp": "Sostituisce le puntate aperte con l'ultima mano (una volta)",
   "player.double": "RADDOPPIA",
@@ -625,7 +646,7 @@ const it: Record<string, string> = {
   "player.free": "LIBERI",
   "player.badge": "PLAYER",
   "player.role": "IL CLIENTE",
-  "player.placeHint": "Tocca per piazzare · trascina uno stack per spostarlo (snap: plein · cheval · carré · …)",
+  "player.placeHint": "Tocca per piazzare (snap: plein · cheval · carré · …)",
   "player.snap.straight": "Plein",
   "player.snap.split": "Cheval",
   "player.snap.corner": "Carré",
@@ -640,7 +661,6 @@ const it: Record<string, string> = {
   "player.stats": "Statistiche",
   "player.statsAria": "Statistiche di sessione e grafico punteggio",
   "player.statsTitle": "STATISTICHE",
-  "player.statsHelp": "Solo questa sessione al tavolo · punteggio = punti",
   "player.statsProfit": "Profitto",
   "player.statsWins": "Vinte",
   "player.statsLosses": "Perse",
@@ -673,6 +693,7 @@ const it: Record<string, string> = {
   "player.creatorNameHelp": "Scegli un nome breve per ritrovarla dopo.",
   "player.creatorTotal": "Totale layout",
   "player.creatorSave": "SALVA STRATEGIA",
+  "player.creatorSaveShort": "SALVA",
   "player.creatorConfirm": "Conferma",
   "player.creatorCancel": "Annulla",
   "player.creatorBack": "← Torna al tavolo",
@@ -773,7 +794,7 @@ const catalogs: Record<Locale, Record<string, string>> = {
   zh: buildCatalog(extraCatalogs.zh),
 };
 
-export const LOCALE_STORAGE_KEY = "bitcroupier.locale.v1";
+export const LOCALE_STORAGE_KEY = "mobilespinroulette.locale.v1";
 
 export function translate(locale: Locale, key: string, variables: Variables = {}): string {
   const template = catalogs[locale]?.[key] ?? en[key] ?? key;
@@ -782,7 +803,7 @@ export function translate(locale: Locale, key: string, variables: Variables = {}
 
 export function readStoredLocale(): Locale | null {
   if (typeof localStorage === "undefined") return null;
-  const value = localStorage.getItem(LOCALE_STORAGE_KEY);
+  const value = readMigratedStorage(LOCALE_STORAGE_KEY, [`${LEGACY_APP_PREFIX}.locale.v1`]);
   return isLocale(value) ? value : null;
 }
 

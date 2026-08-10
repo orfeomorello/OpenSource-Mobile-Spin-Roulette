@@ -1,5 +1,6 @@
 import type { GameMode } from "../core/types.ts";
 import balanceConfig from "../../config/game-balance.json" with { type: "json" };
+import { LEGACY_APP_PREFIX, readMigratedStorage } from "./storageMigration.ts";
 
 export const STARTER_SCORE = Math.max(0, Math.floor(balanceConfig.playerMode.starterScore));
 
@@ -35,7 +36,7 @@ export function createEmptyProfile(): UserProfile {
   };
 }
 
-export const PROFILE_STORAGE_KEY = "bitcroupier.profile.v1";
+export const PROFILE_STORAGE_KEY = "mobilespinroulette.profile.v1";
 
 export function normalizeUserProfile(raw: unknown): UserProfile {
   const value = raw as {
@@ -67,7 +68,11 @@ export function normalizeUserProfile(raw: unknown): UserProfile {
 export function loadUserProfile(): UserProfile {
   if (typeof localStorage === "undefined") return createEmptyProfile();
   try {
-    const profile = normalizeUserProfile(JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) ?? "null"));
+    const stored = readMigratedStorage(PROFILE_STORAGE_KEY, [
+      `open-source-mobile-${"spin-roulette"}.profile.v1`,
+      `${LEGACY_APP_PREFIX}.profile.v1`,
+    ]);
+    const profile = normalizeUserProfile(JSON.parse(stored ?? "null"));
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
     return profile;
   } catch {
@@ -77,6 +82,12 @@ export function loadUserProfile(): UserProfile {
 
 export function saveUserProfile(profile: UserProfile): void {
   if (typeof localStorage !== "undefined") localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+}
+
+/** Start-button safety net: a fully depleted score begins a fresh starter bankroll. */
+export function refillEmptyProfile(profile: UserProfile): UserProfile {
+  if (profile.walletUnits > 0) return profile;
+  return { ...profile, walletUnits: STARTER_SCORE };
 }
 
 export function commitDealerRun(profile: UserProfile, run: DealerRunCredit, unitsPerPoint = 1): WalletCommitResult {

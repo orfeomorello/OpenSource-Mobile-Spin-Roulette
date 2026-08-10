@@ -241,22 +241,51 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   ring(context, radius * 0.575, radius * 0.025, "#d3a54c");
   ring(context, radius * 0.49, radius * 0.012, "rgba(238,205,123,.5)");
 
-  context.save();
-  context.rotate(frame.wheelAngle * 0.55);
-  context.fillStyle = "#c89a43";
-  for (let arm = 0; arm < 4; arm += 1) {
-    context.rotate(Math.PI / 2);
-    roundRect(context, -radius * 0.035, -radius * 0.46, radius * 0.07, radius * 0.36, radius * 0.02);
-    context.fill();
-  }
-  context.restore();
+  const showCenterResult = frame.result !== null && frame.speed <= 0.025 && frame.settle >= 0.99;
+  if (showCenterResult) {
+    const result = frame.result!;
+    const resultRadius = radius * 0.485;
+    const resultFill = context.createRadialGradient(-resultRadius * 0.22, -resultRadius * 0.25, 2, 0, 0, resultRadius);
+    const baseColor = pocketColor(result);
+    resultFill.addColorStop(0, result === "0" || result === "00" ? "#25a76b" : RED.has(result) ? "#e54a43" : "#39413e");
+    resultFill.addColorStop(0.68, baseColor);
+    resultFill.addColorStop(1, "#07100c");
+    disk(context, 0, 0, resultRadius, resultFill);
+    ring(context, resultRadius * 0.96, radius * 0.025, "#e1bd68");
+    ring(context, resultRadius * 0.82, radius * 0.009, "rgba(255,238,184,.58)");
 
-  const spindle = context.createRadialGradient(-radius * 0.04, -radius * 0.05, 2, 0, 0, radius * 0.18);
-  spindle.addColorStop(0, "#fff2a6");
-  spindle.addColorStop(0.35, "#c99c43");
-  spindle.addColorStop(1, "#5d361c");
-  disk(context, 0, 0, radius * 0.18, spindle);
-  disk(context, 0, -radius * 0.04, radius * 0.07, "#f1cf70");
+    const fontPx = Math.max(44, Math.round(radius * (result.length > 1 ? 0.37 : 0.46)));
+    context.save();
+    context.font = `900 ${fontPx}px system-ui, "Segoe UI", Arial, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineJoin = "round";
+    context.lineWidth = Math.max(4, radius * 0.026);
+    context.strokeStyle = "rgba(0,0,0,.78)";
+    context.fillStyle = "#fff9e8";
+    context.shadowColor = "rgba(255,226,145,.55)";
+    context.shadowBlur = radius * 0.055;
+    context.strokeText(result, 0, radius * 0.015);
+    context.fillText(result, 0, radius * 0.015);
+    context.restore();
+  } else {
+    context.save();
+    context.rotate(frame.wheelAngle * 0.55);
+    context.fillStyle = "#c89a43";
+    for (let arm = 0; arm < 4; arm += 1) {
+      context.rotate(Math.PI / 2);
+      roundRect(context, -radius * 0.035, -radius * 0.46, radius * 0.07, radius * 0.36, radius * 0.02);
+      context.fill();
+    }
+    context.restore();
+
+    const spindle = context.createRadialGradient(-radius * 0.04, -radius * 0.05, 2, 0, 0, radius * 0.18);
+    spindle.addColorStop(0, "#fff2a6");
+    spindle.addColorStop(0.35, "#c99c43");
+    spindle.addColorStop(1, "#5d361c");
+    disk(context, 0, 0, radius * 0.18, spindle);
+    disk(context, 0, -radius * 0.04, radius * 0.07, "#f1cf70");
+  }
 
   if (frame.speed > 0.025) {
     for (let tail = 6; tail >= 1; tail -= 1) {

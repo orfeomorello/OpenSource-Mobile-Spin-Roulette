@@ -1,0 +1,592 @@
+/* v1.0 — mobile-first Player table. Gameplay logic stays in core/player.ts. */
+
+.mobile-first-player {
+  --casino-gold: #d7ad58;
+  --casino-gold-bright: #f2d37a;
+  --casino-wood: #32180f;
+  --casino-wood-dark: #160b08;
+  --casino-felt: #075c38;
+  --casino-felt-light: #0b7648;
+  --casino-panel: #07140f;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0 !important;
+  overflow: hidden;
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0 !important;
+  padding: 0 !important;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(26, 104, 69, .38), transparent 46%),
+    linear-gradient(180deg, #06130e 0%, #020806 100%);
+  color: #f4ead2;
+  box-sizing: border-box;
+}
+
+/* Compact status rail: money and current hand stay visible while the table scrolls. */
+.mobile-first-player .player-hud {
+  z-index: 20;
+  min-width: 0;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(8rem, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  border-bottom: 1px solid #6f5730;
+  background:
+    linear-gradient(90deg, rgba(215, 173, 88, .08), transparent 28%),
+    linear-gradient(180deg, #12251c 0%, #091610 100%);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, .48);
+  box-sizing: border-box;
+}
+
+.player-hud-brand {
+  width: 38px;
+  height: 38px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--casino-gold);
+  border-radius: 50%;
+  color: var(--casino-gold-bright);
+  font: 900 .62rem/1 sans-serif;
+  letter-spacing: .08em;
+  box-shadow: inset 0 0 0 3px #173b2b, 0 0 0 1px #120b06;
+}
+.player-hud-brand i {
+  position: absolute;
+  inset: 5px;
+  border: 1px dashed rgba(242, 211, 122, .62);
+  border-radius: 50%;
+}
+.player-hud-brand span { z-index: 1; }
+
+.player-hud-metric {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.player-hud-metric > span {
+  overflow: hidden;
+  color: #8fa79a;
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.player-hud-metric > strong {
+  overflow: hidden;
+  color: var(--casino-gold-bright);
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: clamp(1.3rem, 4vw, 1.75rem);
+  font-weight: 900;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-hud-bet {
+  min-width: 5.8rem;
+  padding-left: 12px;
+  border-left: 1px solid #334d40;
+}
+.player-hud-bet > strong { color: #f5eee0; font-size: clamp(1.05rem, 3vw, 1.35rem); }
+.player-hud-actions { display: flex; gap: 7px; }
+.player-hud-button,
+.player-sheet-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #536f60;
+  border-radius: 50%;
+  background: #10271d;
+  color: #f0dfb0;
+  font: 900 1rem/1 sans-serif;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 2px 0 #020604;
+}
+.player-hud-button:active,
+.player-sheet-close:active { transform: translateY(2px); box-shadow: none; }
+.player-hud-button:disabled { opacity: .42; cursor: not-allowed; }
+
+/* One-line hand status; detailed tools no longer compete with the table. */
+.mobile-first-player .player-phase-row {
+  z-index: 10;
+  min-height: 44px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 6px 12px;
+  border-left: 0;
+  border-bottom: 1px solid #29483a;
+  background: #0a2118;
+  box-sizing: border-box;
+}
+.mobile-first-player .player-phase-row::before {
+  content: "";
+  width: 4px;
+  align-self: stretch;
+  border-radius: 99px;
+  background: #d54434;
+  box-shadow: 0 0 10px rgba(213, 68, 52, .35);
+}
+.mobile-first-player .player-phase-row > span { flex: 0 0 auto; }
+.mobile-first-player .player-phase-row .player-phase-feedback,
+.mobile-first-player .player-phase-row > b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-first-player .table-coverage {
+  min-width: 112px;
+  max-width: 230px;
+  margin-left: auto;
+  flex: 1 1 140px;
+}
+
+/* The middle is the only scrolling region. HUD and betting controls never disappear. */
+.mobile-first-player .player-stage {
+  min-width: 0;
+  min-height: 0 !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: grid;
+  grid-template-columns: minmax(260px, .72fr) minmax(560px, 1.5fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .016) 1px, transparent 1px);
+  background-size: 22px 22px;
+  box-sizing: border-box;
+  scrollbar-color: #8e7442 #07130e;
+  scrollbar-width: thin;
+}
+.mobile-first-player.is-betting .player-stage,
+.mobile-first-player.player-nowheel .player-stage {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.mobile-first-player .felt-panel.casino-felt {
+  width: min(100%, 1040px);
+  min-width: 0;
+  justify-self: center;
+  align-content: start;
+  gap: 9px;
+  padding: 13px 15px 16px;
+  border: 7px solid var(--casino-wood);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, .06) 0 1px, transparent 2px),
+    radial-gradient(circle at 75% 70%, rgba(0, 0, 0, .06) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 50% 18%, var(--casino-felt-light), var(--casino-felt) 60%, #03452a 100%) !important;
+  background-size: 13px 13px, 17px 17px, auto !important;
+  box-shadow:
+    inset 0 0 0 2px #c59547,
+    inset 0 0 32px rgba(0, 0, 0, .32),
+    0 7px 0 var(--casino-wood-dark),
+    0 14px 26px rgba(0, 0, 0, .42);
+  box-sizing: border-box;
+}
+.mobile-first-player .felt-heading {
+  min-height: 24px;
+  align-items: center;
+  padding: 0 3px;
+  color: #f1d687;
+}
+.mobile-first-player .felt-heading small { max-width: 56%; text-align: right; }
+.mobile-first-player .history-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 5px 8px;
+  border-color: rgba(218, 197, 139, .25);
+  border-radius: 8px;
+  background: rgba(1, 22, 13, .54);
+}
+.mobile-first-player .history-bar > span { flex: 0 0 auto; }
+.mobile-first-player .history-bar > div {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  margin: 0;
+}
+.mobile-first-player .history-bar .number { min-width: 26px; height: 26px; border-radius: 50%; }
+
+.mobile-first-player .wheel-panel {
+  min-height: 100%;
+  padding: 16px;
+  border: 7px solid var(--casino-wood);
+  border-radius: 20px;
+  background: radial-gradient(circle at 50% 35%, #103c2b, #061711 72%);
+  box-shadow: inset 0 0 0 2px #b98a43, 0 8px 0 var(--casino-wood-dark);
+  box-sizing: border-box;
+}
+.mobile-first-player .wheel-stage { width: min(42vw, 390px); }
+
+/* Betting dock: one physical control rail at the bottom of the table. */
+.mobile-first-player .player-bet-dock {
+  z-index: 25;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "tray actions spin";
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 12px;
+  padding-bottom: max(9px, env(safe-area-inset-bottom));
+  border-top: 2px solid #9d783d;
+  background:
+    linear-gradient(90deg, rgba(215, 173, 88, .1), transparent 34%),
+    linear-gradient(180deg, #24140e 0%, #120a08 100%);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, .42), inset 0 1px rgba(255, 226, 154, .12);
+  box-sizing: border-box;
+}
+.mobile-first-player .chip-tray {
+  grid-area: tray;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px;
+  scrollbar-width: none;
+}
+.mobile-first-player .chip-tray::-webkit-scrollbar { display: none; }
+.mobile-first-player .chip-row { gap: 10px; }
+.mobile-first-player .chip-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border: 4px dashed rgba(255, 255, 255, .8);
+  box-shadow:
+    0 3px 0 #050302,
+    inset 0 0 0 3px rgba(0, 0, 0, .38),
+    inset 0 0 0 5px rgba(255, 255, 255, .18);
+}
+.mobile-first-player .chip-btn.active {
+  box-shadow:
+    0 0 0 3px #fff5c4,
+    0 0 0 6px rgba(240, 201, 94, .36),
+    0 3px 0 #050302,
+    inset 0 0 0 3px rgba(0, 0, 0, .38);
+}
+.mobile-first-player .bet-actions {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  overflow: visible;
+}
+.mobile-first-player .bet-actions .chrome-button {
+  min-width: 88px;
+  min-height: 46px;
+  padding: 7px 10px;
+  border-color: #765d38;
+  border-radius: 7px;
+  background: #251b14;
+  font-size: .72rem;
+}
+.mobile-first-player .player-spin-btn {
+  grid-area: spin;
+  width: 76px;
+  height: 76px;
+  min-width: 76px;
+  min-height: 76px;
+  max-width: 76px;
+  max-height: 76px;
+}
+
+/* Secondary controls are a bottom sheet, not a permanent toolbar. */
+.player-more-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  align-items: end;
+  background: rgba(0, 6, 4, .7);
+  backdrop-filter: blur(3px);
+}
+.player-more-sheet {
+  width: min(620px, 100%);
+  max-height: min(82dvh, 660px);
+  justify-self: center;
+  overflow: auto;
+  padding: 14px 14px max(16px, env(safe-area-inset-bottom));
+  border: 2px solid #9f7a3e;
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(39, 104, 75, .36), transparent 48%),
+    #091711;
+  box-shadow: 0 -16px 42px rgba(0, 0, 0, .62), inset 0 1px rgba(255, 226, 154, .15);
+  box-sizing: border-box;
+}
+.player-more-sheet > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #345143;
+}
+.player-more-sheet > header strong { color: #f2d37a; letter-spacing: .12em; }
+.player-more-sheet .player-tools {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.player-more-sheet .player-tools .chrome-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: .78rem;
+}
+
+/* Portrait phone: rotate the real 12×3 layout into a thumb-friendly 3×12 table. */
+@media (max-width: 720px) and (orientation: portrait) {
+  .mobile-first-player .player-hud {
+    min-height: 58px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    padding-inline: 9px;
+  }
+  .mobile-first-player .player-hud-brand { display: none; }
+  .mobile-first-player .player-hud-bet { min-width: 4.8rem; padding-left: 9px; }
+  .mobile-first-player .player-hud-metric > strong { font-size: 1.3rem; }
+  .mobile-first-player .player-hud-bet > strong { font-size: 1.05rem; }
+  .mobile-first-player .player-hud-button { width: 42px; height: 42px; }
+
+  .mobile-first-player .player-phase-row {
+    min-height: 42px;
+    gap: 7px;
+    padding: 5px 9px;
+  }
+  .mobile-first-player .player-phase-row > span { font-size: .62rem; }
+  .mobile-first-player .player-phase-row > b { display: none; }
+  .mobile-first-player .table-coverage { min-width: 88px; gap: 5px; }
+  .mobile-first-player .table-coverage-label { display: none; }
+  .mobile-first-player .table-coverage-track { min-width: 48px; height: 8px; }
+  .mobile-first-player .table-coverage-pct { min-width: 2.3em; font-size: .78rem; }
+
+  .mobile-first-player .player-stage {
+    display: block;
+    padding: 8px;
+  }
+  .mobile-first-player .felt-panel.casino-felt {
+    width: 100%;
+    padding: 10px 10px 14px;
+    border-width: 6px;
+    border-radius: 16px;
+  }
+  .mobile-first-player .felt-heading small { display: none; }
+  .mobile-first-player .history-bar {
+    min-height: 34px;
+    padding-block: 4px;
+  }
+  .mobile-first-player .history-bar > span { display: none; }
+
+  .mobile-first-player .casino-felt .felt-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+    align-items: stretch;
+    gap: 7px;
+    padding: 0 0 3px;
+  }
+  .mobile-first-player .casino-felt .zero-zone {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 50px !important;
+    height: 50px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    border-radius: 28px 28px 4px 4px;
+    overflow: visible;
+  }
+  .mobile-first-player .casino-felt .zero-zone:has(b + b) { grid-template-columns: 1fr 1fr; }
+  .mobile-first-player .casino-felt .zero-zone b { min-height: 50px; border-radius: inherit; }
+
+  .mobile-first-player .casino-felt .numbers.player-numbers {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(12, minmax(48px, auto)) !important;
+    height: auto;
+    min-height: 576px;
+    gap: 2px;
+  }
+  .mobile-first-player .casino-felt .numbers.player-numbers .felt-cell {
+    grid-column: var(--mobile-col);
+    grid-row: var(--mobile-row);
+    min-height: 48px !important;
+    height: 48px;
+    border-radius: 2px;
+  }
+  .mobile-first-player .casino-felt .numbers .felt-cell > span { font-size: 1rem; }
+
+  .mobile-first-player .casino-felt .column-pays {
+    grid-column: 1;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: 48px !important;
+    height: 48px;
+    gap: 2px;
+  }
+  .mobile-first-player .casino-felt .dozens {
+    grid-column: 1;
+    grid-row: 4;
+    min-height: 48px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px;
+  }
+  .mobile-first-player .casino-felt .even-money {
+    grid-column: 1;
+    grid-row: 5;
+    min-height: 96px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 48px);
+    gap: 2px;
+  }
+  .mobile-first-player .casino-felt .column-pays > span,
+  .mobile-first-player .casino-felt .dozens > span,
+  .mobile-first-player .casino-felt .even-money > span {
+    min-height: 48px;
+    padding: 4px;
+    font-size: .63rem;
+  }
+
+  /* Rotate magnetic chip hosts with the physical felt. */
+  .mobile-first-player .player-felt .inside-hit.hit-e {
+    left: 14%; right: 14%; top: auto; bottom: -17%; width: auto; height: 34%; min-width: 0;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-s {
+    left: -17%; right: auto; top: 14%; bottom: 14%; width: 34%; height: auto;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-se {
+    left: -19%; right: auto; top: auto; bottom: -19%; width: 38%; height: 38%;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-street {
+    left: -20%; right: auto; top: 16%; bottom: 16%; width: 34%; height: auto;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-six {
+    left: -20%; right: auto; top: auto; bottom: -20%; width: 38%; height: 40%;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-zero {
+    top: auto; bottom: -20%; width: 24%; height: 40%; min-height: 18px;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-zero-top { left: 71%; right: auto; }
+  .mobile-first-player .player-felt .inside-hit.hit-zero-mid { left: 38%; right: auto; }
+  .mobile-first-player .player-felt .inside-hit.hit-zero-bot { left: 5%; right: auto; }
+
+  .mobile-first-player.is-wheel-stage .player-felt { display: none; }
+  .mobile-first-player .wheel-panel {
+    min-height: calc(100% - 8px);
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+  }
+  .mobile-first-player .wheel-stage { width: min(78vw, 360px); }
+  .mobile-first-player .wheel-stage > small { display: none; }
+
+  .mobile-first-player .player-bet-dock {
+    grid-template-columns: minmax(0, 1fr) 74px;
+    grid-template-areas:
+      "tray spin"
+      "actions spin";
+    gap: 5px 8px;
+    padding: 7px 8px;
+    padding-bottom: max(7px, env(safe-area-inset-bottom));
+  }
+  .mobile-first-player .chip-tray { padding: 7px 5px 5px; }
+  .mobile-first-player .chip-row { gap: 9px; padding-inline: 4px 8px; }
+  .mobile-first-player .chip-btn,
+  .mobile-first-player .chip-100,
+  .mobile-first-player .chip-500 {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+  }
+  .mobile-first-player .bet-actions { gap: 6px; }
+  .mobile-first-player .bet-actions .chrome-button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 6px 8px;
+    font-size: .68rem;
+  }
+  .mobile-first-player .player-spin-btn {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    min-height: 72px;
+    max-width: 72px;
+    max-height: 72px;
+    font-size: .72rem;
+  }
+}
+
+/* Landscape phones use the width: table left, permanent betting rail right. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .mobile-first-player {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 34vw);
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .mobile-first-player .player-hud { grid-column: 1 / -1; grid-row: 1; min-height: 54px; padding-block: 5px; }
+  .mobile-first-player .player-phase-row { grid-column: 1; grid-row: 2; min-height: 40px; }
+  .mobile-first-player .player-stage { grid-column: 1; grid-row: 3; padding: 8px; align-items: start; }
+  .mobile-first-player .felt-panel.casino-felt { justify-self: start; }
+  .mobile-first-player .felt-heading small { display: none; }
+  .mobile-first-player .player-bet-dock {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "tray"
+      "actions"
+      "spin";
+    align-content: center;
+    border-top: 0;
+    border-left: 2px solid #9d783d;
+  }
+  .mobile-first-player .chip-tray { overflow: visible; }
+  .mobile-first-player .chip-row { flex-wrap: wrap; justify-content: center; }
+  .mobile-first-player .tray-label { display: none; }
+  .mobile-first-player .bet-actions .chrome-button { min-width: 0; }
+  .mobile-first-player .player-spin-btn { justify-self: center; }
+  .mobile-first-player.is-betting .felt-panel { min-width: 720px; }
+  .mobile-first-player.is-wheel-stage .player-stage { display: block; }
+  .mobile-first-player.is-wheel-stage .player-felt { display: none; }
+  .mobile-first-player .wheel-panel { min-height: 100%; }
+  .mobile-first-player .wheel-stage { width: min(46vh, 300px); }
+}
+
+@media (max-width: 350px) and (orientation: portrait) {
+  .mobile-first-player .player-hud { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .mobile-first-player .player-hud-bet { min-width: 4.25rem; }
+  .mobile-first-player .player-hud-button { width: 40px; height: 40px; }
+  .mobile-first-player .player-phase-row { padding-inline: 7px; }
+  .mobile-first-player .casino-felt .numbers.player-numbers { grid-template-rows: repeat(12, 46px) !important; min-height: 552px; }
+  .mobile-first-player .casino-felt .numbers.player-numbers .felt-cell { height: 46px; min-height: 46px !important; }
+  .player-more-sheet .player-tools { grid-template-columns: 1fr; }
+}

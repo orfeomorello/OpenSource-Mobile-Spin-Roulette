@@ -1,5 +1,5 @@
 {
-  "$schemaComment": "BitCroupier — NPC betting AI (B6). Full docs: config/README.md. Edit weights/ranges without changing core code.",
+  "$schemaComment": "MobileSpinRoulette — NPC betting AI (B6). Full docs: config/README.md. Edit weights/ranges without changing core code.",
   "schemaVersion": 1,
   "leaveWhenBroke": true,
   "betPlacement": {
