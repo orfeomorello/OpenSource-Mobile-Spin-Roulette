@@ -107,6 +107,7 @@ export function resolveNumberCellSnap(
   lx: number,
   ly: number,
   variant: TableVariant = "european",
+  includeEuropeanFirstFour = true,
 ): FeltSnapResult {
   const clampedX = Math.min(1, Math.max(0, lx));
   const clampedY = Math.min(1, Math.max(0, ly));
@@ -160,7 +161,7 @@ export function resolveNumberCellSnap(
     if (n === 1 || n === 2 || n === 3) {
       anchors.push({ betId: splitId(0, n), kind: "split", x: 0, y: 0.5, weight: 0.9 });
     }
-    if (variant === "european" && (n === 1 || n === 3)) {
+    if (variant === "european" && includeEuropeanFirstFour && (n === 1 || n === 3)) {
       // Outer corners 0–1 / 0–3 → first four (not mid 0–2)
       anchors.push({
         betId: "first_four_0_1_2_3",
@@ -190,7 +191,7 @@ export function resolveNumberCellSnap(
  * (classic table: corner of zero next to the 1-2-3 street / first dozen rail) —
  * NOT in the middle of the 0|2 edge (that is split 0-2).
  */
-export function resolveEuropeanZeroSnap(lx: number, ly: number): FeltSnapResult {
+export function resolveEuropeanZeroSnap(lx: number, ly: number, includeFirstFour = true): FeltSnapResult {
   const anchors: Anchor[] = [
     { betId: "straight_0", kind: "straight", x: 0.38, y: 0.5, weight: 1.1 },
     // Splits along the 0|street edge (right side)
@@ -200,11 +201,14 @@ export function resolveEuropeanZeroSnap(lx: number, ly: number): FeltSnapResult 
     // Trios at junctions between those splits
     { betId: "trio_0_2_3", kind: "trio", x: 0.96, y: 0.28, weight: 0.86 },
     { betId: "trio_0_1_2", kind: "trio", x: 0.96, y: 0.72, weight: 0.86 },
-    // First four = outer corners (0-1 and 0-3), also toward first-dozen rail (bottom outer)
-    { betId: "first_four_0_1_2_3", kind: "firstFour", x: 1, y: 1, weight: 0.78 },
-    { betId: "first_four_0_1_2_3", kind: "firstFour", x: 1, y: 0, weight: 0.78 },
-    { betId: "first_four_0_1_2_3", kind: "firstFour", x: 0.85, y: 1, weight: 0.8 },
   ];
+  if (includeFirstFour) {
+    anchors.push(
+      // First four = outer corners (0-1 and 0-3), also toward first-dozen rail (bottom outer)
+      { betId: "first_four_0_1_2_3", kind: "firstFour", x: 1, y: 1, weight: 0.78 },
+      { betId: "first_four_0_1_2_3", kind: "firstFour", x: 1, y: 0, weight: 0.78 },
+    );
+  }
   return pickNearest(Math.min(1, Math.max(0, lx)), Math.min(1, Math.max(0, ly)), anchors);
 }
 
@@ -237,10 +241,16 @@ export function resolveAmericanDoubleZeroSnap(lx: number, ly: number): FeltSnapR
   return pickNearest(Math.min(1, Math.max(0, lx)), Math.min(1, Math.max(0, ly)), anchors);
 }
 
-export function resolveZeroSnap(variant: TableVariant, pocket: "0" | "00", lx: number, ly: number): FeltSnapResult {
+export function resolveZeroSnap(
+  variant: TableVariant,
+  pocket: "0" | "00",
+  lx: number,
+  ly: number,
+  includeEuropeanFirstFour = true,
+): FeltSnapResult {
   if (variant === "american" && pocket === "00") return resolveAmericanDoubleZeroSnap(lx, ly);
   if (variant === "american") return resolveAmericanZeroSnap(lx, ly);
-  return resolveEuropeanZeroSnap(lx, ly);
+  return resolveEuropeanZeroSnap(lx, ly, includeEuropeanFirstFour);
 }
 
 /** Human-readable kind key for i18n (`player.snap.*`). */

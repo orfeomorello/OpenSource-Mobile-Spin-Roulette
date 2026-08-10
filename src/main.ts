@@ -2543,6 +2543,28 @@ function bindFeltSnapPlacement(
     const target = el && felt.contains(el) ? el : (event.target as HTMLElement | null);
     if (!target) return null;
 
+    const portraitFelt = window.matchMedia("(max-width: 720px) and (orientation: portrait)").matches
+      && felt.closest(".mobile-first-player") !== null;
+
+    // Portrait uses one explicit 0-1-2-3 target. It is intentionally resolved
+    // before the generic magnetic geometry so preview and placement cannot
+    // jump to the opposite edge of the rotated zero cell.
+    if (portraitFelt && variant === "european") {
+      const firstFourTarget = target.closest<HTMLElement>(".portrait-first-four-target");
+      const zeroCell = firstFourTarget?.closest<HTMLElement>(".zero-zone b[data-zero=\"0\"]");
+      if (firstFourTarget && zeroCell && felt.contains(firstFourTarget)) {
+        return {
+          cell: zeroCell,
+          snap: {
+            betId: "first_four_0_1_2_3",
+            kind: "firstFour",
+            anchorX: 0.1,
+            anchorY: 1,
+          },
+        };
+      }
+    }
+
     // Outside bets: direct data-bet, no magnetic snap needed.
     const outside = target.closest<HTMLElement>(".column-pays [data-bet], .dozens [data-bet], .even-money [data-bet], .column-pays [data-preview], .dozens [data-preview], .even-money [data-preview]");
     if (outside?.dataset.bet || outside?.dataset.preview) {
@@ -2561,13 +2583,17 @@ function bindFeltSnapPlacement(
     const ly = (event.clientY - rect.top) / rect.height;
     // Portrait felt is the physical table rotated into 3 columns × 12 rows.
     // Convert screen coordinates back to the canonical horizontal felt used by the rules engine.
-    const portraitFelt = window.matchMedia("(max-width: 720px) and (orientation: portrait)").matches
-      && felt.closest(".mobile-first-player") !== null;
     const logicalX = portraitFelt ? ly : lx;
     const logicalY = portraitFelt ? 1 - lx : ly;
 
     if (cell.dataset.zero === "0" || cell.dataset.zero === "00") {
-      const snap = resolveZeroSnap(variant, cell.dataset.zero as "0" | "00", logicalX, logicalY);
+      const snap = resolveZeroSnap(
+        variant,
+        cell.dataset.zero as "0" | "00",
+        logicalX,
+        logicalY,
+        !portraitFelt,
+      );
       return { cell, snap };
     }
     const col = Number(cell.dataset.col);
@@ -2578,7 +2604,10 @@ function bindFeltSnapPlacement(
       if (!betId) return null;
       return { cell, snap: { betId, kind: "straight", anchorX: 0.5, anchorY: 0.5 } };
     }
-    return { cell, snap: resolveNumberCellSnap(col, row, logicalX, logicalY, variant) };
+    return {
+      cell,
+      snap: resolveNumberCellSnap(col, row, logicalX, logicalY, variant, !portraitFelt),
+    };
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -2934,7 +2963,7 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
         insideHit("split_0_1", "hit-zero hit-zero-bot", click, chips, "split 0/1"),
         insideHit("trio_0_2_3", "hit-zero hit-zero-trio-top", click, chips, "trio 0/2/3"),
         insideHit("trio_0_1_2", "hit-zero hit-zero-trio-bot", click, chips, "trio 0/1/2"),
-        insideHit("first_four_0_1_2_3", "hit-zero hit-zero-four hit-zero-four-bot", click, chips, "0-1-2-3"),
+        insideHit("first_four_0_1_2_3", "hit-zero hit-zero-four hit-zero-four-bot portrait-first-four-target", click, chips, "0-1-2-3"),
         insideHit("first_four_0_1_2_3", "hit-zero hit-zero-four hit-zero-four-top", click, chips, "0-1-2-3", { showChip: false }),
       ].join("");
     }

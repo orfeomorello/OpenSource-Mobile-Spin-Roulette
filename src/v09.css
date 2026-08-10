@@ -882,14 +882,15 @@
 }
 
 .player-felt .inside-hit.hit-zero-four-bot {
-  right: -28%;
+  /* Centre the chip exactly on the 0/1 outer intersection. */
+  right: -22%;
   bottom: -10%;
   top: auto;
 }
 
 .player-felt .inside-hit.hit-zero-four-top {
-  right: -28%;
-  top: -6%;
+  right: -22%;
+  top: -10%;
   bottom: auto;
 }
 

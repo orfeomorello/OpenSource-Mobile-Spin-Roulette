@@ -500,6 +500,31 @@
   .mobile-first-player .player-felt .inside-hit.hit-zero-mid { left: 38%; right: auto; }
   .mobile-first-player .player-felt .inside-hit.hit-zero-bot { left: 5%; right: auto; }
 
+  /* In portrait the zero becomes the horizontal cap above 1-2-3. The generic
+     rotated zero-hit rule would otherwise leave the first-four chip below the
+     felt. Keep its visible host on the exact 0/1 corner and its snap-only twin
+     on the opposite 0/3 corner. */
+  .mobile-first-player .player-felt .inside-hit.hit-zero-four-bot {
+    /* The zero spans the three 1-2-3 columns. Keep the target just inside the
+       first third so it sits on the 0/1 junction without spilling onto felt. */
+    /* Centre 5% inside the zero: visually anchored to the 0/1 crossing while
+       leaving enough of the touch target on the printed table at any width. */
+    left: -5%;
+    right: auto;
+    top: auto;
+    bottom: -22%;
+    width: 20%;
+    height: 44%;
+  }
+  .mobile-first-player .player-felt .inside-hit.hit-zero-four-top {
+    display: none;
+  }
+  .mobile-first-player .player-felt.snap-felt.interactive .portrait-first-four-target {
+    z-index: 20;
+    pointer-events: auto;
+    touch-action: none;
+  }
+
   .mobile-first-player.is-wheel-stage .player-felt { display: none; }
   .mobile-first-player .wheel-panel {
     min-height: calc(100% - 8px);

@@ -708,6 +708,12 @@ test("Felt magnetic snap: cell edges resolve to split/corner/street/first-four",
   assert.equal(fourBot.betId, "first_four_0_1_2_3", fourBot.betId);
   const fourTop = resolveEuropeanZeroSnap(0.98, 0.02);
   assert.equal(fourTop.betId, "first_four_0_1_2_3", fourTop.betId);
+  // Portrait owns one explicit DOM target; generic zero/number magnets must not
+  // produce a second first-four preview on the opposite felt edge.
+  const portraitZeroFallback = resolveEuropeanZeroSnap(0.98, 0.98, false);
+  assert.notEqual(portraitZeroFallback.betId, "first_four_0_1_2_3");
+  const portraitOneFallback = resolveNumberCellSnap(0, 2, 0.02, 0.98, "european", false);
+  assert.notEqual(portraitOneFallback.betId, "first_four_0_1_2_3");
   // From number 1 left-bottom toward zero → first four (EU)
   const from1 = resolveNumberCellSnap(0, 2, 0.02, 0.98, "european");
   assert.equal(from1.betId, "first_four_0_1_2_3", from1.betId);
