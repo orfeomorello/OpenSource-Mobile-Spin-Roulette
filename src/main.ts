@@ -48,6 +48,7 @@ import {
 import { LEGACY_APP_PREFIX } from "./persist/storageMigration.ts";
 import { animateWheel, drawStaticWheel, getSpinEndAngle, type WheelAnimationHandle } from "./wheel/canvasWheel.ts";
 import { spin } from "./spin/spinEngine.ts";
+import { escapePrivacyHtml, privacyArticleMarkup, privacyDocument } from "./legal/privacy.ts";
 import { isMuted, playSound, PLAYER_MUSIC_TRACKS, setMusic, setMusicVolume, setMuted, setPlayerMusicMode, type PlayerMusicMode } from "./audio.ts";
 import {
   resolveNumberCellSnap,
@@ -263,7 +264,7 @@ function showMenu(): void {
         <p class="home-credit">
           <a class="home-credit-link" href="${SOURCE_CODE_URL}" target="_blank" rel="noopener noreferrer">${t("menu.sourceCode")}</a>
           <span aria-hidden="true">·</span>
-          <a class="home-credit-link" href="./privacy.html" target="_blank" rel="noopener noreferrer">${t("menu.privacy")}</a>
+          <button type="button" class="home-credit-link" id="open-privacy">${t("menu.privacy")}</button>
         </p>
       </footer>
     </main>`;
@@ -286,6 +287,38 @@ function showMenu(): void {
   app.querySelector<HTMLButtonElement>("#start-game")?.addEventListener("click", () => {
     const defaults = menuDefaults();
     startPlayerSession(defaults.variant, defaults.animation);
+  });
+
+  app.querySelector<HTMLButtonElement>("#open-privacy")?.addEventListener("click", () => {
+    playSound("bet");
+    showPrivacy("menu");
+  });
+}
+
+function showPrivacy(returnTo: "menu" | "settings"): void {
+  wheelAnimation?.cancel();
+  wheelAnimation = null;
+  syncScreenMusic("settings");
+  const doc = privacyDocument(locale);
+  const settingsFx = loadSettings().backgroundAnimation;
+  app.innerHTML = `
+    <main class="landing settings-screen privacy-screen ${landingBgClass(settingsFx)}">
+      ${landingFxMarkup(settingsFx)}
+      <section class="settings-panel privacy-panel" aria-labelledby="privacy-title">
+        <header class="settings-header">
+          <button type="button" id="privacy-back" class="settings-back">${t("settings.back")}</button>
+          <h1 id="privacy-title" class="home-title">${escapePrivacyHtml(doc.title)}</h1>
+        </header>
+        <article class="privacy-article">
+          ${privacyArticleMarkup(doc)}
+        </article>
+      </section>
+    </main>`;
+
+  app.querySelector<HTMLButtonElement>("#privacy-back")?.addEventListener("click", () => {
+    playSound("bet");
+    if (returnTo === "settings") showSettings();
+    else showMenu();
   });
 }
 
@@ -370,7 +403,7 @@ function showSettings(): void {
         <section class="settings-block">
           <h2>${t("settings.sectionData")}</h2>
           <p class="settings-help">${t("settings.privacyNote")}</p>
-          <p class="settings-privacy"><a href="./privacy.html" target="_blank" rel="noopener noreferrer">${t("menu.privacy")}</a></p>
+          <p class="settings-privacy"><button type="button" class="settings-privacy-btn" id="open-privacy">${t("menu.privacy")}</button></p>
           <ul class="settings-data-table">
             <li class="settings-data-row">
               <div class="settings-data-copy">
@@ -409,6 +442,11 @@ function showSettings(): void {
   app.querySelector<HTMLButtonElement>("#settings-back")?.addEventListener("click", () => {
     playSound("bet");
     showMenu();
+  });
+
+  app.querySelector<HTMLButtonElement>("#open-privacy")?.addEventListener("click", () => {
+    playSound("bet");
+    showPrivacy("settings");
   });
 
   app.querySelectorAll<HTMLButtonElement>("[data-set-locale]").forEach((button) => {

@@ -20,7 +20,7 @@ MobileSpinRoulette is a browser-based roulette game focused on a fast, touch-fri
 - English, Italian, Spanish, Brazilian Portuguese, French, German, Korean, Japanese and Chinese interfaces.
 - Local autosave plus JSON export and import from Settings.
 
-The home screen and Settings link to the bilingual [privacy policy](./public/privacy.html). The game uses virtual points only and provides no purchases, prizes, cash-out or accounts.
+The in-app Privacy screen uses the current language and never opens a URL. Store listings should link the standalone page for that language under [`public/privacy/`](./public/privacy/), for example [English](./public/privacy/en.html) or [Italian](./public/privacy/it.html). The [index](./public/privacy.html) lists every language. The game uses virtual points only and provides no purchases, prizes, cash-out or accounts.
 
 The game uses points only. A new profile starts with **2000000 score**, and starting a new game restores that amount when the score is zero or below.
 

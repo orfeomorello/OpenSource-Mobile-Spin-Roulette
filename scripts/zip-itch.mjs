@@ -25,6 +25,7 @@ const entries = [
   "audio",
   "manifest.webmanifest",
   "privacy.html",
+  "privacy",
   "sw.js",
   "roulette-icon.svg",
   "roulette-icon-192.png",

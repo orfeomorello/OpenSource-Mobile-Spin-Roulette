@@ -45,9 +45,25 @@ const index = readFileSync("index.html", "utf8");
 assert(index.includes('rel="apple-touch-icon"'), "index must expose the Apple touch icon");
 assert(index.includes('rel="manifest"'), "index must link the web app manifest");
 
-const privacy = readFileSync(path.join("public", "privacy.html"), "utf8");
-assert(privacy.includes("does not collect, transmit, sell or share personal data"), "privacy policy must state the data-collection behavior");
-assert(privacy.includes("virtual points only"), "privacy policy must include the simulated-gambling disclaimer");
+const privacyLocales = ["en", "it", "es", "pt-BR", "fr", "de", "ko", "ja", "zh"];
+const privacyIndex = readFileSync(path.join("public", "privacy.html"), "utf8");
+assert(privacyIndex.includes("./privacy/en.html"), "privacy index must link the English store page");
+assert(privacyIndex.includes("./privacy/it.html"), "privacy index must link the Italian store page");
+
+for (const locale of privacyLocales) {
+  const file = path.join("public", "privacy", `${locale}.html`);
+  assert(existsSync(file), `missing store privacy page: ${file}`);
+  const html = readFileSync(file, "utf8");
+  assert(!html.includes('id="italiano"'), `${file} must be a single-language store page`);
+}
+
+const englishPrivacy = readFileSync(path.join("public", "privacy", "en.html"), "utf8");
+assert(englishPrivacy.includes("does not collect, transmit, sell or share personal data"), "English store privacy must state the data-collection behavior");
+assert(englishPrivacy.includes("virtual points only"), "English store privacy must include the simulated-gambling disclaimer");
+
+const appSource = readFileSync(path.join("src", "main.ts"), "utf8");
+assert(!appSource.includes("privacy.html"), "in-app UI must not open the store privacy URL");
+assert(!/href=["']\.\/privacy\//.test(appSource), "in-app UI must not link per-locale store privacy pages");
 
 const serviceWorker = readFileSync(path.join("public", "sw.js"), "utf8");
 assert(serviceWorker.includes("__BUILD_ID__"), "source service worker must expose the build-id marker");

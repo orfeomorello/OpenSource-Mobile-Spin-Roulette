@@ -4,110 +4,84 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#081611" />
-    <meta name="description" content="MobileSpinRoulette privacy policy." />
+    <meta name="description" content="MobileSpinRoulette privacy policy. Virtual points only. No personal data collection." />
     <title>Privacy Policy · MobileSpinRoulette</title>
     <link rel="icon" href="./roulette-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
     <style>
-      :root {
-        color-scheme: dark;
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #06100d;
-        color: #f2ead8;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        min-width: 320px;
-        min-height: 100vh;
-        background: radial-gradient(circle at 50% 0, #163b2e 0, #071511 48%, #030806 100%);
-      }
-      main {
-        width: min(820px, calc(100% - 32px));
-        margin: 0 auto;
-        padding: max(24px, env(safe-area-inset-top)) 0 max(40px, env(safe-area-inset-bottom));
-      }
-      nav { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-bottom: 30px; }
-      a { color: #e4c680; text-underline-offset: 3px; }
-      article {
-        padding: clamp(22px, 5vw, 46px);
-        border: 1px solid rgba(228, 198, 128, .28);
-        border-radius: 20px;
-        background: rgba(6, 16, 13, .88);
-        box-shadow: 0 24px 60px rgba(0, 0, 0, .34);
-      }
-      article + article { margin-top: 24px; }
-      h1, h2 { color: #f4dfaa; letter-spacing: -.02em; }
-      h1 { margin: 0 0 8px; font-size: clamp(2rem, 8vw, 3.6rem); }
-      h2 { margin: 30px 0 8px; font-size: 1.2rem; }
-      p, li { color: #c6d2cb; line-height: 1.65; }
-      .updated { margin: 0 0 28px; color: #8fa59a; }
-      .notice {
-        padding: 14px 16px;
-        border-left: 4px solid #d6b66f;
-        background: rgba(214, 182, 111, .08);
-        color: #f2ead8;
-      }
-      code { color: #f0d99d; }
-      footer { padding: 24px 4px 0; color: #82988d; font-size: .9rem; text-align: center; }
+:root {
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #06100d;
+  color: #f2ead8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 0, #163b2e 0, #071511 48%, #030806 100%);
+}
+main {
+  width: min(820px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: max(24px, env(safe-area-inset-top)) 0 max(40px, env(safe-area-inset-bottom));
+}
+nav { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-bottom: 30px; }
+a { color: #e4c680; text-underline-offset: 3px; }
+article, .locale-list {
+  padding: clamp(22px, 5vw, 46px);
+  border: 1px solid rgba(228, 198, 128, .28);
+  border-radius: 20px;
+  background: rgba(6, 16, 13, .88);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .34);
+}
+h1, h2 { color: #f4dfaa; letter-spacing: -.02em; }
+h1 { margin: 0 0 8px; font-size: clamp(2rem, 8vw, 3.6rem); }
+h2 { margin: 30px 0 8px; font-size: 1.2rem; }
+p, li { color: #c6d2cb; line-height: 1.65; }
+.privacy-updated { margin: 0 0 28px; color: #8fa59a; }
+.privacy-notice {
+  padding: 14px 16px;
+  border-left: 4px solid #d6b66f;
+  background: rgba(214, 182, 111, .08);
+  color: #f2ead8;
+}
+.locale-list { display: grid; gap: 10px; padding: 22px; }
+.locale-list a {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid rgba(228, 198, 128, .22);
+  border-radius: 12px;
+  text-decoration: none;
+  color: #f2ead8;
+}
+.locale-list a:hover { border-color: #d6b66f; }
+.locale-list small { display: block; color: #8fa59a; font-size: .78rem; }
+footer { padding: 24px 4px 0; color: #82988d; font-size: .9rem; text-align: center; }
     </style>
   </head>
   <body>
     <main>
       <nav aria-label="Page navigation">
         <a href="./">← MobileSpinRoulette</a>
-        <a href="#italiano">Italiano</a>
-        <a href="https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette" rel="noopener noreferrer">Source code</a>
       </nav>
-
       <article>
         <h1>Privacy Policy</h1>
-        <p class="updated">Last updated: 13 August 2026</p>
-        <p class="notice"><strong>MobileSpinRoulette uses virtual points only.</strong> It offers no real-money gambling, purchases, cash-out, prizes or accounts.</p>
-
-        <h2>Data collection</h2>
-        <p>The app does not collect, transmit, sell or share personal data. It has no analytics, advertising SDK, tracking technology, account system or remote game-data server.</p>
-
-        <h2>Data stored on your device</h2>
-        <p>Score, settings, selected language, saved strategies and the current game session are stored locally in your browser storage. This data remains on your device unless you export a backup yourself.</p>
-
-        <h2>Your controls and retention</h2>
-        <p>You can export, import or erase local data from <strong>Settings → Your data</strong>. Uninstalling the app or clearing its site data may also remove it. The project does not retain a server copy.</p>
-
-        <h2>Device features and network access</h2>
-        <p>The app may use optional vibration for touch feedback and browser storage for progress. Game assets and optional music are loaded from the same host as the app. Following the GitHub link leaves the app and is governed by GitHub’s own privacy policy.</p>
-
-        <h2>Children and simulated gambling</h2>
-        <p>The app simulates roulette for entertainment and strategy testing. Parents and guardians should decide whether this gambling-themed content is appropriate for a minor in their jurisdiction.</p>
-
-        <h2>Changes and contact</h2>
-        <p>Material changes will be published on this page with a new revision date. Privacy questions can be submitted through the project’s <a href="https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette/issues" rel="noopener noreferrer">GitHub issue tracker</a>; do not include sensitive personal information in a public issue.</p>
+        <p class="privacy-updated">Choose a language. Each page below is a standalone privacy policy for that locale.</p>
+        <p class="privacy-notice"><strong>MobileSpinRoulette uses virtual points only.</strong> The app does not collect personal data.</p>
       </article>
-
-      <article id="italiano" lang="it">
-        <h1>Informativa sulla privacy</h1>
-        <p class="updated">Ultimo aggiornamento: 13 agosto 2026</p>
-        <p class="notice"><strong>MobileSpinRoulette usa esclusivamente punti virtuali.</strong> Non offre gioco con denaro reale, acquisti, conversione in denaro, premi o account.</p>
-
-        <h2>Raccolta dei dati</h2>
-        <p>L’app non raccoglie, trasmette, vende o condivide dati personali. Non contiene analytics, pubblicità, tecnologie di tracciamento, account o server remoto per i dati di gioco.</p>
-
-        <h2>Dati conservati sul dispositivo</h2>
-        <p>Punteggio, impostazioni, lingua, strategie e sessione di gioco sono conservati localmente nello spazio di archiviazione del browser. Restano sul dispositivo, salvo il backup esportato volontariamente dall’utente.</p>
-
-        <h2>Controlli e conservazione</h2>
-        <p>Da <strong>Impostazioni → I tuoi dati</strong> puoi esportare, importare o cancellare i dati locali. Anche la disinstallazione o la cancellazione dei dati del sito può rimuoverli. Il progetto non conserva copie su un server.</p>
-
-        <h2>Funzioni del dispositivo e rete</h2>
-        <p>L’app può usare la vibrazione facoltativa per il feedback tattile e lo spazio del browser per i progressi. Asset e musica opzionale provengono dallo stesso host dell’app. Aprendo il collegamento a GitHub si lascia l’app e si applica l’informativa di GitHub.</p>
-
-        <h2>Minori e gioco simulato</h2>
-        <p>L’app simula la roulette per intrattenimento e verifica di strategie. Genitori e tutori devono valutare se il tema del gioco d’azzardo sia appropriato per un minore nella propria giurisdizione.</p>
-
-        <h2>Modifiche e contatti</h2>
-        <p>Le modifiche sostanziali saranno pubblicate su questa pagina con una nuova data di revisione. Per domande sulla privacy è disponibile l’<a href="https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette/issues" rel="noopener noreferrer">issue tracker GitHub</a>; non inserire informazioni personali sensibili in una segnalazione pubblica.</p>
-      </article>
-
+      <div class="locale-list">
+        <a href="./privacy/en.html" lang="en"><strong>Privacy Policy</strong><small>English</small></a>
+        <a href="./privacy/it.html" lang="it"><strong>Informativa sulla privacy</strong><small>Italiano</small></a>
+        <a href="./privacy/es.html" lang="es"><strong>Política de privacidad</strong><small>Español</small></a>
+        <a href="./privacy/pt-BR.html" lang="pt-BR"><strong>Política de privacidade</strong><small>Português (BR)</small></a>
+        <a href="./privacy/fr.html" lang="fr"><strong>Politique de confidentialité</strong><small>Français</small></a>
+        <a href="./privacy/de.html" lang="de"><strong>Datenschutzerklärung</strong><small>Deutsch</small></a>
+        <a href="./privacy/ko.html" lang="ko"><strong>개인정보 처리방침</strong><small>한국어</small></a>
+        <a href="./privacy/ja.html" lang="ja"><strong>プライバシーポリシー</strong><small>日本語</small></a>
+        <a href="./privacy/zh.html" lang="zh-CN"><strong>隐私政策</strong><small>中文</small></a>
+      </div>
       <footer>MobileSpinRoulette · Open source · Virtual points only</footer>
     </main>
   </body>

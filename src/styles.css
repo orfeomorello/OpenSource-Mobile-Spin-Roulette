@@ -2,7 +2,7 @@
 /* Source: styles.css */
 :root {
     color-scheme: dark;
-    font-family: "Lucida Console", "Courier New", monospace;
+    font-family: Inter, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: #06100d;
     color: #f2ead8;
     font-synthesis: none

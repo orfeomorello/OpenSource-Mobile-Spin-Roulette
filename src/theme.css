@@ -3,6 +3,15 @@
 /* v1.1 — premium mobile casino presentation.
  * This layer deliberately changes presentation only: game state, bets and persistence
  * continue to live in the existing TypeScript domain modules. */
+@font-face {
+    font-family: Inter;
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url("./assets/fonts/inter-latin-wght.woff2") format("woff2-variations"),
+        url("./assets/fonts/inter-latin-wght.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD
+}
 :root {
     --ui-sans: Inter, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --ui-serif: Georgia, "Times New Roman", serif;
@@ -16,6 +25,10 @@
     --felt-700: #08603d;
     --felt-800: #064a31;
     --felt-900: #033321
+}
+html,
+body {
+    font-family: var(--ui-sans)
 }
 button,
 input,
@@ -55,7 +68,11 @@ textarea {
 .landing.settings-screen .home-grid-fx,
 .landing.settings-screen .home-scanline,
 .landing.settings-screen .home-pixels,
-.landing.settings-screen .home-parallax {
+.landing.settings-screen .home-parallax,
+.landing.privacy-screen .home-grid-fx,
+.landing.privacy-screen .home-scanline,
+.landing.privacy-screen .home-pixels,
+.landing.privacy-screen .home-parallax {
     display: none !important
 }
 .landing.home-clean {
@@ -343,7 +360,14 @@ textarea {
     margin: 2px
 }
 .landing.home-clean .home-credit-link {
-    color: #b99b61
+    color: #b99b61;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer
 }
 /* Settings inherit the same premium surface while keeping every existing control. */
 .landing.settings-screen {
@@ -356,7 +380,8 @@ textarea {
     box-shadow: inset 0 1px rgba(255,255,255,.07), 0 30px 80px rgba(0,0,0,.5)
 }
 .landing.settings-screen .home-title,
-.landing.settings-screen #settings-title {
+.landing.settings-screen #settings-title,
+.landing.settings-screen #privacy-title {
     font-family: var(--ui-serif);
     font-weight: 400;
     letter-spacing: .01em;
@@ -2361,9 +2386,11 @@ body {
     color: var(--chip-ink) !important;
     background: var(--chip-token) !important;
     box-shadow: 0 0 0 1px rgba(1, 8, 5, .92),
+    0 1px 0 rgba(255, 255, 255, .16),
     0 2px 0 var(--chip-shade),
-    0 4px 7px rgba(0, 0, 0, .4),
-    inset 0 1px 1px rgba(255, 255, 255, .28),
+    0 3px 0 #050302,
+    0 5px 7px rgba(0, 0, 0, .4),
+    inset 0 1px 1px rgba(255, 255, 255, .3),
     inset 0 -2px 3px rgba(0, 0, 0, .28) !important;
     image-rendering: auto;
     font-family: var(--ui-sans);
@@ -2431,7 +2458,15 @@ body {
     height: 46px !important;
     min-width: 46px !important;
     min-height: 46px !important;
-    font-size: .95rem
+    font-size: .95rem;
+    box-shadow: 0 0 0 1px rgba(1, 8, 5, .92),
+    0 1px 0 rgba(255, 255, 255, .2),
+    0 2px 0 var(--chip-body),
+    0 3px 0 var(--chip-edge),
+    0 4px 0 var(--chip-shade),
+    0 6px 10px rgba(0, 0, 0, .42),
+    inset 0 1px 1px rgba(255, 255, 255, .32),
+    inset 0 -2px 3px rgba(0, 0, 0, .28) !important
 }
 .mobile-first-player .chip-picker-menu .casino-chip {
     width: 42px !important;
@@ -2442,9 +2477,13 @@ body {
 .mobile-first-player #player-chip-trigger.casino-chip {
     transform: none !important;
     filter: none;
-    box-shadow: 0 2px 0 var(--chip-shade),
-    0 4px 7px rgba(0, 0, 0, .4),
-    inset 0 1px 1px rgba(255, 255, 255, .28),
+    box-shadow: 0 0 0 1px rgba(1, 8, 5, .92),
+    0 0 0 3px #f9edc9,
+    0 2px 0 var(--chip-body),
+    0 3px 0 var(--chip-edge),
+    0 4px 0 var(--chip-shade),
+    0 6px 10px rgba(0, 0, 0, .42),
+    inset 0 1px 1px rgba(255, 255, 255, .32),
     inset 0 -2px 3px rgba(0, 0, 0, .28) !important
 }
 .mobile-first-player .chip-menu-caret {
@@ -2479,6 +2518,18 @@ body {
     font-size: 0.42rem;
     color: var(--chip-ink) !important;
     background: var(--chip-token) !important
+}
+/* Outside bets have room for a short fake pile. Inside rails stay a single disc. */
+.mobile-first-player .column-pays .player-chip,
+.mobile-first-player .dozens .player-chip,
+.mobile-first-player .even-money .player-chip {
+    box-shadow: 0 0 0 1px rgba(1, 8, 5, .92),
+    0 2px 0 var(--chip-shade),
+    1px 3px 0 0 var(--chip-edge),
+    2px 5px 0 0 var(--chip-shade),
+    2px 7px 6px rgba(0, 0, 0, .38),
+    inset 0 1px 1px rgba(255, 255, 255, .28),
+    inset 0 -2px 3px rgba(0, 0, 0, .28) !important
 }
 /* --------------------------------------------------------------------------
    Felt chip anchors — sit on the rail, not inside the next pocket
@@ -2668,30 +2719,42 @@ body {
 /* --------------------------------------------------------------------------
    Felt cloth + engraved numbers
    -------------------------------------------------------------------------- */
+.mobile-first-player .casino-felt {
+    --felt-line: #e2d4a6
+}
 .mobile-first-player .felt-panel.casino-felt {
-    background: linear-gradient(145deg, rgba(255, 255, 255, .07), transparent 26%),
-    repeating-radial-gradient(circle at 18% 12%, rgba(255, 255, 255, .035) 0 1px, transparent 1px 11px),
-    repeating-linear-gradient(118deg, transparent 0 13px, rgba(0, 0, 0, .045) 13px 14px),
-    radial-gradient(ellipse at 48% 22%, #0e8254, #075d3d 58%, #03432b 100%) padding-box,
-    linear-gradient(135deg, #2b130a 0%, #8a522c 18%, #3d1e10 40%, #9a5a30 58%, #2e150b 78%, #6e3c20 100%) border-box !important
+    background: linear-gradient(155deg, rgba(255, 255, 255, .09), transparent 30%),
+    repeating-linear-gradient(28deg, transparent 0 5px, rgba(255, 255, 255, .03) 5px 6px),
+    repeating-linear-gradient(118deg, transparent 0 6px, rgba(0, 0, 0, .04) 6px 7px),
+    radial-gradient(ellipse at 48% 20%, #10915c, #075d3d 56%, #033221 100%) padding-box,
+    repeating-linear-gradient(122deg, rgba(255, 214, 150, .1) 0 2px, transparent 2px 8px) border-box,
+    linear-gradient(135deg, #2b130a 0%, #8a522c 18%, #3d1e10 40%, #9a5a30 58%, #2e150b 78%, #6e3c20 100%) border-box !important;
+    background-size: auto, auto, auto, auto, auto, auto !important
 }
 .mobile-first-player .casino-felt .numbers b,
 .mobile-first-player .casino-felt .zero-zone b,
 .mobile-first-player .casino-felt .column-pays > span,
 .mobile-first-player .casino-felt .dozens > span,
 .mobile-first-player .casino-felt .even-money > span {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22),
-    inset 0 -2px 0 rgba(0, 0, 0, .38),
-    0 1px 0 rgba(0, 0, 0, .18)
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28),
+    inset 0 -2px 0 rgba(0, 0, 0, .42),
+    inset 1px 0 0 rgba(255, 255, 255, .08),
+    inset -1px 0 0 rgba(0, 0, 0, .18),
+    0 1px 0 rgba(0, 0, 0, .2)
 }
 .mobile-first-player .casino-felt .numbers b.red {
-    background: linear-gradient(180deg, #e04a4c 0%, #c02930 46%, #8a161c 100%)
+    background: linear-gradient(180deg, #e85a58 0%, #c02930 48%, #7e1319 100%)
 }
 .mobile-first-player .casino-felt .numbers b.black {
-    background: linear-gradient(180deg, #3a403e 0%, #1c211f 52%, #0a0d0c 100%)
+    background: linear-gradient(180deg, #454c4a 0%, #1c211f 52%, #080a09 100%)
 }
 .mobile-first-player .casino-felt .zero-zone b.green {
-    background: linear-gradient(180deg, #22b36f 0%, #128a52 48%, #075a36 100%)
+    background: linear-gradient(180deg, #28bf78 0%, #128a52 48%, #064e2f 100%)
+}
+.mobile-first-player .casino-felt .column-pays > span,
+.mobile-first-player .casino-felt .dozens > span,
+.mobile-first-player .casino-felt .even-money > span {
+    background: linear-gradient(180deg, #14965f 0%, #0a6e44 58%, #055232 100%)
 }
 /* Larger phones: keep the same geometry, let the grid breathe. */
 @media (max-width: 720px) and (orientation: portrait) and (min-width: 390px) {
@@ -2707,13 +2770,45 @@ body {
     margin: -2px 0 12px;
     font-size: .74rem
 }
-.settings-privacy a {
+.settings-privacy-btn {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    background: none;
     color: #e4c680;
+    font: inherit;
     font-weight: 750;
-    text-underline-offset: 3px
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer
 }
-.settings-privacy a:hover {
+.settings-privacy-btn:hover {
     color: #f0d99d
+}
+.privacy-panel {
+    width: min(720px, 100%)
+}
+.privacy-article h2 {
+    margin: 22px 0 8px;
+    color: #e8cd8c;
+    font-size: 1.02rem
+}
+.privacy-article p {
+    margin: 0 0 10px;
+    color: #c6d2cb;
+    line-height: 1.6
+}
+.privacy-updated {
+    margin: 0 0 16px;
+    color: #8fa59a;
+    font-size: .82rem
+}
+.privacy-notice {
+    margin: 0 0 8px;
+    padding: 12px 14px;
+    border-left: 4px solid #d6b66f;
+    background: rgba(214, 182, 111, .08);
+    color: #f2ead8
 }
 .settings-data-table {
     list-style: none;
