@@ -2,7 +2,6 @@ import type { Locale, TableVariant } from "../core/types.ts";
 import controlsConfig from "../../config/controls.json" with { type: "json" };
 import { LEGACY_APP_PREFIX, readMigratedStorage } from "./storageMigration.ts";
 
-export type DifficultyPresetId = "training" | "standard" | "busy" | "rush";
 export type PlayerMusicMode =
   | "random"
   | "bossa-nova-jazz"
@@ -33,12 +32,10 @@ export interface AppSettings {
   playerMusicMode: PlayerMusicMode;
   /** Home screen motion (see controls.json homePresentation). */
   backgroundAnimation: BackgroundAnimationId;
-  defaultPresetId: DifficultyPresetId;
 }
 
 export const SETTINGS_STORAGE_KEY = "mobilespinroulette.settings.v1";
 
-const PRESET_IDS: DifficultyPresetId[] = ["training", "standard", "busy", "rush"];
 const PLAYER_MUSIC_MODES: PlayerMusicMode[] = [
   "random",
   "bossa-nova-jazz",
@@ -76,7 +73,6 @@ export function createDefaultSettings(): AppSettings {
     musicVolume: DEFAULT_MUSIC_VOLUME,
     playerMusicMode: "random",
     backgroundAnimation: DEFAULT_BACKGROUND_ANIMATION,
-    defaultPresetId: "standard",
   };
 }
 
@@ -91,10 +87,6 @@ function asPlayerMusicMode(value: unknown): PlayerMusicMode {
 
 function asVariant(value: unknown): TableVariant {
   return value === "american" ? "american" : "european";
-}
-
-function asPreset(value: unknown): DifficultyPresetId {
-  return PRESET_IDS.includes(value as DifficultyPresetId) ? (value as DifficultyPresetId) : "standard";
 }
 
 export function asBackgroundAnimation(value: unknown): BackgroundAnimationId {
@@ -120,7 +112,6 @@ export function loadSettings(): AppSettings {
       musicVolume: asMusicVolume(raw.musicVolume),
       playerMusicMode: asPlayerMusicMode(raw.playerMusicMode),
       backgroundAnimation: asBackgroundAnimation(raw.backgroundAnimation),
-      defaultPresetId: asPreset(raw.defaultPresetId),
     };
   } catch {
     return createDefaultSettings();

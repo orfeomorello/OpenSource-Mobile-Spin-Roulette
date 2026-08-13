@@ -27,12 +27,6 @@ export interface PlayerModeConfig {
   minBuyIn: number;
   chipDenominations: number[];
   defaultChip: number;
-  scenicNpcCount: number;
-  reBuyMidSession: boolean;
-  /** @deprecated Manual spin — timer no longer used. Kept for older config files. */
-  bettingSeconds?: number;
-  /** @deprecated Full bankroll is brought automatically. */
-  bringToTableSteps?: number[];
 }
 
 export interface PlayerGameState {
@@ -57,13 +51,9 @@ export interface PlayerGameState {
   animationEnabled: boolean;
   message: string;
   messageParams: Record<string, string | number>;
-  /** Decorative names only — never hold bets. */
-  scenicNpcNames: string[];
   /** Session stats: profit base, W/L, bankroll curve. */
   stats: PlayerSessionStats;
 }
-
-const SCENIC_NAMES = ["Mira", "Jules", "Ren", "Ava", "Kai", "Noa", "Lio", "Suki"];
 
 export function getPlayerModeConfig(): PlayerModeConfig {
   const raw = (balanceConfig as { playerMode?: Partial<PlayerModeConfig> }).playerMode ?? {};
@@ -73,8 +63,6 @@ export function getPlayerModeConfig(): PlayerModeConfig {
       ? raw.chipDenominations.map((n) => Math.floor(n)).filter((n) => n > 0)
       : [1, 2, 5, 10, 100, 500],
     defaultChip: Math.floor(raw.defaultChip ?? 10),
-    scenicNpcCount: Math.max(0, Math.floor(raw.scenicNpcCount ?? 3)),
-    reBuyMidSession: raw.reBuyMidSession === true,
   };
 }
 
@@ -103,26 +91,6 @@ export function openPlayerBankroll(
 ): BringToTableResult | null {
   const value = Math.floor(profile.walletUnits);
   if (value < minBuyIn) return null;
-  return { profile, tableScore: value, amount: value };
-}
-
-/** @deprecated Use openPlayerBankroll — score is no longer moved out of Accumulated on enter. */
-export function bringAllToTable(
-  profile: UserProfile,
-  minBuyIn = getPlayerModeConfig().minBuyIn,
-): BringToTableResult | null {
-  return openPlayerBankroll(profile, minBuyIn);
-}
-
-/** @deprecated Partial bring no longer used in UI. */
-export function bringToTable(
-  profile: UserProfile,
-  amount: number,
-  minBuyIn = getPlayerModeConfig().minBuyIn,
-): BringToTableResult | null {
-  const value = Math.floor(amount);
-  if (value < minBuyIn) return null;
-  if (profile.walletUnits < value) return null;
   return { profile, tableScore: value, amount: value };
 }
 
@@ -156,12 +124,6 @@ export function createPlayerGame(
   const selectedChip = score >= defaultChip
     ? defaultChip
     : [...cfg.chipDenominations].reverse().find((d) => d <= score) ?? cfg.chipDenominations[0] ?? 1;
-  const names = SCENIC_NAMES.slice();
-  // Fisher-Yates pick for scenic labels
-  for (let i = names.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
-    [names[i], names[j]] = [names[j], names[i]];
-  }
   return {
     runId: `player-${Date.now().toString(36)}-${Math.floor(rng() * 0xfffffff).toString(36).padStart(6, "0")}`,
     locale,
@@ -180,7 +142,6 @@ export function createPlayerGame(
     animationEnabled,
     message: "message.playerWelcome",
     messageParams: {},
-    scenicNpcNames: names.slice(0, cfg.scenicNpcCount),
     stats: createEmptyStats(score),
   };
 }
@@ -827,15 +788,8 @@ export function snapshotPlayer(state: PlayerGameState): SessionSnapshot {
     locale: state.locale,
     mode: "player",
     variant: state.variant,
-    presetId: "player",
     phase: state.phase,
-    level: 1,
-    energy: 0,
-    serviceScore: { points: 0, comboStep: 0, walletCreditCommitted: true },
-    tableLedgerUnits: 0,
     round: state.round,
-    seats: [],
-    activeSeatCount: 0,
     history: [...state.history],
     animationEnabled: state.animationEnabled,
     savedAt: new Date().toISOString(),
@@ -848,7 +802,6 @@ export function snapshotPlayer(state: PlayerGameState): SessionSnapshot {
     chipHistory: structuredClone(state.chipHistory),
     lastSettle: state.lastSettle ? structuredClone(state.lastSettle) : null,
     lastBets: structuredClone(state.lastBets),
-    scenicNpcNames: [...state.scenicNpcNames],
     playerStats: {
       startingScore: state.stats.startingScore,
       wins: state.stats.wins,
@@ -869,7 +822,7 @@ export function restorePlayerFromSnapshot(raw: unknown): PlayerGameState | null 
   const cfg = getPlayerModeConfig();
   let phase: Phase = typeof data.phase === "string" ? data.phase as Phase : "PREPARE";
   // Mid-animation → PREPARE handoff
-  if (phase === "SPINNING" || phase === "RESULT" || phase === "BETTING_CLOSED") {
+  if (phase === "SPINNING" || phase === "BETTING_CLOSED") {
     phase = "PREPARE";
   }
   if (phase === "PAYOUT") phase = "PREPARE";
@@ -922,9 +875,6 @@ export function restorePlayerFromSnapshot(raw: unknown): PlayerGameState | null 
     animationEnabled: data.animationEnabled !== false,
     message: typeof data.message === "string" ? data.message : "message.playerPreparing",
     messageParams: data.messageParams && typeof data.messageParams === "object" ? { ...data.messageParams } : {},
-    scenicNpcNames: Array.isArray(data.scenicNpcNames)
-      ? data.scenicNpcNames.filter((n): n is string => typeof n === "string").slice(0, cfg.scenicNpcCount)
-      : SCENIC_NAMES.slice(0, cfg.scenicNpcCount),
     stats,
   };
 }

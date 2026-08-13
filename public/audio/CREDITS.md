@@ -10,15 +10,6 @@ The tracks listed below may be used commercially in the game under their respect
 - **License:** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), public-domain dedication
 - **Use in MobileSpinRoulette:** looping music for the home screen and Settings
 
-## `mus_dealer_loop.wav`
-
-- **Title:** Jazz n' brass loop
-- **Source:** [OpenGameArt](https://opengameart.org/content/jazz-n-brass-loop)
-- **Author:** Emma M. Andersson, as listed in the original WAV metadata
-- **License:** CC0 / public domain, as stated on the source page
-- **Use in MobileSpinRoulette:** looping music during Dealer gameplay
-- **Format:** original WAV downloaded during audio preparation
-
 ## Player playlist - Andrii H (Pixabay)
 
 All tracks in this section are published by **Andrii H** on Pixabay under the same license.

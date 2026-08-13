@@ -1,7 +1,4 @@
-import type { NpcBehaviorSnapshot } from "../npc/behavior.ts";
-
 export type TableVariant = "european" | "american";
-export type GameMode = "dealer" | "autoplay" | "player";
 /** UI languages — BCP-47-ish codes; pt-BR and zh (Simplified) included. */
 export type Locale = "en" | "it" | "es" | "pt-BR" | "fr" | "de" | "ko" | "ja" | "zh";
 export type Phase =
@@ -9,7 +6,6 @@ export type Phase =
   | "BETTING_OPEN"
   | "BETTING_CLOSED"
   | "SPINNING"
-  | "RESULT"
   | "PAYOUT"
   | "GAME_OVER";
 
@@ -25,23 +21,6 @@ export interface BetDefinition {
 export interface PlacedBet {
   betId: string;
   stake: number;
-}
-
-export interface Seat {
-  id: string;
-  name: string;
-  bankroll: number;
-  profileId: "cautious" | "normal" | "aggressive" | "superstitious";
-  favoritePocket: string;
-  avatarSeed: number;
-  bets: PlacedBet[];
-}
-
-export interface Payment {
-  seatId: string;
-  seatName: string;
-  due: number;
-  paid: number;
 }
 
 export interface SpinResult {
@@ -86,57 +65,26 @@ export interface PlayerSessionStats {
   bankrollHistory: number[];
 }
 
-/**
- * Unified local session snapshot (Dealer v3/v4 · Player v5).
- * Extra fields are optional for mode-specific resume.
- */
+/** Player-only local session snapshot (schema v5). */
 export interface SessionSnapshot {
-  schemaVersion: number;
+  schemaVersion: 5;
   runId: string;
   locale: Locale;
-  mode: GameMode;
+  mode: "player";
   variant: TableVariant;
-  presetId: string;
   phase: Phase;
-  level: number;
-  energy: number;
-  energyMax?: number;
-  serviceScore: {
-    points: number;
-    comboStep: number;
-    walletCreditCommitted: boolean;
-  };
-  tableLedgerUnits: number;
   round: number;
-  seats: Seat[];
-  activeSeatCount: number;
   history: string[];
   animationEnabled: boolean;
   savedAt: string;
   result?: string | null;
   message?: string;
   messageParams?: Record<string, string | number>;
-  // Dealer mid-round
-  payments?: Payment[];
-  paymentIndex?: number;
-  expectedPayments?: number;
-  paidCustomers?: number;
-  bettingSeconds?: number;
-  payTimeBaseSeconds?: number;
-  paySeconds?: number;
-  bonus?: string | null;
-  payoutHadError?: boolean;
-  payoutScoreFinalized?: boolean;
-  manualPaidSeatIds?: string[];
-  autoPaidSeatIds?: string[];
-  npcBehavior?: Record<string, NpcBehaviorSnapshot>;
-  // Player
-  tableScore?: number;
+  tableScore: number;
   selectedChip?: number;
   playerBets?: PlacedBet[];
   chipHistory?: PlayerChipAction[];
   lastSettle?: PlayerSettleResult | null;
   lastBets?: PlacedBet[];
-  scenicNpcNames?: string[];
   playerStats?: PlayerSessionStats;
 }

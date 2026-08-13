@@ -1,10 +1,8 @@
 import "./styles.css";
 import "./player.css";
 import "./theme.css";
-import balanceConfig from "../config/game-balance.json" with { type: "json" };
 import europeanBets from "../config/bets-european.json" with { type: "json" };
 import americanBets from "../config/bets-american.json" with { type: "json" };
-import { closeBets, createGame, finishRound, getActiveSeats, getForcedWinningNumber, markSpinning, openBetting, pay, paySeat, payoutTimeout, resolveSpin, selectPayment, snapshot, type GameState, type ScoreEvent } from "./core/game.ts";
 import {
   applySavedBets, canEnterPlayer, cashOutPlayer, clearDraftBets, clearPlayerBets,
   createBetCreatorDraft, createPlayerGame, doubleBets, draftTotal, finishPlayerRound,
@@ -29,16 +27,13 @@ import {
   type NeighborRadius,
   wheelPockets,
 } from "./core/callBets.ts";
-import type { BetDefinition, Locale, PlacedBet, PlayerChipAction, Seat, SpinResult, TableVariant } from "./core/types.ts";
+import type { BetDefinition, Locale, PlacedBet, PlayerChipAction, SpinResult, TableVariant } from "./core/types.ts";
 import { isLocale, LOCALE_META, LOCALE_STORAGE_KEY, readStoredLocale, storeLocale, translate } from "./i18n.ts";
-import { AuthoredNpcDialogueProvider } from "./npc/dialogue.ts";
-import { buildHuntBoard, huntBoardClassList, huntSeedKey, renderHuntVoidCell } from "./npc/huntBoard.ts";
-import { renderSeatCard } from "./npc/presenter.ts";
 import {
   deleteBetTemplate, duplicateBetTemplate, loadBetTemplates, MAX_BET_TEMPLATES, saveBetTemplates, templateTotal, upsertBetTemplate,
   type BetTemplate, BET_TEMPLATES_STORAGE_KEY,
 } from "./persist/betTemplates.ts";
-import { commitDealerRun, loadUserProfile, noteBestScore, refillEmptyProfile, restoreStarterBankroll, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
+import { loadUserProfile, refillEmptyProfile, restoreStarterBankroll, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
 import { clearStoredSession, readStoredSession, writeStoredSession, SESSION_STORAGE_KEY } from "./persist/session.ts";
 import {
   asBackgroundAnimation,
@@ -48,7 +43,6 @@ import {
   updateSettings,
   type AppSettings,
   type BackgroundAnimationId,
-  type DifficultyPresetId,
   SETTINGS_STORAGE_KEY,
 } from "./persist/settings.ts";
 import { LEGACY_APP_PREFIX } from "./persist/storageMigration.ts";
@@ -124,10 +118,9 @@ function openBetCreatorFromTable(): void {
   });
 }
 
-/** Home + Settings → menu; Dealer → jazz brass; Player → freejazz soft. */
-function syncScreenMusic(screen: "menu" | "settings" | "dealer" | "player" | "none"): void {
+/** Home + Settings → menu; Player → soft playlist. */
+function syncScreenMusic(screen: "menu" | "settings" | "player" | "none"): void {
   if (screen === "menu" || screen === "settings") setMusic("menu");
-  else if (screen === "dealer") setMusic("dealer");
   else if (screen === "player") setMusic("player");
   else setMusic(null);
 }
@@ -161,7 +154,6 @@ function landingBgClass(fx: BackgroundAnimationId = appSettings.backgroundAnimat
   return `home-bg-${fx}`;
 }
 
-let game: GameState | null = null;
 let playerGame: PlayerGameState | null = null;
 /** Bet Creator sandbox (no score spend) — when set, overrides the live table view. */
 let creatorDraft: BetCreatorDraft | null = null;
@@ -183,18 +175,13 @@ let playerChipMenuOpen = false;
 let soundPanelOpen = false;
 /** Neighbor radius: 0→1 number, 2→5 (classic). */
 let racetrackNeighborRadius: NeighborRadius = 2;
-let timer: number | null = null;
-let lastFx = "";
-let lastWalletEarned = 0;
 let lastPlayerNet: number | null = null;
-/** Full-screen winning-number reveal after every spin (Dealer + Player). */
+/** Full-screen winning-number reveal after every Player spin. */
 interface ResultRevealState {
   winningNumber: string;
-  context: "dealer" | "player";
   playerNet: number | null;
   /** True when the hand had no chips (free spin) — net is 0 but not “even this hand”. */
   playerFreeSpin?: boolean;
-  dealerNoWinners: boolean;
 }
 let resultReveal: ResultRevealState | null = null;
 let resultRevealTimer: number | null = null;
@@ -202,52 +189,32 @@ let resultRevealTimer: number | null = null;
 let resultRevealOnDone: (() => void) | null = null;
 /** ~2s — matches live-table / sim “big number” beat; skip early with tap anywhere. */
 const RESULT_REVEAL_MS = 2200;
-let fxTimer: number | null = null;
-/** Seat that just received pay/wrong juice (presenter only). */
-let juiceSeatId: string | null = null;
-let juiceKind: "pay" | "wrong" | null = null;
-let juiceTimer: number | null = null;
-/** Score pops from the last action, consumed on next full render. */
-let pendingScoreEvents: ScoreEvent[] = [];
 let spinTickTimers: number[] = [];
 let activeSpinPlan: SpinResult | null = null;
 let spinDurationMs = 0;
 let playerSpinTimer: number | null = null;
 let wheelRestAngle = 0;
 let wheelAnimation: WheelAnimationHandle | null = null;
-/** How-to lesson step; drives coach copy and gated Next (not used in Dealer). */
-type HowtoLessonKey = "goal" | "betting" | "closed" | "spin" | "result" | "pay" | "score" | "loop";
-let howtoLesson: HowtoLessonKey = "goal";
-/** True while the player must press Next before the lesson continues. */
-let howtoAwaitingAdvance = false;
-/** True while spin or demo-pay animation runs (no Next until idle again). */
-let howtoBusy = false;
-let howtoDelayTimer: number | null = null;
 const t = (key: string, variables: Record<string, string | number> = {}): string => translate(locale, key, variables);
-const dialogue = new AuthoredNpcDialogueProvider((key, variables) => t(key, variables));
 document.documentElement.lang = locale;
 
 /** Defaults for one-click role start — from Settings (home gear). */
-function menuDefaults(): { preset: DifficultyPresetId; variant: TableVariant; animation: boolean } {
+function menuDefaults(): { variant: TableVariant; animation: boolean } {
   appSettings = loadSettings();
   return {
-    preset: appSettings.defaultPresetId,
     variant: appSettings.defaultTableVariant,
     animation: appSettings.animationEnabled,
   };
 }
 
 function showMenu(): void {
-  stopTimer();
   wheelAnimation?.cancel();
   wheelAnimation = null;
-  game = null;
   playerGame = null;
   lastPlayerNet = null;
   playerMenuOpen = false;
   playerChipMenuOpen = false;
   soundPanelOpen = false;
-  clearHowtoDelay();
   syncScreenMusic("menu");
 
   appSettings = loadSettings();
@@ -315,7 +282,6 @@ function showMenu(): void {
 }
 
 function showSettings(): void {
-  stopTimer();
   wheelAnimation?.cancel();
   wheelAnimation = null;
   appSettings = loadSettings();
@@ -538,9 +504,6 @@ function showSettings(): void {
             ? importedMusicMode
             : "random",
           backgroundAnimation: asBackgroundAnimation(importedSettings.backgroundAnimation),
-          defaultPresetId: (["training", "standard", "busy", "rush"] as const).includes(importedSettings.defaultPresetId as DifficultyPresetId)
-            ? (importedSettings.defaultPresetId as DifficultyPresetId)
-            : "standard",
         });
         setMusicVolume(importedVolume);
       }
@@ -618,7 +581,6 @@ function startPlayerSession(variant: TableVariant, animationEnabled: boolean): v
       return;
     }
     playerGame = createPlayerGame(variant, result.tableScore, animationEnabled, locale);
-    game = null;
     lastPlayerNet = null;
     strategyPanelOpen = false;
     racetrackOpen = false;
@@ -648,214 +610,6 @@ function persistPlayerScore(): void {
   if (!playerGame) return;
   profile = syncPlayerScore(profile, playerGame);
   saveUserProfile(profile);
-}
-
-function renderTable(): void {
-  if (!game) return;
-  if (game.phase === "GAME_OVER" && game.mode === "dealer" && !game.walletCreditCommitted) commitCurrentRun();
-  wheelAnimation?.cancel();
-  wheelAnimation = null;
-  const activeSeats = getActiveSeats(game);
-  const selectedPayment = game.payments[game.paymentIndex];
-  const guideStep = game.mode === "autoplay"
-    ? (["goal", "betting"].includes(howtoLesson) ? 1 : ["closed", "spin", "result"].includes(howtoLesson) ? 2 : 3)
-    : game.phase === "BETTING_OPEN" ? 1 : ["BETTING_CLOSED", "SPINNING", "RESULT"].includes(game.phase) ? 2 : game.phase === "PAYOUT" ? 3 : 0;
-  pendingScoreEvents = game.scoreEvents.splice(0);
-  const globalScoreEvents = pendingScoreEvents.filter((event) => !event.seatId || event.reason === "perfect-service" || event.reason === "speed-bonus" || event.reason === "timeout");
-  const howto = game.mode === "autoplay" ? howtoCoachFromLesson() : null;
-  const phasePayout = game.phase === "PAYOUT";
-  const phaseClass = phasePayout ? "phase-is-payout" : game.phase === "SPINNING" ? "phase-is-spinning" : "";
-  // During the big-number reveal, stay on the show table — never flash an empty hunt grid.
-  const revealing = resultReveal !== null && resultReveal.context === "dealer";
-  const phasePayoutHunt = phasePayout && !revealing;
-  const unpaidWinners = game.payments.filter((payment) => payment.paid < payment.due).length;
-  const totalWinners = game.payments.length;
-  // Show phase = short table vignette; PAYOUT hunt = full roster (only when someone won).
-  const showCrowdMax = 4;
-  const showSeats = phasePayoutHunt ? activeSeats : activeSeats.slice(0, showCrowdMax);
-  const showHidden = Math.max(0, activeSeats.length - showSeats.length);
-  const huntTitle = game.mode === "autoplay"
-    ? t("howto.pay.title")
-    : game.round === 1
-      ? t("focus.tutorial")
-      : t("focus.payWinners");
-  const huntHint = game.mode === "autoplay" ? t("table.aiSelects") : t("focus.wrongPenalty");
-  const huntBoardHtml = phasePayoutHunt ? buildHuntBoardMarkup(game, activeSeats, selectedPayment?.seatId ?? null, pendingScoreEvents) : "";
-  const showWheel = game.animationEnabled;
-  const historyHtml = `<div class="history ${showWheel ? "" : "history-bar"}"><span>${t("table.lastNumbers")}</span><div>${game.history.length ? game.history.slice(0, 12).map(numberChip).join("") : `<i>${t("table.firstSpin")}</i>`}</div></div>`;
-  const showTableBody = `${howto && !phasePayoutHunt ? buildHowtoCoach(howto) : ""}
-      <section class="dealer-guide automatic-guide">
-        <div class="your-role"><span>${t("guide.youAre")}</span><b>${game.mode === "autoplay" ? t("guide.watching") : t("guide.croupier")}</b></div>
-        ${guideItem(1, t("guide.betting"), t("guide.automatic"), guideStep)}
-        ${guideItem(2, t("guide.spin"), t("guide.automatic"), guideStep)}
-        ${guideItem(3, t("guide.payout"), t("guide.clickNpc"), guideStep)}
-      </section>
-      <section class="phase-row"><span>${phaseTitle(game)}</span><b>${phaseHelp(game)}</b>${game.bonus ? `<mark>BONUS! ${t(game.bonus)}</mark>` : ""}<time class="${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time></section>
-      <section class="table-grid ${showWheel ? "" : "table-grid-nowheel"}">
-        ${showWheel ? `<aside class="wheel-panel">
-          ${buildWheel(game.variant, game.phase === "SPINNING")}
-          ${historyHtml}
-        </aside>` : ""}
-        <section class="felt-panel casino-felt">
-          ${showWheel ? "" : historyHtml}
-          <div class="felt-heading"><span>${t("table.live")} / ${game.variant.toUpperCase()}</span><small>${t("table.chipsHelp")}</small></div>
-          <div class="felt-grid">${buildFelt(game.variant, game.result, activeSeats)}</div>
-        </section>
-      </section>
-      <div class="show-crowd-wrap">
-        <section class="seats crowd-arena show-crowd crowd-${Math.min(showSeats.length, showCrowdMax)} ${game.phase === "SPINNING" ? "phase-spinning" : ""}" aria-label="Customers">${showSeats.map((seat, index) => buildSeatCard(seat, index, game!, false, pendingScoreEvents, false)).join("")}</section>
-        ${showHidden > 0 ? `<p class="crowd-more">${t("crowd.more", { n: showHidden, total: activeSeats.length })}</p>` : ""}
-      </div>
-      <footer class="table-footer"><span>${t("table.houseFloor")}</span></footer>`;
-  const showBody = phasePayoutHunt
-    ? `${howto ? buildHowtoCoach(howto) : ""}
-      <section class="hunt-banner" aria-label="${t("phase.PAYOUT")}">
-        <div class="hunt-copy"><b>${huntTitle}</b><span>${huntHint}${game.bonus ? ` · BONUS! ${t(game.bonus)}` : ""}</span></div>
-        <div class="hunt-progress"><i>${t("hunt.left")}</i><strong>${unpaidWinners}<small>/${totalWinners}</small></strong></div>
-        <time class="hunt-timer ${phaseCritical(game) ? "critical" : ""}">${phaseTime(game)}</time>
-      </section>
-      ${huntBoardHtml}`
-    : showTableBody;
-  app.innerHTML = `
-    <main class="game-shell simplified ${showWheel ? "" : "dealer-nowheel"} ${revealing ? "is-result-reveal" : ""} ${phaseClass} ${game.mode === "autoplay" ? "howto-mode" : ""} ${howtoAwaitingAdvance ? "howto-waiting" : ""} ${howtoBusy ? "howto-busy" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
-      <header class="arcade-strip">
-        <div class="metric"><span>${t("hud.level")}</span><strong>${pad(game.level)}</strong></div>
-        <div class="metric"><span>${t("hud.energy")}</span><strong class="energy">${game.mode === "autoplay" ? "∞" : energyBar(game.energy, game.energyMax)}</strong></div>
-        <div class="metric score" title="${t("hud.score")}"><span>${t("hud.score")}</span><strong>${format(game.serviceScore)}</strong><i>${t("hud.combo")} ×${game.serviceComboStep + 1}</i></div>
-        <div class="meta"><b>${game.variant === "european" ? "EU" : "US"}</b> · ${game.presetId.toUpperCase()} · ${t("hud.round")} ${game.round} · NPC ${game.activeSeatCount}${game.mode === "autoplay" ? `<em>${t("howto.badge")}</em>` : ""}</div>
-        <nav><button id="sound" class="chrome-button" aria-label="Toggle sound">${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}</button><button id="exit" class="chrome-button danger">${t("hud.exit")}</button></nav>
-      </header>
-      ${showBody}
-      <div class="score-pop-stack global-only">${globalScoreEvents.map((event) => `<div class="score-pop ${event.delta < 0 ? "negative" : "positive"}"><b>${event.delta > 0 ? "+" : ""}${event.delta}</b><span>${t(`score.${event.reason}`)}</span></div>`).join("")}</div>
-      ${game.phase === "GAME_OVER" ? buildGameOverPanel(game) : ""}
-      ${buildResultRevealOverlay()}
-    </main>`;
-  if (!phasePayoutHunt && showWheel) mountWheel();
-  app.querySelectorAll<HTMLButtonElement>("[data-pay-seat]").forEach((seatButton) => seatButton.addEventListener("click", () => {
-    if (!game) return;
-    const seatId = seatButton.dataset.paySeat ?? "";
-    const outcome = paySeat(game, seatId);
-    if (outcome === "invalid") return;
-    const failed = outcome === "wrong-player" || outcome === "overpay";
-    if (outcome === "complete") playSound("level");
-    else if (failed) playSound("error");
-    else {
-      playSound("pay");
-      // After first seat, combo step is ≥1 → next awards 15/20; celebrate multi-hit.
-      if (game.serviceComboStep >= 2) playSound("bonus");
-    }
-    triggerSeatJuice(seatId, failed ? "wrong" : "pay");
-    triggerFx(outcome === "wrong-player" ? "wrong" : outcome === "complete" ? "perfect" : failed ? "overpay" : "pay", failed ? 650 : 500);
-    saveLocal();
-    renderTable();
-    if (outcome === "complete") window.setTimeout(completeRound, balanceConfig.automaticFlow.nextRoundDelayMs);
-  }));
-  app.querySelector<HTMLButtonElement>("#sound")?.addEventListener("click", () => { toggleMute(); if (!isMuted()) playSound("bet"); renderTable(); });
-  app.querySelector<HTMLButtonElement>("#exit")?.addEventListener("click", showExitConfirm);
-  app.querySelector<HTMLButtonElement>("#gameover-menu")?.addEventListener("click", () => {
-    clearStoredSession();
-    showMenu();
-  });
-  app.querySelector<HTMLButtonElement>("#gameover-retry")?.addEventListener("click", retryLastShift);
-  app.querySelector<HTMLButtonElement>("#howto-next")?.addEventListener("click", advanceHowto);
-  bindResultRevealDismiss();
-}
-
-function buildGameOverPanel(state: GameState): string {
-  const isBest = state.serviceScore >= profile.bestServiceScore && state.serviceScore > 0;
-  return `<div class="game-over-panel">
-    <section>
-      <small>${t("gameover.title")}</small>
-      <h2>${t("gameover.score", { score: state.serviceScore })}</h2>
-      <ul class="game-over-stats">
-        <li><span>${t("hud.level")}</span><b>${pad(state.level)}</b></li>
-        <li><span>${t("hud.round")}</span><b>${state.round}</b></li>
-        <li><span>${t("menu.difficulty")}</span><b>${state.presetId.toUpperCase()}</b></li>
-        <li><span>${t("menu.bestScore")}</span><b>${format(Math.max(profile.bestServiceScore, state.serviceScore))}</b></li>
-      </ul>
-      <strong>${t("gameover.wallet", { earned: lastWalletEarned })}</strong>
-      ${isBest ? `<em class="new-record">${t("gameover.newRecord")}</em>` : ""}
-      <div class="game-over-actions">
-        <button type="button" id="gameover-retry">${t("gameover.retry")}</button>
-        <button type="button" id="gameover-menu">${t("gameover.menu")}</button>
-      </div>
-    </section>
-  </div>`;
-}
-
-function retryLastShift(): void {
-  if (!game) return;
-  const presetId = game.presetId;
-  const variant = game.variant;
-  const animationEnabled = game.animationEnabled;
-  clearStoredSession();
-  game = createGame("dealer", presetId, variant, animationEnabled, Math.random, locale);
-  lastWalletEarned = 0;
-  playSound("level");
-  saveLocal();
-  renderTable();
-  window.setTimeout(nextRound, 600);
-}
-
-function triggerSeatJuice(seatId: string, kind: "pay" | "wrong"): void {
-  juiceSeatId = seatId;
-  juiceKind = kind;
-  if (juiceTimer !== null) window.clearTimeout(juiceTimer);
-  juiceTimer = window.setTimeout(() => {
-    juiceSeatId = null;
-    juiceKind = null;
-    document.querySelectorAll(".seat.juice-pay, .seat.juice-wrong").forEach((node) => {
-      node.classList.remove("juice-pay", "juice-wrong");
-    });
-  }, kind === "wrong" ? 700 : 520);
-}
-
-function commitCurrentRun(): number {
-  if (!game || game.mode !== "dealer") return 0;
-  profile = noteBestScore(profile, game.serviceScore);
-  if (game.walletCreditCommitted) {
-    saveUserProfile(profile);
-    return 0;
-  }
-  const result = commitDealerRun(profile, { runId: game.runId, mode: game.mode, serviceScore: game.serviceScore });
-  profile = result.profile;
-  game.walletCreditCommitted = result.committed || profile.committedDealerRuns.includes(game.runId);
-  lastWalletEarned = result.earnedUnits;
-  saveUserProfile(profile);
-  saveLocal();
-  return result.earnedUnits;
-}
-
-function showExitConfirm(): void {
-  if (playerGame) {
-    showPlayerExitConfirm();
-    return;
-  }
-  if (!game) return;
-  stopTimer();
-  const phase = game.phase;
-  const wasHowto = game.mode === "autoplay";
-  const overlay = document.createElement("div");
-  overlay.className = "exit-confirm";
-  overlay.innerHTML = `<section class="exit-confirm-card" role="dialog" aria-modal="true" aria-labelledby="exit-confirm-title">
-    <span class="exit-confirm-icon" aria-hidden="true"><i></i></span>
-    <h2 id="exit-confirm-title">${t("exit.title")}</h2>
-    <p>${t("exit.help")}</p>
-    <div class="exit-confirm-score"><small>${t("hud.score")}</small><strong>+${game.mode === "dealer" ? game.serviceScore : 0}</strong></div>
-    <div class="exit-confirm-actions"><button type="button" id="exit-cancel" class="exit-cancel">${t("exit.cancel")}</button><button type="button" id="exit-confirm" class="exit-danger">${t("exit.confirm")}</button></div>
-  </section>`;
-  app.append(overlay);
-  overlay.querySelector<HTMLButtonElement>("#exit-cancel")!.addEventListener("click", () => {
-    overlay.remove();
-    if (wasHowto) return;
-    if (phase === "BETTING_OPEN") startTimer("betting");
-    if (phase === "PAYOUT") startTimer("payout");
-  });
-  overlay.querySelector<HTMLButtonElement>("#exit-confirm")!.addEventListener("click", () => {
-    clearHowtoDelay();
-    commitCurrentRun();
-    showMenu();
-  });
 }
 
 function showPlayerExitConfirm(): void {
@@ -891,32 +645,6 @@ function showPlayerExitConfirm(): void {
     playSound("pay");
     showMenu();
   });
-}
-
-function clearHowtoDelay(): void {
-  if (howtoDelayTimer !== null) {
-    window.clearTimeout(howtoDelayTimer);
-    howtoDelayTimer = null;
-  }
-}
-
-function scheduleHowto(ms: number, action: () => void): void {
-  clearHowtoDelay();
-  howtoDelayTimer = window.setTimeout(() => {
-    howtoDelayTimer = null;
-    action();
-  }, ms);
-}
-
-function nextRound(): void {
-  if (!game) return;
-  openBetting(game);
-  playSound("bet");
-  triggerFx("bet");
-  saveLocal();
-  renderTable();
-  if (game.mode === "autoplay") return;
-  startTimer("betting");
 }
 
 /** Abort reveal without running onDone (e.g. new spin starting). */
@@ -974,7 +702,7 @@ function buildResultRevealOverlay(): string {
   const color = n === "0" || n === "00" ? "green" : isRed(n) ? "red" : "black";
   let outcomeClass = "is-reveal";
   let outcome = "";
-  if (resultReveal.context === "player" && resultReveal.playerNet !== null) {
+  if (resultReveal.playerNet !== null) {
     if (resultReveal.playerNet > 0) {
       outcomeClass = "is-win";
       outcome = t("reveal.playerWin", { net: format(resultReveal.playerNet) });
@@ -988,14 +716,6 @@ function buildResultRevealOverlay(): string {
       outcomeClass = "is-even";
       outcome = t("reveal.playerEven");
     }
-  } else if (resultReveal.context === "dealer") {
-    if (resultReveal.dealerNoWinners) {
-      outcomeClass = "is-none";
-      outcome = t("reveal.dealerNoWinners");
-    } else {
-      outcomeClass = "is-pay";
-      outcome = t("reveal.dealerWinners");
-    }
   }
   return `<div class="result-reveal" role="button" tabindex="0" aria-live="assertive" aria-label="${t("reveal.number")} ${n}">
     <div class="result-reveal-card color-${color} ${outcomeClass}">
@@ -1004,76 +724,6 @@ function buildResultRevealOverlay(): string {
       ${outcome ? `<p class="result-reveal-outcome">${outcome}</p>` : ""}
     </div>
   </div>`;
-}
-
-function performSpin(): void {
-  if (playerGame) {
-    performPlayerSpin();
-    return;
-  }
-  if (!game || !markSpinning(game)) return;
-  stopTimer();
-  clearResultReveal();
-  if (game.mode === "autoplay") {
-    howtoLesson = "spin";
-    howtoAwaitingAdvance = false;
-    howtoBusy = true;
-  }
-  // Outcome from SpinEngine v2 (CSPRNG + ball/wheel ODE). Canvas only presents the plan.
-  const generatedPlan = spin(game.variant);
-  const forcedNumber = getForcedWinningNumber(game);
-  const plan: SpinResult = forcedNumber ? { ...generatedPlan, winningNumber: forcedNumber } : generatedPlan;
-  activeSpinPlan = plan;
-  spinDurationMs = game.animationEnabled ? Math.min(6200, Math.max(5000, plan.durationMs * 0.68)) : 160;
-  playSound("spin");
-  triggerFx("spin", spinDurationMs);
-  scheduleSpinTicks(game.animationEnabled ? spinDurationMs : 0);
-  renderTable();
-  window.setTimeout(() => {
-    if (!game) return;
-    wheelRestAngle = getSpinEndAngle(wheelRestAngle, game.variant, plan.winningNumber, plan.turns);
-    activeSpinPlan = null;
-    resolveSpin(game, plan.winningNumber);
-    clearSpinTicks();
-    playSound("settle");
-    const noWinners = game.payments.length === 0
-      || game.payments.every((payment) => payment.paid >= payment.due);
-
-    if (game.mode === "autoplay") {
-      howtoBusy = false;
-      howtoLesson = "result";
-      howtoAwaitingAdvance = true;
-      scheduleResultReveal({
-        winningNumber: plan.winningNumber,
-        context: "dealer",
-        playerNet: null,
-        dealerNoWinners: noWinners,
-      }, () => {
-        if (game) renderTable();
-      });
-      renderTable();
-      return;
-    }
-
-    saveLocal();
-    // Big-number beat first; hunt board only after reveal, and only if someone won.
-    scheduleResultReveal({
-      winningNumber: plan.winningNumber,
-      context: "dealer",
-      playerNet: null,
-      dealerNoWinners: noWinners,
-    }, () => {
-      if (!game) return;
-      if (noWinners) {
-        // No empty hunt flash — go straight to next wave.
-        completeRound();
-        return;
-      }
-      renderTable();
-      startTimer("payout");
-    });
-    renderTable();
-  }, spinDurationMs);
 }
 
 function performPlayerSpin(): void {
@@ -1088,7 +738,6 @@ function performPlayerSpin(): void {
   spinDurationMs = playerGame.animationEnabled ? Math.min(6200, Math.max(5000, generatedPlan.durationMs * 0.68)) : 160;
   playSound("spin");
   haptic([16, 40, 16]);
-  triggerFx("spin", spinDurationMs);
   scheduleSpinTicks(playerGame.animationEnabled ? spinDurationMs : 0);
   renderPlayerTable();
   playerSpinTimer = window.setTimeout(settleActivePlayerSpin, spinDurationMs);
@@ -1106,15 +755,12 @@ function settleActivePlayerSpin(): void {
     clearSpinTicks();
     playSound(settle.netDelta > 0 ? "pay" : settle.totalStaked === 0 ? "settle" : "error");
     haptic(settle.netDelta > 0 ? [18, 30, 28] : 22);
-    triggerFx(settle.netDelta > 0 ? "perfect" : "settle", 700);
     persistPlayerScore();
     savePlayerLocal();
     scheduleResultReveal({
       winningNumber: completedPlan.winningNumber,
-      context: "player",
       playerNet: settle.netDelta,
       playerFreeSpin: settle.totalStaked === 0,
-      dealerNoWinners: false,
     }, () => {
       completePlayerRound();
     });
@@ -1138,272 +784,21 @@ function completePlayerRound(): void {
   renderPlayerTable();
 }
 
-function autoplayPay(): void {
-  if (!game || game.mode !== "autoplay" || game.phase !== "PAYOUT") return;
-  howtoBusy = true;
-  howtoAwaitingAdvance = false;
-  const current = game.payments[game.paymentIndex];
-  if (!current || current.paid >= current.due) {
-    const next = game.payments.find((payment) => payment.paid < payment.due);
-    if (next) {
-      selectPayment(game, next.seatId);
-      playSound("bet");
-      triggerFx("select", 360);
-      renderTable();
-      scheduleHowto(420, autoplayPay);
-      return;
-    }
-  }
-  const targetSeatId = game.payments[game.paymentIndex]?.seatId ?? "";
-  const outcome = pay(game);
-  if (outcome === "complete") playSound("level");
-  else playSound(outcome === "overpay" ? "error" : "pay");
-  if (targetSeatId) triggerSeatJuice(targetSeatId, outcome === "overpay" ? "wrong" : "pay");
-  triggerFx(outcome === "complete" ? "perfect" : "pay");
-  renderTable();
-  if (outcome === "complete") {
-    howtoBusy = false;
-    howtoLesson = "score";
-    howtoAwaitingAdvance = true;
-    renderTable();
-    return;
-  }
-  scheduleHowto(360, autoplayPay);
-}
-
-function completeRound(): void {
-  if (!game || game.phase === "GAME_OVER") return;
-  stopTimer();
-  clearResultReveal();
-  const levelBefore = game.level;
-  finishRound(game);
-  if (game.level > levelBefore) {
-    playSound("level");
-    triggerFx("level", 900);
-  }
-  saveLocal();
-  if (game.mode === "autoplay") {
-    howtoBusy = false;
-    howtoLesson = "loop";
-    howtoAwaitingAdvance = true;
-    renderTable();
-    return;
-  }
-  renderTable();
-  window.setTimeout(nextRound, balanceConfig.automaticFlow.nextRoundDelayMs);
-}
-
-function advanceHowto(): void {
-  if (!game || game.mode !== "autoplay" || !howtoAwaitingAdvance || howtoBusy) return;
-  playSound("bet");
-  howtoAwaitingAdvance = false;
-
-  switch (howtoLesson) {
-    case "goal": {
-      openBetting(game);
-      triggerFx("bet");
-      howtoLesson = "betting";
-      howtoAwaitingAdvance = true;
-      renderTable();
-      return;
-    }
-    case "betting": {
-      closeBets(game);
-      playSound("close");
-      triggerFx("close");
-      howtoLesson = "closed";
-      howtoAwaitingAdvance = true;
-      renderTable();
-      return;
-    }
-    case "closed": {
-      performSpin();
-      return;
-    }
-    case "result": {
-      const unpaid = game.payments.some((payment) => payment.paid < payment.due);
-      if (unpaid) {
-        howtoLesson = "pay";
-        howtoAwaitingAdvance = true;
-        renderTable();
-        return;
-      }
-      howtoLesson = "score";
-      howtoAwaitingAdvance = true;
-      renderTable();
-      return;
-    }
-    case "pay": {
-      autoplayPay();
-      return;
-    }
-    case "score": {
-      completeRound();
-      return;
-    }
-    case "loop": {
-      openBetting(game);
-      triggerFx("bet");
-      howtoLesson = "betting";
-      howtoAwaitingAdvance = true;
-      renderTable();
-      return;
-    }
-    default:
-      howtoAwaitingAdvance = true;
-      renderTable();
-  }
-}
-
-function startTimer(kind: "betting" | "payout"): void {
-  stopTimer();
-  timer = window.setInterval(() => {
-    if (!game) return;
-    if (kind === "betting" && game.phase === "BETTING_OPEN") {
-      game.bettingSeconds = Math.max(0, game.bettingSeconds - 1);
-      if (game.bettingSeconds === 0) {
-        closeBets(game);
-        playSound("close");
-        triggerFx("close");
-        stopTimer();
-        renderTable();
-        window.setTimeout(performSpin, balanceConfig.automaticFlow.closedBetsPauseMs);
-      } else updateTimerDisplay();
-    } else if (kind === "payout" && game.phase === "PAYOUT") {
-      game.paySeconds = Math.max(0, game.paySeconds - 1);
-      if (game.paySeconds === 0) {
-        payoutTimeout(game);
-        playSound("error");
-        triggerFx("timeout", 900);
-        stopTimer();
-        renderTable();
-        if (game.energy > 0 || game.mode === "autoplay") window.setTimeout(completeRound, balanceConfig.automaticFlow.nextRoundDelayMs);
-      } else updateTimerDisplay();
-    }
-  }, 1000);
-}
-
-function updateTimerDisplay(): void {
-  if (!game) return;
-  const label = phaseTime(game);
-  const critical = phaseCritical(game);
-  app.querySelectorAll<HTMLTimeElement>(".phase-row time, .hunt-timer").forEach((display) => {
-    display.textContent = label;
-    display.classList.toggle("critical", critical);
-  });
-}
-function stopTimer(): void { if (timer !== null) window.clearInterval(timer); timer = null; }
-
-function saveLocal(): void {
-  if (!game || game.mode !== "dealer") return;
-  writeStoredSession(snapshot(game));
-}
-
 function savePlayerLocal(): void {
   if (!playerGame) return;
   writeStoredSession(snapshotPlayer(playerGame));
 }
 
-function phaseTime(state: GameState): string {
-  if (state.mode === "autoplay") return howtoBusy ? "…" : howtoAwaitingAdvance ? "❚❚" : "—";
-  return state.phase === "BETTING_OPEN"
-    ? `00:${String(Math.ceil(state.bettingSeconds)).padStart(2, "0")}`
-    : state.phase === "PAYOUT" ? `00:${String(Math.ceil(state.paySeconds)).padStart(2, "0")}` : "—";
-}
-
-function guideItem(step: number, title: string, copy: string, activeStep: number): string {
-  const state = step === activeStep ? "active" : activeStep > step ? "done" : "";
-  return `<div class="guide-item ${state}"><i>${activeStep > step ? "OK" : step}</i><span><b>${title}</b><small>${copy}</small></span></div>`;
-}
-
-interface HowtoCoachStep {
-  step: number;
-  total: number;
-  key: HowtoLessonKey;
-  anchor: string;
-  showNext: boolean;
-  statusKey?: string;
-}
-
-const HOWTO_TOTAL_STEPS = 7;
-
-const HOWTO_STEP_META: Record<HowtoLessonKey, { step: number; anchor: string }> = {
-  goal: { step: 1, anchor: "role" },
-  betting: { step: 2, anchor: "felt" },
-  closed: { step: 3, anchor: "wheel" },
-  spin: { step: 4, anchor: "wheel" },
-  result: { step: 5, anchor: "wheel" },
-  pay: { step: 6, anchor: "crowd" },
-  score: { step: 6, anchor: "score" },
-  loop: { step: 7, anchor: "table" },
-};
-
-function howtoCoachFromLesson(): HowtoCoachStep {
-  const meta = HOWTO_STEP_META[howtoLesson];
-  const showNext = howtoAwaitingAdvance && !howtoBusy;
-  let statusKey: string | undefined;
-  if (howtoBusy && howtoLesson === "spin") statusKey = "howto.watching";
-  if (howtoBusy && howtoLesson === "pay") statusKey = "howto.demoPaying";
-  return {
-    step: meta.step,
-    total: HOWTO_TOTAL_STEPS,
-    key: howtoLesson,
-    anchor: meta.anchor,
-    showNext,
-    statusKey,
-  };
-}
-
-function buildHowtoCoach(step: HowtoCoachStep): string {
-  const footer = step.showNext
-    ? `<button type="button" id="howto-next" class="howto-next">${t("howto.next")}</button>`
-    : step.statusKey
-      ? `<div class="howto-status">${t(step.statusKey)}</div>`
-      : "";
-  return `<aside class="howto-coach anchor-${step.anchor} ${step.showNext ? "has-next" : "is-busy"}" aria-live="polite">
-    <div class="howto-bubble">
-      <header>
-        <span class="howto-badge">${t("howto.badge")}</span>
-        <em>${t("howto.step", { n: step.step, total: step.total })}</em>
-      </header>
-      <strong>${t(`howto.${step.key}.title`)}</strong>
-      <p>${t(`howto.${step.key}.body`)}</p>
-      ${footer}
-    </div>
-  </aside>`;
-}
-
-function phaseTitle(state: GameState): string {
-  return t(`phase.${state.phase}`);
-}
-
-function phaseHelp(state: GameState): string {
-  if (state.mode === "autoplay") return t(`howto.${howtoLesson}.title`);
-  return t(state.message, state.messageParams);
-}
-
-function phaseCritical(state: GameState): boolean {
-  if (state.mode === "autoplay") return false;
-  return state.phase === "PAYOUT" && state.paySeconds <= 5;
-}
-
-function triggerFx(name: string, duration = 480): void {
-  lastFx = name;
-  if (fxTimer !== null) window.clearTimeout(fxTimer);
-  fxTimer = window.setTimeout(() => {
-    document.querySelector(".game-shell")?.classList.remove(`fx-${name}`);
-    if (lastFx === name) lastFx = "";
-  }, duration);
-}
-function pad(value: number): string { return String(value).padStart(2, "0"); }
 /** Score, stakes and bankroll are always shown as plain integers. */
 function format(value: number): string {
   return String(Math.trunc(Number.isFinite(value) ? value : 0));
 }
-function energyBar(value: number, max: number): string { return Array.from({ length: max }, (_, index) => index < value ? "◆" : "◇").join(""); }
 const redNumbers = new Set(["1","3","5","7","9","12","14","16","18","19","21","23","25","27","30","32","34","36"]);
 function isRed(value: string | null): boolean { return value ? redNumbers.has(value) : false; }
-function numberChip(value: string): string { const color = value === "0" || value === "00" ? "green" : isRed(value) ? "red" : "black"; return `<b class="number ${color}">${value}</b>`; }
+function numberChip(value: string): string {
+  const color = value === "0" || value === "00" ? "green" : isRed(value) ? "red" : "black";
+  return `<b class="number ${color}">${value}</b>`;
+}
 function buildWheel(variant: TableVariant, spinning: boolean): string {
   return `<div class="wheel-stage ${spinning ? "is-spinning" : ""}">
     <div class="wheel-glow"></div>
@@ -1413,7 +808,7 @@ function buildWheel(variant: TableVariant, spinning: boolean): string {
 }
 
 function mountWheel(): void {
-  const active = playerGame ?? game;
+  const active = playerGame;
   if (!active) return;
   const canvas = app.querySelector<HTMLCanvasElement>("#wheel-canvas");
   if (!canvas) return;
@@ -1589,7 +984,7 @@ function renderPlayerTable(): void {
   const selectedChip = playerGame.selectedChip;
   const selectedChipDigits = String(selectedChip).length;
 
-  const playerRevealing = resultReveal !== null && resultReveal.context === "player";
+  const playerRevealing = resultReveal !== null;
   // Stats are read-only — open between hands and mid-bet (not during spin/reveal)
   const canOpenStats = !playerRevealing && playerGame.phase !== "SPINNING";
   // During betting: highlight live total on table; suppress routine place noise; keep fail tips
@@ -1648,7 +1043,7 @@ function renderPlayerTable(): void {
       </section>
     </div>` : "";
   app.innerHTML = `
-    <main class="game-shell player-mode mobile-first-player ${showWheelStage ? "" : "player-nowheel"} ${betting ? "is-betting" : "is-wheel-stage"} ${playerRevealing ? "is-result-reveal" : ""} ${playerGame.phase === "SPINNING" ? "phase-is-spinning" : ""} ${playerGame.phase === "PAYOUT" ? "phase-is-payout" : ""} ${lastFx ? `fx-${lastFx}` : ""}">
+    <main class="game-shell player-mode mobile-first-player ${showWheelStage ? "" : "player-nowheel"} ${betting ? "is-betting" : "is-wheel-stage"} ${playerRevealing ? "is-result-reveal" : ""} ${playerGame.phase === "SPINNING" ? "phase-is-spinning" : ""} ${playerGame.phase === "PAYOUT" ? "phase-is-payout" : ""}">
       <header class="player-hud">
         <div class="player-hud-brand" aria-hidden="true"><i></i><span>R</span></div>
         <div class="player-hud-metric player-hud-score"><span>${t("player.score")}</span><strong>${format(total)}</strong></div>
@@ -3173,128 +2568,6 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
     <div class="even-money">${outside("low", "1 TO 18")}${outside("even", "EVEN")}${outside("red", "RED", "red-label")}${outside("black", "BLACK", "black-label")}${outside("odd", "ODD")}${outside("high", "19 TO 36")}</div>`;
 }
 
-function npcSpeech(seat: Seat, state: GameState): string {
-  const intent = state.npcBehavior[seat.id]?.intentKey;
-  if (!intent) return "";
-  const resolved = dialogue.resolve(intent, locale, { name: seat.name });
-  return typeof resolved === "string" ? resolved : "";
-}
-
-/** Sparse crossword-like PAYOUT board: seats + non-interactive voids. */
-function buildHuntBoardMarkup(
-  state: GameState,
-  activeSeats: Seat[],
-  selectedSeatId: string | null,
-  scoreEvents: ScoreEvent[],
-): string {
-  const board = buildHuntBoard(activeSeats.length, huntSeedKey(state.runId, state.round, activeSeats.length));
-  const classList = huntBoardClassList(board, activeSeats.length);
-  const cells = board.cells.map((cell, cellIndex) => {
-    if (cell.kind === "void") return renderHuntVoidCell(cell, cellIndex);
-    const seat = activeSeats[cell.seatIndex];
-    if (!seat) return renderHuntVoidCell({ kind: "void", voidKind: "floor", variant: 0 }, cellIndex);
-    return buildSeatCard(seat, cell.seatIndex, state, selectedSeatId === seat.id, scoreEvents, true);
-  }).join("");
-  return `<section class="${classList}" style="--hunt-cols:${board.cols}" aria-label="Customers">${cells}</section>`;
-}
-
-function buildSeatCard(
-  seat: Seat,
-  index: number,
-  state: GameState,
-  selected: boolean,
-  scoreEvents: ScoreEvent[] = [],
-  compact = false,
-): string {
-  const payment = state.phase === "PAYOUT" ? state.payments.find((item) => item.seatId === seat.id) : undefined;
-  const unpaid = payment ? payment.due - payment.paid : 0;
-  const isWinner = unpaid > 0;
-  const isPaid = Boolean(payment && unpaid <= 0);
-  const interactive = state.mode === "dealer" && state.phase === "PAYOUT" && !isPaid;
-  const aria = isWinner ? t("seat.clickToPay") : isPaid ? t("seat.paid") : seat.name;
-  const status = isWinner ? t("seat.clickToPay") : isPaid ? t("seat.paid") : betSummary(seat, state.variant);
-  const localPops = scoreEvents
-    .filter((event) => event.seatId === seat.id && (event.reason === "seat-complete" || event.reason === "wrong-player"))
-    .map((event) => `<span class="seat-score-pop ${event.delta < 0 ? "negative" : ""}">${event.delta > 0 ? "+" : ""}${event.delta}</span>`)
-    .join("");
-  return renderSeatCard({
-    seatId: seat.id,
-    name: seat.name,
-    profileId: seat.profileId,
-    avatarSeed: seat.avatarSeed,
-    bankrollLabel: format(seat.bankroll),
-    statusLabel: status,
-    speech: npcSpeech(seat, state),
-    isWinner,
-    isPaid,
-    selected,
-    interactive,
-    behavior: state.npcBehavior[seat.id] ?? null,
-    juice: juiceSeatId === seat.id ? juiceKind : null,
-    scorePopsHtml: localPops,
-    winnerMarkerText: t("seat.winner"),
-    clickAria: aria,
-    index,
-    compact,
-  });
-}
-
-interface FeltChip { seatName: string; stake: number; className: string }
-
-function catalogFor(variant: TableVariant): BetDefinition[] {
-  return (variant === "european" ? europeanBets.bets : americanBets.bets) as BetDefinition[];
-}
-
-function buildChipMap(variant: TableVariant, seats: Seat[]): Map<string, FeltChip[]> {
-  const catalog = new Map(catalogFor(variant).map((bet) => [bet.id, bet]));
-  const outsideIds = new Set(["red", "black", "even", "odd", "low", "high", "dozen1", "dozen2", "dozen3", "column1", "column2", "column3"]);
-  const chips = new Map<string, FeltChip[]>();
-  seats.forEach((seat, seatIndex) => {
-    seat.bets.forEach((placed) => {
-      const definition = catalog.get(placed.betId);
-      if (!definition) return;
-      const target = outsideIds.has(placed.betId) ? placed.betId : definition.pockets[0];
-      const list = chips.get(target) ?? [];
-      list.push({ seatName: seat.name, stake: placed.stake, className: `customer-${seatIndex + 1}` });
-      chips.set(target, list);
-    });
-  });
-  return chips;
-}
-
-function chipsAt(target: string, chips: Map<string, FeltChip[]>): string {
-  const placed = chips.get(target) ?? [];
-  if (!placed.length) return "";
-  return `<span class="chip-stack">${placed.slice(0, 4).map((chip, index) => `<i class="felt-chip ${chip.className}" style="--stack:${index}" title="${chip.seatName}: ${chip.stake}">${chip.seatName.slice(0, 1)}</i>`).join("")}</span>`;
-}
-
-function buildFelt(variant: TableVariant, result: string | null, seats: Seat[]): string {
-  const chips = buildChipMap(variant, seats);
-  const rowOrder = [
-    ...Array.from({ length: 12 }, (_, index) => String((index + 1) * 3)),
-    ...Array.from({ length: 12 }, (_, index) => String((index + 1) * 3 - 1)),
-    ...Array.from({ length: 12 }, (_, index) => String((index + 1) * 3 - 2)),
-  ];
-  const numberCells = rowOrder.map((number) => `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}"><span>${number}</span>${chipsAt(number, chips)}</b>`).join("");
-  const zeroCells = variant === "american"
-    ? `<b class="green ${result === "0" ? "hit" : ""}"><span>0</span>${chipsAt("0", chips)}</b><b class="green ${result === "00" ? "hit" : ""}"><span>00</span>${chipsAt("00", chips)}</b>`
-    : `<b class="green ${result === "0" ? "hit" : ""}"><span>0</span>${chipsAt("0", chips)}</b>`;
-  return `<div class="zero-zone">${zeroCells}</div>
-    <div class="numbers">${numberCells}</div>
-    <div class="column-pays"><span>2 TO 1${chipsAt("column3", chips)}</span><span>2 TO 1${chipsAt("column2", chips)}</span><span>2 TO 1${chipsAt("column1", chips)}</span></div>
-    <div class="dozens"><span>1ST 12${chipsAt("dozen1", chips)}</span><span>2ND 12${chipsAt("dozen2", chips)}</span><span>3RD 12${chipsAt("dozen3", chips)}</span></div>
-    <div class="even-money"><span>1 TO 18${chipsAt("low", chips)}</span><span>EVEN${chipsAt("even", chips)}</span><span class="red-label">RED${chipsAt("red", chips)}</span><span class="black-label">BLACK${chipsAt("black", chips)}</span><span>ODD${chipsAt("odd", chips)}</span><span>19 TO 36${chipsAt("high", chips)}</span></div>`;
-}
-
-function betSummary(seat: Seat, variant: TableVariant): string {
-  if (!seat.bets.length) return t("seat.noBet");
-  const catalog = new Map(catalogFor(variant).map((bet) => [bet.id, bet]));
-  return seat.bets.map((placed) => {
-    const type = catalog.get(placed.betId)?.type ?? "bet";
-    return `${type.replace(/([A-Z])/g, " $1").toUpperCase()} ${placed.stake}`;
-  }).join(" / ");
-}
-
 function scheduleSpinTicks(duration: number): void {
   clearSpinTicks();
   if (!duration) return;
@@ -3352,13 +2625,12 @@ document.addEventListener("keydown", (event) => {
       renderPlayerTable();
       return;
     }
-    if (game || playerGame) showExitConfirm();
+    if (playerGame) showPlayerExitConfirm();
     return;
   }
   if (event.code === "KeyM") {
     toggleMute();
     if (playerGame) renderPlayerTable();
-    else if (game) renderTable();
   }
 });
 

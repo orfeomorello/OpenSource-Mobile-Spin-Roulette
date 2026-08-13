@@ -1,7 +1,7 @@
 export type SoundId = "bet" | "close" | "spin" | "tick" | "settle" | "pay" | "error" | "bonus" | "level";
 
 /** Looping BGM beds / modes (files in `public/audio/`). */
-export type MusicTrackId = "menu" | "dealer" | "player";
+export type MusicTrackId = "menu" | "player";
 export type PlayerMusicTrackId =
   | "bossa-nova-jazz"
   | "bossa-nova-lounge"
@@ -25,9 +25,8 @@ const PLAYER_MUSIC_URLS = Object.fromEntries(
 ) as Record<PlayerMusicTrackId, string>;
 
 /** Relative paths — required for itch.io / non-root hosting. */
-const MUSIC_URLS: Record<"menu" | "dealer", string> = {
+const MUSIC_URLS: Record<"menu", string> = {
   menu: "./audio/mus_menu_loop.mp3",
-  dealer: "./audio/mus_dealer_loop.wav",
 };
 
 /**
@@ -52,6 +51,8 @@ let unlockBound = false;
 let playerLastUrl: string | null = null;
 let playerGapTimer: number | null = null;
 let playerEndedHandler: (() => void) | null = null;
+let preparedPlayerEl: HTMLAudioElement | null = null;
+let visibilityBound = false;
 
 export function setMuted(value: boolean): void {
   muted = value;
@@ -142,6 +143,22 @@ function bindUnlockOnce(): void {
   window.addEventListener("keydown", unlock);
 }
 
+function bindVisibilityOnce(): void {
+  if (visibilityBound || typeof document === "undefined") return;
+  visibilityBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearPlayerGap();
+      disposePreparedPlayerTrack();
+      musicEl?.pause();
+      void context?.suspend();
+      return;
+    }
+    if (!muted) void context?.resume();
+    applyMusic();
+  });
+}
+
 function clearPlayerGap(): void {
   if (playerGapTimer != null && typeof window !== "undefined") {
     window.clearTimeout(playerGapTimer);
@@ -156,13 +173,37 @@ function detachPlayerEnded(): void {
   playerEndedHandler = null;
 }
 
+function releaseAudioElement(element: HTMLAudioElement | null): void {
+  if (!element) return;
+  element.pause();
+  element.removeAttribute("src");
+  element.load();
+}
+
+function createMusicElement(
+  url: string,
+  track: MusicTrackId,
+  preload: "none" | "metadata" = "none",
+): HTMLAudioElement {
+  const element = new Audio();
+  // Set preload before src so assigning the URL cannot trigger an eager full download.
+  element.preload = preload;
+  element.dataset.track = track;
+  element.dataset.url = url;
+  element.src = url;
+  return element;
+}
+
+function disposePreparedPlayerTrack(): void {
+  releaseAudioElement(preparedPlayerEl);
+  preparedPlayerEl = null;
+}
+
 function disposeMusicElement(): void {
   detachPlayerEnded();
   clearPlayerGap();
-  if (!musicEl) return;
-  musicEl.pause();
-  musicEl.removeAttribute("src");
-  musicEl.load();
+  disposePreparedPlayerTrack();
+  releaseAudioElement(musicEl);
   musicEl = null;
 }
 
@@ -180,12 +221,21 @@ function pickNextPlayerUrl(): string {
 
 function scheduleNextPlayerTrack(): void {
   clearPlayerGap();
+  disposePreparedPlayerTrack();
   if (typeof window === "undefined") return;
   if (desiredMusic !== "player" || muted) return;
+  const nextUrl = pickNextPlayerUrl();
+  if (!nextUrl) return;
+  // Only the track that will actually play next receives a metadata warm-up.
+  preparedPlayerEl = createMusicElement(nextUrl, "player", "metadata");
+  preparedPlayerEl.load();
   playerGapTimer = window.setTimeout(() => {
     playerGapTimer = null;
-    if (desiredMusic !== "player" || muted) return;
-    startPlayerTrack(pickNextPlayerUrl());
+    if (desiredMusic !== "player" || muted || (typeof document !== "undefined" && document.hidden)) {
+      disposePreparedPlayerTrack();
+      return;
+    }
+    startPlayerTrack(nextUrl);
   }, PLAYER_GAP_MS);
 }
 
@@ -193,16 +243,12 @@ function startPlayerTrack(url: string, loop = false): void {
   if (!url || typeof Audio === "undefined") return;
   detachPlayerEnded();
   clearPlayerGap();
-  if (musicEl) {
-    musicEl.pause();
-    musicEl.removeAttribute("src");
-    musicEl.load();
-  }
-  musicEl = new Audio(url);
+  const prepared = preparedPlayerEl?.dataset.url === url ? preparedPlayerEl : null;
+  if (prepared) preparedPlayerEl = null;
+  disposePreparedPlayerTrack();
+  releaseAudioElement(musicEl);
+  musicEl = prepared ?? createMusicElement(url, "player");
   musicEl.loop = loop;
-  musicEl.preload = "auto";
-  musicEl.dataset.track = "player";
-  musicEl.dataset.url = url;
   playerLastUrl = url;
   if (!loop) {
     playerEndedHandler = () => {
@@ -213,17 +259,24 @@ function startPlayerTrack(url: string, loop = false): void {
   }
   musicEl.volume = effectiveMusicVolume();
   void musicEl.play().catch(() => {
-    /* Autoplay blocked until unlock gesture. */
+    /* Automatic playback is blocked until an unlock gesture. */
   });
 }
 
 function applyMusic(): void {
   if (typeof Audio === "undefined") return;
+  bindVisibilityOnce();
 
   if (!desiredMusic || muted) {
     clearPlayerGap();
+    disposePreparedPlayerTrack();
     if (musicEl) musicEl.pause();
     if (!desiredMusic) disposeMusicElement();
+    return;
+  }
+
+  if (typeof document !== "undefined" && document.hidden) {
+    musicEl?.pause();
     return;
   }
 
@@ -232,7 +285,7 @@ function applyMusic(): void {
   // Player: random playlist, no self-loop; gap then next ≠ previous.
   if (desiredMusic === "player") {
     const fixedUrl = playerMusicMode === "random" ? null : PLAYER_MUSIC_URLS[playerMusicMode];
-    if (musicEl?.dataset.track === "player" && musicEl.getAttribute("src") && (!fixedUrl || musicEl.dataset.url === fixedUrl)) {
+    if (musicEl?.dataset.track === "player" && musicEl.getAttribute("src") && !musicEl.ended && (!fixedUrl || musicEl.dataset.url === fixedUrl)) {
       musicEl.loop = fixedUrl !== null;
       musicEl.volume = effectiveMusicVolume();
       void musicEl.play().catch(() => {
@@ -244,27 +297,22 @@ function applyMusic(): void {
     return;
   }
 
-  // Menu / Dealer: single looping beds.
+  // Menu: one looping bed, fetched only when playback is requested.
   clearPlayerGap();
+  disposePreparedPlayerTrack();
   detachPlayerEnded();
 
   const url = MUSIC_URLS[desiredMusic];
   if (!musicEl || musicEl.dataset.track !== desiredMusic) {
-    if (musicEl) {
-      musicEl.pause();
-      musicEl.removeAttribute("src");
-      musicEl.load();
-    }
-    musicEl = new Audio(url);
+    releaseAudioElement(musicEl);
+    musicEl = createMusicElement(url, desiredMusic);
     musicEl.loop = true;
-    musicEl.preload = "auto";
-    musicEl.dataset.track = desiredMusic;
   } else {
     musicEl.loop = true;
   }
 
   musicEl.volume = effectiveMusicVolume();
   void musicEl.play().catch(() => {
-    /* Autoplay blocked until unlock gesture — bindUnlockOnce will retry. */
+    /* Automatic playback is blocked until an unlock gesture; unlock retries it. */
   });
 }

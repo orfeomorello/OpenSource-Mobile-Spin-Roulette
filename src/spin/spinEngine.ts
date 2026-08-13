@@ -22,12 +22,11 @@
  *    physical pocket ring order for EU (37) / US (38) from `wheel-spin.json`.
  *    Optional frets scatter shifts by a small integer pocket offset.
  *
- * 4. **Independence** — difficulty, score, energy, and animation ON/OFF never
+ * 4. **Independence** — score and animation ON/OFF never
  *    enter this function. Same `winningNumber` is used whether the UI shows
  *    a long spin or instant reveal.
  *
- * Dealer “signature” profiles are intentionally **not** used: one table physics
- * for the whole product (MobileSpinRoulette runtime).
+ * One table-physics profile is used throughout the MobileSpinRoulette runtime.
  */
 
 import wheelConfig from "../../config/wheel-spin.json" with { type: "json" };

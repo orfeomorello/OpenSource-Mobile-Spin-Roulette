@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import { createNpcBehavior, reduceNpcBehavior } from "../npc/behavior.ts";
-import { buildHuntBoard, hashSeed, huntSeedKey } from "../npc/huntBoard.ts";
-import { clipForBehavior, renderSeatCard, staggerDelayMs } from "../npc/presenter.ts";
-import { commitDealerRun, createEmptyProfile, normalizeUserProfile, refillEmptyProfile, restoreStarterBankroll, STARTER_SCORE } from "../persist/profile.ts";
-import {
-  closeBets, createGame, finishRound, getActiveSeats, getForcedWinningNumber, markSpinning,
-  openBetting, paySeat, payoutTimeout, resolveSpin, restoreFromSnapshot, snapshot,
-} from "./game.ts";
+import { createEmptyProfile, normalizeUserProfile, refillEmptyProfile, restoreStarterBankroll, STARTER_SCORE } from "../persist/profile.ts";
 import {
   canEnterPlayer, cashOutPlayer, clearPlayerBets, computePlayerPayout, createPlayerGame, doubleBets,
   finishPlayerRound, getPlayerModeConfig, leaveTable, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip,
@@ -29,244 +22,6 @@ function test(name: string, body: () => void): void {
   }
 }
 
-test("first round starts automatically with one customer and a guaranteed winning bet", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  openBetting(game, () => 0.5);
-  assert.equal(game.phase, "BETTING_OPEN");
-  assert.equal(game.bettingSeconds, 3);
-  assert.equal(game.activeSeatCount, 1);
-  assert.equal(getActiveSeats(game).length, 1);
-  assert.deepEqual(game.seats[0].bets, [{ betId: `straight_${game.seats[0].favoritePocket}`, stake: 10 }]);
-  assert.equal(getForcedWinningNumber(game), game.seats[0].favoritePocket);
-  assert.equal(closeBets(game), true);
-  assert.equal(markSpinning(game), true);
-  resolveSpin(game, getForcedWinningNumber(game)!, () => 0);
-  assert.equal(game.phase, "PAYOUT");
-  assert.equal(game.payments.length, 1);
-  assert.equal(game.paySeconds, 15, "the tutorial must leave enough time to click the character");
-  assert.equal(game.bonus, null, "the tutorial winner must never be auto-paid by a bonus");
-});
-
-test("crowd grows toward the preset cap after the tutorial seat", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  openBetting(game, () => 0.5);
-  assert.equal(game.activeSeatCount, 1);
-  finishRound(game);
-  openBetting(game, () => 0.5);
-  assert.equal(game.activeSeatCount, 3, "seatsAddedPerStep expands the hunt roster after round 1");
-  finishRound(game);
-  openBetting(game, () => 0.5);
-  assert.equal(game.activeSeatCount, 5);
-  assert.ok(game.seats.length >= 12, "standard preset should pre-allocate a dense hunt roster");
-});
-
-test("clicking a winner once pays the complete amount and scores only once", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.phase = "PAYOUT";
-  game.paySeconds = 0;
-  game.payments = [{ seatId: game.seats[0].id, seatName: game.seats[0].name, due: 115, paid: 0 }];
-  const before = game.seats[0].bankroll;
-  assert.equal(paySeat(game, game.seats[0].id), "complete");
-  assert.equal(game.seats[0].bankroll - before, 115);
-  assert.equal(game.serviceScore, 30, "+10 customer and +20 perfect service");
-  assert.equal(paySeat(game, game.seats[0].id), "invalid");
-  assert.equal(game.seats[0].bankroll - before, 115);
-  assert.equal(game.serviceScore, 30);
-});
-
-test("table ledger remains separate from one-click Service Score", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.activeSeatCount = 2;
-  game.round = 2;
-  game.seats[0].bankroll = 100;
-  game.seats[1].bankroll = 100;
-  game.seats[0].bets = [{ betId: "red", stake: 10 }];
-  game.seats[1].bets = [{ betId: "black", stake: 10 }];
-  resolveSpin(game, "1", () => 0.99);
-  assert.equal(game.tableLedgerUnits, 10);
-  assert.equal(game.serviceScore, 0);
-  assert.equal(paySeat(game, game.seats[0].id), "complete");
-  assert.equal(game.tableLedgerUnits, 0);
-  // +10 seat +20 perfect + floor(paySeconds) speed (standard base 9 + 1.0*1 winners = 10)
-  assert.equal(game.serviceScore, 40, "+10 customer, +20 perfect and speed from remaining pay timer");
-  assert.equal(game.seats[0].bankroll, 110);
-});
-
-test("one-click customers build the +10/+15/+20 arcade combo", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.phase = "PAYOUT";
-  game.paySeconds = 0;
-  game.activeSeatCount = 3;
-  game.payments = game.seats.slice(0, 3).map((seat) => ({ seatId: seat.id, seatName: seat.name, due: 10, paid: 0 }));
-  for (const payment of [...game.payments]) paySeat(game, payment.seatId);
-  const awards = game.scoreEvents.filter((event) => event.reason === "seat-complete").map((event) => event.delta);
-  assert.deepEqual(awards, [10, 15, 20]);
-  assert.equal(game.serviceScore, 65);
-});
-
-test("clicking a losing NPC costs score, resets combo and never costs energy", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.phase = "PAYOUT";
-  game.activeSeatCount = 2;
-  game.payments = [{ seatId: game.seats[0].id, seatName: game.seats[0].name, due: 10, paid: 0 }];
-  game.serviceScore = 20;
-  game.serviceComboStep = 2;
-  const energyBefore = game.energy;
-  assert.equal(paySeat(game, game.seats[1].id), "wrong-player");
-  assert.equal(game.serviceScore, 15);
-  assert.equal(game.serviceComboStep, 0);
-  assert.equal(game.energy, energyBefore);
-  assert.equal(game.npcBehavior[game.seats[1].id].intentKey, "react_wrong");
-});
-
-test("timeout auto-pays, resets combo and costs energy but no base score", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.phase = "PAYOUT";
-  game.payments = [{ seatId: game.seats[0].id, seatName: game.seats[0].name, due: 10, paid: 0 }];
-  game.serviceScore = 12;
-  game.serviceComboStep = 2;
-  const energyBefore = game.energy;
-  payoutTimeout(game);
-  assert.equal(game.payments[0].paid, 10);
-  assert.equal(game.serviceScore, 12);
-  assert.equal(game.serviceComboStep, 0);
-  assert.equal(game.energy, energyBefore - 1);
-});
-
-test("QUICK PAY bonus gives no Service Score and does not advance combo", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.round = 2;
-  game.activeSeatCount = 1;
-  game.seats[0].bets = [{ betId: "red", stake: 10 }];
-  resolveSpin(game, "1", () => 0);
-  assert.equal(game.payments[0].paid, game.payments[0].due);
-  assert.equal(game.serviceScore, 0);
-  assert.equal(game.serviceComboStep, 0);
-});
-
-test("NPC behavior engine remains event-driven and presentation-only", () => {
-  const arrived = createNpcBehavior();
-  const betting = reduceNpcBehavior(arrived, "BETTING_OPENED");
-  const winner = reduceNpcBehavior(betting, "RESULT_WIN");
-  const selected = reduceNpcBehavior(winner, "WINNER_SELECTED");
-  const paid = reduceNpcBehavior(selected, "PAID_MANUALLY");
-  assert.deepEqual([betting.state, winner.state, selected.state, paid.state], ["BETTING", "WINNER_WAITING", "SELECTED", "PAID"]);
-});
-
-test("crowd presenter maps FSM states to arcade clips and stable seat markup", () => {
-  const arrived = createNpcBehavior();
-  assert.equal(clipForBehavior(arrived), "arrive");
-  assert.equal(clipForBehavior(reduceNpcBehavior(arrived, "SPIN_STARTED")), "cheer");
-  assert.equal(clipForBehavior(reduceNpcBehavior(arrived, "RESULT_WIN")), "win");
-  assert.equal(clipForBehavior(reduceNpcBehavior(arrived, "RESULT_LOSS")), "lose");
-  assert.equal(clipForBehavior(reduceNpcBehavior(arrived, "LEAVE_TABLE")), "leave");
-  assert.equal(clipForBehavior(null), "idle");
-  assert.ok(staggerDelayMs(0) !== staggerDelayMs(1));
-
-  const html = renderSeatCard({
-    seatId: "seat-1",
-    name: "Ada",
-    profileId: "normal",
-    avatarSeed: 2,
-    bankrollLabel: "100",
-    statusLabel: "Click to pay",
-    speech: "Pay me!",
-    isWinner: true,
-    isPaid: false,
-    selected: false,
-    interactive: true,
-    behavior: reduceNpcBehavior(arrived, "RESULT_WIN"),
-    juice: null,
-    scorePopsHtml: "",
-    winnerMarkerText: "WIN!",
-    clickAria: "Click to pay",
-    index: 0,
-  });
-  assert.ok(html.includes('data-clip="win"'));
-  assert.ok(html.includes("clip-win"));
-  assert.ok(html.includes("npc-arm-l") && html.includes("npc-leg-r"));
-  assert.ok(html.includes('data-pay-seat="seat-1"'));
-  assert.ok(html.includes("winner-marker"));
-  assert.ok(!html.includes("npc-legs"));
-
-  const compact = renderSeatCard({
-    seatId: "seat-2",
-    name: "Bea",
-    profileId: "normal",
-    avatarSeed: 1,
-    bankrollLabel: "50",
-    statusLabel: "Click to pay",
-    speech: "Hey!",
-    isWinner: true,
-    isPaid: false,
-    selected: false,
-    interactive: true,
-    behavior: reduceNpcBehavior(arrived, "RESULT_WIN"),
-    juice: null,
-    scorePopsHtml: "",
-    winnerMarkerText: "WIN!",
-    clickAria: "Click to pay",
-    index: 1,
-    compact: true,
-  });
-  assert.ok(compact.includes("seat-compact"));
-  assert.ok(!compact.includes("seat-bankroll"));
-});
-
-test("hunt board is sparse with voids for larger crowds and stable per seed", () => {
-  const tiny = buildHuntBoard(1, huntSeedKey("run-a", 1, 1));
-  assert.equal(tiny.sparse, false);
-  assert.equal(tiny.cells.filter((cell) => cell.kind === "seat").length, 1);
-  assert.equal(tiny.cells.filter((cell) => cell.kind === "void").length, 0);
-
-  const pair = buildHuntBoard(2, huntSeedKey("run-a", 2, 2));
-  assert.equal(pair.sparse, false);
-  assert.equal(pair.cols, 2);
-  assert.equal(pair.cells.length, 2);
-
-  const mid = buildHuntBoard(8, huntSeedKey("run-a", 3, 8));
-  assert.equal(mid.sparse, true);
-  assert.equal(mid.cells.filter((cell) => cell.kind === "seat").length, 8);
-  assert.ok(mid.cells.some((cell) => cell.kind === "void"), "void pads create crossword gaps");
-  assert.ok(mid.cols >= 3 && mid.cols <= 5);
-  assert.equal(mid.cells.length, mid.cols * mid.rows);
-
-  const again = buildHuntBoard(8, huntSeedKey("run-a", 3, 8));
-  assert.deepEqual(again.cells, mid.cells, "same seed must keep layout stable across re-renders");
-
-  const otherRound = buildHuntBoard(8, huntSeedKey("run-a", 4, 8));
-  assert.notDeepEqual(otherRound.cells, mid.cells, "new round should reshuffle the board");
-  assert.ok(hashSeed("a") !== hashSeed("b"));
-});
-
-test("level-up softens pay timer base without changing pocket rules", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  assert.equal(game.payTimeBaseSeconds, 9);
-  game.round = 3;
-  game.phase = "PAYOUT";
-  game.payments = [];
-  finishRound(game);
-  assert.equal(game.level, 2, "level up every roundsPerLevelUp rounds");
-  assert.equal(game.payTimeBaseSeconds, 8.5, "payTimeSoftDownSeconds applied on level-up");
-  game.round = 6;
-  finishRound(game);
-  assert.equal(game.level, 3);
-  assert.equal(game.payTimeBaseSeconds, 8);
-});
-
-test("Dealer wallet commit is 1:1 and idempotent; Autoplay earns zero", () => {
-  const profile = createEmptyProfile();
-  const dealer = createGame("dealer", "standard", "european", false, () => 0.5);
-  dealer.serviceScore = 42;
-  const first = commitDealerRun(profile, dealer);
-  const duplicate = commitDealerRun(first.profile, dealer);
-  assert.equal(first.earnedUnits, 42);
-  assert.equal(duplicate.earnedUnits, 0);
-  const autoplay = createGame("autoplay", "standard", "european", false, () => 0.5);
-  autoplay.serviceScore = 99;
-  assert.equal(commitDealerRun(first.profile, autoplay).earnedUnits, 0);
-});
-
 test("new and legacy-zero profiles receive 2000000 starter score exactly once", () => {
   const fresh = createEmptyProfile();
   assert.equal(STARTER_SCORE, 2_000_000);
@@ -276,8 +31,6 @@ test("new and legacy-zero profiles receive 2000000 starter score exactly once", 
   const migrated = normalizeUserProfile({
     schemaVersion: 1,
     walletUnits: 0,
-    committedDealerRuns: [],
-    bestServiceScore: 0,
   });
   assert.equal(migrated.walletUnits, 2_000_000, "legacy zero profile gets the onboarding grant");
 
@@ -290,60 +43,6 @@ test("starting again after reaching zero refills the configured starter score", 
   assert.equal(refillEmptyProfile(depleted).walletUnits, STARTER_SCORE);
   const active = { ...depleted, walletUnits: 25 };
   assert.equal(refillEmptyProfile(active), active, "positive balances are never replaced");
-});
-
-test("snapshot v4 persists active crowd, score and mid-round payout fields", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5, "it");
-  game.activeSeatCount = 3;
-  game.serviceScore = 31;
-  game.tableLedgerUnits = -120;
-  game.walletCreditCommitted = true;
-  game.phase = "PAYOUT";
-  game.paySeconds = 7;
-  game.payments = [{ seatId: game.seats[0].id, seatName: game.seats[0].name, due: 20, paid: 0 }];
-  const saved = snapshot(game);
-  assert.equal(saved.schemaVersion, 4);
-  assert.equal(saved.activeSeatCount, 3);
-  assert.equal(saved.locale, "it");
-  assert.equal(saved.serviceScore.points, 31);
-  assert.equal(saved.tableLedgerUnits, -120);
-  assert.equal(saved.serviceScore.walletCreditCommitted, true);
-  assert.equal(saved.phase, "PAYOUT");
-  assert.equal(saved.paySeconds, 7);
-  assert.equal(saved.payments?.length, 1);
-});
-
-test("restoreFromSnapshot resumes dealer PAYOUT and rejects garbage", () => {
-  const game = createGame("dealer", "busy", "american", true, () => 0.5, "en");
-  game.phase = "PAYOUT";
-  game.round = 4;
-  game.activeSeatCount = 3;
-  game.serviceScore = 55;
-  game.paySeconds = 6;
-  game.payments = [{ seatId: game.seats[0].id, seatName: game.seats[0].name, due: 35, paid: 0 }];
-  const restored = restoreFromSnapshot(snapshot(game));
-  assert.ok(restored);
-  assert.equal(restored!.mode, "dealer");
-  assert.equal(restored!.phase, "PAYOUT");
-  assert.equal(restored!.serviceScore, 55);
-  assert.equal(restored!.payments.length, 1);
-  assert.equal(restored!.variant, "american");
-  assert.equal(restoreFromSnapshot({ schemaVersion: 9 }), null);
-  assert.equal(restoreFromSnapshot(null), null);
-});
-
-test("v3 snapshots restore into PREPARE for a clean handoff", () => {
-  const game = createGame("dealer", "standard", "european", false, () => 0.5);
-  game.serviceScore = 12;
-  game.round = 2;
-  const legacy = snapshot(game);
-  legacy.schemaVersion = 3;
-  delete legacy.payments;
-  legacy.phase = "SPINNING";
-  const restored = restoreFromSnapshot(legacy);
-  assert.ok(restored);
-  assert.equal(restored!.phase, "PREPARE");
-  assert.equal(restored!.serviceScore, 12);
 });
 
 // --- Player mode (§6bis) ---
@@ -458,7 +157,6 @@ test("Player 0/00: outside lose; US 00 distinct; five-number", () => {
 
 test("Player chip stack place/undo/clear and settle updates tableScore only", () => {
   const state = createPlayerGame("european", 100, false, "en", () => 0.5);
-  assert.equal(state.scenicNpcNames.length, 3);
   openPlayerBetting(state);
   assert.equal(setSelectedChip(state, 10), true);
   assert.equal(placeChip(state, "straight_17"), true);
@@ -657,7 +355,7 @@ test("Player session stats track profit, wins, losses and bankroll curve", () =>
   assert.equal(restored!.stats.startingScore, 100);
 });
 
-test("Player snapshot v5 round-trips BETTING_OPEN; scenic never hold bets", () => {
+test("Player snapshot v5 round-trips an open betting hand", () => {
   const state = createPlayerGame("american", 50, true, "it", () => 0.2);
   openPlayerBetting(state);
   placeChip(state, "straight_00", 5);
@@ -671,8 +369,6 @@ test("Player snapshot v5 round-trips BETTING_OPEN; scenic never hold bets", () =
   assert.equal(restored!.phase, "BETTING_OPEN");
   assert.equal(restored!.tableScore, 45);
   assert.equal(restored!.bets[0]?.betId, "straight_00");
-  assert.equal(restored!.scenicNpcNames.length, 3);
-  // Scenic NPC must never appear as bet owners — bets are only on state.bets
   assert.ok(restored!.bets.every((b) => typeof b.betId === "string"));
 });
 
@@ -778,11 +474,10 @@ test("strategy prefill falls back to the last settled hand after chips leave the
   assert.deepEqual(layout, [{ betId: "black", stake: 10 }]);
 });
 
-test("restoreStarterBankroll resets score and keeps the rest of the profile", () => {
-  const profile = { ...createEmptyProfile(), walletUnits: 12, bestServiceScore: 99 };
+test("restoreStarterBankroll resets score without mutating the profile", () => {
+  const profile = { ...createEmptyProfile(), walletUnits: 12 };
   const restored = restoreStarterBankroll(profile);
   assert.equal(restored.walletUnits, STARTER_SCORE);
-  assert.equal(restored.bestServiceScore, 99);
   assert.equal(restored.starterScoreGranted, true);
   assert.equal(profile.walletUnits, 12, "original profile is not mutated");
 });

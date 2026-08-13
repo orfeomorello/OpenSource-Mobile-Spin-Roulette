@@ -1,62 +1,12 @@
 {
-  "$schemaComment": "MobileSpinRoulette — automatic roulette flow and direct NPC payment rules. See config/README.md.",
-  "schemaVersion": 3,
-  "hudChrome": {
-    "comment": "Table chrome: Exit (+ sound). No in-game Save — backup/restore only via Settings export/import. Session still autosaves to localStorage.",
-    "dealerMode": {
-      "showSaveButton": false,
-      "showExitButton": true,
-      "saveLabelKey": "hud.save",
-      "exitLabelKey": "hud.exit"
-    },
-    "autoplayMode": {
-      "showSaveButton": false,
-      "showExitButton": true,
-      "exitLabelKey": "hud.exit"
-    },
-    "exitConfirmIfUnsavedDealer": true,
-    "exitConfirmAutoplay": false
-  },
-  "dealerMode": {
-    "noMoreBets": {
-      "manualButton": false,
-      "autoCloseWhenTimerExpires": true,
-      "comment": "The short betting vignette always closes automatically."
-    },
-    "spin": {
-      "manualButton": false,
-      "autoSpinAfterClose": true,
-      "autoSpinDelaySeconds": 0.35,
-      "comment": "The wheel starts automatically; the player never operates roulette controls."
-    },
-    "pay": {
-      "directNpcClick": true,
-      "paysCompleteAmount": true,
-      "separatePayButton": false,
-      "spaceKeyTriggersPrimaryAction": false,
-      "allowAnySeatSelectionForErrorFeedback": true,
-      "comment": "One click on a winning NPC completes that customer payment. Clicking a loser applies the Service Score error."
-    },
-    "emptyTableAllowed": true,
-    "pauseFreezesBettingTimer": true
-  },
-  "autoplayMode": {
-    "aiClosesBets": true,
-    "aiSpins": true,
-    "aiPays": true,
-    "payTapsVisible": false,
-    "directNpcPaymentVisible": true,
-    "aiSelectsWinner": true,
-    "noGameOver": true,
-    "walletEarnedUnits": 0,
-    "demoBadge": true
-  },
+  "$schemaComment": "MobileSpinRoulette — Player controls and landing presentation.",
+  "schemaVersion": 4,
   "keyboard": {
-    "pause": "Escape",
+    "exit": "Escape",
     "mute": "KeyM"
   },
   "homePresentation": {
-    "comment": "Home screen background / title motion. Allowed ids are the only valid values for Settings → Background animation. Default none = static grid. User choice is stored in local settings (mobilespinroulette.settings.v1). Legacy ids (pixel_drift, scanline, …) map to none via asBackgroundAnimation.",
+    "comment": "Allowed home/settings background effects. The selection is stored in local settings.",
     "backgroundAnimationDefault": "none",
     "backgroundAnimationOptions": [
       "none",
@@ -65,8 +15,8 @@
     ],
     "optionNotes": {
       "none": "Static square grid, no motion (default).",
-      "recommended": "Full home atmosphere: drifting grid, scanline, glow, pixel dust, entrance, rare title glitch.",
-      "c64_parallax": "80s multi-plane parallax: starfield layers + pixel hills + ground strip."
+      "recommended": "Full home atmosphere: drifting grid, scanline, glow, pixel dust and entrance motion.",
+      "c64_parallax": "80s multi-plane parallax: starfield layers, pixel hills and ground strip."
     }
   }
 }

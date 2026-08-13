@@ -1,10 +1,6 @@
 /* Player mode and betting surfaces. Consolidated source; keep cascade order. */
 /* Source: v09.css */
-/* Player mode v0.3 — felt input, chip tray, bring-to-table, scenic NPC */
-.player-cta {
-    margin: 0.6rem 0 0;
-    text-align: center
-}
+/* Player mode — felt input, chip tray and table controls. */
 /* ── Bet Creator / saved strategies ── */
 .strategy-btn {
     letter-spacing: 0.04em;
@@ -306,74 +302,7 @@
     color: #f0d060 !important
 }
 /* Creator mode: hide wheel, felt first */
-.bet-creator-mode .creator-grid {
-    grid-template-columns: 1fr !important;
-    min-height: 0;
-    flex: 1
-}
-.bet-creator-mode .creator-felt {
-    min-height: 280px
-}
-.bet-creator-mode .creator-strip .metric.score strong {
-    color: #c8a0ff
-}
-.creator-help-row {
-    border-left-color: #8a50c8
-}
-.creator-controls {
-    grid-template-columns: 1fr !important;
-    grid-template-areas: none !important;
-    gap: 0.5rem !important
-}
-.creator-controls .chip-tray,
-.creator-controls .bet-actions {
-    grid-area: auto
-}
-.creator-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%
-}
 /* High-contrast CTA — cream text on deep green, not purple/black */
-.creator-save-btn {
-    appearance: none;
-    -webkit-appearance: none;
-    border: 3px solid #0a1a10;
-    border-radius: 6px;
-    min-height: 2.65rem;
-    padding: 0.55rem 1rem;
-    font: inherit;
-    font-weight: 900;
-    font-size: 0.82rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #fff8e0;
-    text-shadow: 0 1px 0 #0008;
-    background: linear-gradient(180deg, #3ecf7a 0%, #1a9a48 48%, #0e6a30 100%);
-    box-shadow: 0 4px 0 #064820, 0 0 0 1px #0005, inset 0 1px 0 #fff4;
-    cursor: pointer;
-    flex: 1 1 auto;
-    min-width: 10rem
-}
-.creator-save-btn:hover:not(:disabled) {
-    filter: brightness(1.08)
-}
-.creator-save-btn:active:not(:disabled) {
-    transform: translateY(3px);
-    box-shadow: 0 1px 0 #064820, 0 0 0 1px #0005, inset 0 1px 0 #fff3
-}
-.creator-save-btn:disabled {
-    background: linear-gradient(180deg, #4a524c 0%, #2e3430 100%);
-    color: #a8b0a8;
-    text-shadow: none;
-    border-color: #222;
-    box-shadow: 0 3px 0 #1a1e1a;
-    cursor: not-allowed;
-    filter: none
-}
 /* Full-screen name dialog */
 .creator-name-dialog {
     position: fixed;
@@ -484,20 +413,6 @@
   .strategy-create-btn {
         flex: 1
     }
-    .creator-actions {
-        flex-wrap: nowrap
-    }
-    .creator-actions .chrome-button {
-        flex: 0 0 auto
-    }
-    .creator-save-btn {
-        flex: 1 1 auto;
-        min-width: 0;
-        width: auto;
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        padding: 0.5rem 0.65rem
-    }
     .creator-name-dialog {
         padding: 12px;
         align-items: flex-end
@@ -514,59 +429,8 @@
     .creator-name-actions {
         grid-template-columns: 1fr 1fr
     }
-    .player-mode .arcade-strip nav .strategy-btn {
-        letter-spacing: 0;
-        font-size: 0.68rem;
-        padding: 6px 8px
-    }
 }
 /* Clean Player HUD: score left, toggles right — no EU/hand/meta clutter */
-.player-mode .player-strip {
-    grid-template-columns: auto 1fr auto;
-    align-items: stretch
-}
-.player-mode .player-strip .metric.score {
-    min-width: 9rem;
-    border-right: 1px solid #385141
-}
-.player-mode .player-strip .metric.score strong {
-    color: #f0d060
-}
-.player-mode .player-strip nav {
-    justify-self: end;
-    flex-wrap: wrap;
-    align-items: center
-}
-.player-mode .player-strip .anim-toggle {
-    border-color: #6a7a50;
-    color: #c8d890;
-    white-space: nowrap
-}
-@media (max-width: 560px) {
-    .player-mode .player-strip {
-        grid-template-columns: 1fr
-    }
-    .player-mode .player-strip .metric.score {
-        grid-column: auto;
-        border-right: 0;
-        border-bottom: 1px solid #385141;
-        padding: 10px 14px
-    }
-    .player-mode .player-strip nav {
-        grid-column: auto;
-        justify-self: stretch
-    }
-    .player-mode .player-strip .chrome-button {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-size: 0.68rem;
-        padding: 7px 8px;
-        letter-spacing: 0.02em
-    }
-}
-.player-mode .player-guide {
-    opacity: 0.95
-}
 .player-felt.interactive .felt-cell,
 .player-felt.interactive .zero-zone b,
 .player-felt.interactive .column-pays span,
@@ -819,7 +683,7 @@
     left: 50%;
     top: 50%
 }
-/* * Shared casino felt (Dealer + Player + Bet Creator) ≈ Playtech Premium European:
+/* * Shared casino felt (Player + Bet Creator) ≈ Playtech Premium European:
  * continuous green baize · thin pale lines only · red/black straights · green zero. */
 .casino-felt {
     --felt-baize: #0b6b3d;
@@ -845,10 +709,6 @@
     border: 0;
     box-shadow: none;
     border-radius: 0
-}
-/* Dealer show: no hit strips — tighter bottom */
-.game-shell.simplified .casino-felt .felt-grid {
-    padding-bottom: 0.15rem
 }
 /* 1px pale rails — board stays green, not white */
 .casino-felt .numbers,
@@ -906,39 +766,30 @@
 /* * Player / creator: keep “2 TO 1” column heights locked to the number grid.
  * Fixed px rows (styles.css) can desync on iPhone Safari (subpixel + min-heights),
  * leaving a white/empty strip under the third 2-to-1 cell. */
-.player-mode .casino-felt .felt-grid,
-.bet-creator-mode .casino-felt .felt-grid {
+.player-mode .casino-felt .felt-grid {
     --felt-row: clamp(2.05rem, 9.2vw, 3.25rem);
     align-items: stretch
 }
-.player-mode .casino-felt .numbers,
-.player-mode .casino-felt .column-pays,
-.bet-creator-mode .casino-felt .numbers,
-.bet-creator-mode .casino-felt .column-pays {
+.player-mode .casino-felt .numbers,.player-mode .casino-felt .column-pays {
     grid-template-rows: repeat(3, var(--felt-row)) !important;
     align-self: stretch;
     height: auto;
     min-height: 0;
     box-sizing: border-box
 }
-.player-mode .casino-felt .zero-zone,
-.bet-creator-mode .casino-felt .zero-zone {
+.player-mode .casino-felt .zero-zone {
     /* 3 rows + 2×1px gaps (casino-felt gap) */
     min-height: calc(var(--felt-row) * 3 + 2px) !important;
     height: 100%;
     align-self: stretch;
     box-sizing: border-box
 }
-.player-mode .casino-felt .numbers .felt-cell,
-.player-mode .casino-felt .numbers b,
-.bet-creator-mode .casino-felt .numbers .felt-cell,
-.bet-creator-mode .casino-felt .numbers b {
+.player-mode .casino-felt .numbers .felt-cell,.player-mode .casino-felt .numbers b {
     min-height: 0 !important;
     height: 100%;
     box-sizing: border-box
 }
-.player-mode .casino-felt .column-pays span,
-.bet-creator-mode .casino-felt .column-pays span {
+.player-mode .casino-felt .column-pays span {
     min-height: 0;
     height: 100%;
     box-sizing: border-box;
@@ -962,13 +813,11 @@
     filter: brightness(1.12)
 }
 /* Player: a bit more bottom padding for street hit targets */
-.player-mode .casino-felt .felt-grid,
-.bet-creator-mode .casino-felt .felt-grid {
+.player-mode .casino-felt .felt-grid {
     padding-bottom: 0.7rem
 }
 @media (max-width: 720px) {
-    .player-mode .casino-felt .felt-grid,
-  .bet-creator-mode .casino-felt .felt-grid {
+    .player-mode .casino-felt .felt-grid {
         /* slightly shorter rows on tablets / phones, still shared with columns */
         --felt-row: clamp(1.95rem, 8.4vw, 2.75rem)
     }
@@ -1007,8 +856,7 @@
     .casino-felt .felt-grid {
         gap: 2px
     }
-    .player-mode .casino-felt .felt-grid,
-  .bet-creator-mode .casino-felt .felt-grid {
+    .player-mode .casino-felt .felt-grid {
         padding-bottom: 0.75rem
     }
     .casino-felt .numbers,
@@ -1018,8 +866,7 @@
   .casino-felt .zero-zone {
         gap: 1px
     }
-    .player-mode .casino-felt .felt-grid,
-  .bet-creator-mode .casino-felt .felt-grid {
+    .player-mode .casino-felt .felt-grid {
         --felt-row: clamp(1.9rem, 9.5vw, 2.45rem)
     }
 }
@@ -1087,30 +934,10 @@
     /* override base 520px min that forced empty green */
     align-items: center
 }
-.player-mode .player-controls,
-.player-mode .table-footer,
-.player-mode .arcade-strip,
-.player-mode .player-phase-row {
+.player-mode .player-controls,.player-mode .player-phase-row {
     flex-shrink: 0
 }
 /* Live total staked during BETTING_OPEN — primary readout before SPIN */
-.player-mode .player-phase-row .player-stake-total {
-    margin-left: 4px;
-    font-family: Impact, "Arial Black", sans-serif;
-    font-size: clamp(1.05rem, 2.6vw, 1.45rem);
-    letter-spacing: .06em;
-    padding: 6px 14px;
-    background: #1a1410;
-    color: #f0c85e;
-    border: 2px solid #c69e45;
-    box-shadow: inset 0 0 0 1px rgba(240, 200, 94, .18)
-}
-.player-mode .player-phase-row .player-stake-total.has-stake {
-    background: #efd069;
-    color: #162018;
-    border-color: #f0c85e;
-    box-shadow: 0 0 18px rgba(240, 200, 94, .28)
-}
 .player-mode .player-phase-row .player-phase-feedback {
     margin-left: 10px;
     font-size: .78rem;
@@ -1211,26 +1038,6 @@
 .player-mode .player-controls {
     margin-top: 0
     /* table-grid flex:1 absorbs space; do not park a dead band above controls */
-}
-/* Dealer nowheel keeps compact top-aligned show (crowd sits under) */
-.game-shell.dealer-nowheel .table-grid-nowheel {
-    grid-template-columns: 1fr;
-    min-height: 0;
-    flex: 0 1 auto;
-    gap: 6px
-}
-.game-shell.dealer-nowheel .felt-panel {
-    grid-template-rows: auto;
-    align-content: start;
-    justify-items: stretch;
-    gap: 6px;
-    padding: 8px 10px 10px
-}
-.game-shell.dealer-nowheel .felt-grid {
-    align-self: start;
-    justify-self: stretch;
-    width: 100%;
-    max-width: 100%
 }
 .player-mode.player-nowheel .felt-heading {
     margin: 0;
@@ -1409,22 +1216,6 @@
     width: 2.75rem;
     height: 2.75rem
 }
-.bet-actions {
-    grid-area: actions;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    justify-content: flex-start;
-    align-items: center
-}
-.bet-actions .chrome-button {
-    min-height: 2.2rem;
-    padding: 0.4rem 0.7rem
-}
-.bet-actions .strategy-btn {
-    flex: 0 0 auto
-}
 /* Primary CTA — round casino button, high-contrast label */
 .player-spin-btn {
     grid-area: spin;
@@ -1553,8 +1344,7 @@
         padding: 0.4rem 0.65rem;
         font-size: 0.78rem
     }
-    .player-mode.player-nowheel .felt-panel,
-  .game-shell.dealer-nowheel .felt-panel {
+    .player-mode.player-nowheel .felt-panel {
         padding: 6px 8px 8px;
         gap: 5px
     }
@@ -1616,24 +1406,6 @@
         font-weight: 900;
         color: #100a00;
         text-shadow: 0 1px 0 #fffc
-    }
-    .bet-actions {
-        flex-direction: row;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        justify-content: flex-start;
-        gap: 0.3rem
-    }
-    .bet-actions::-webkit-scrollbar {
-        display: none
-    }
-    .bet-actions .chrome-button {
-        flex: 0 0 auto;
-        min-height: 2rem;
-        padding: 0.35rem 0.55rem;
-        font-size: 0.72rem
     }
 }
 @media (max-width: 380px) {
@@ -1788,18 +1560,6 @@
     font-size: 0.65rem;
     color: #8a9aa0;
     font-weight: 700
-}
-.rt-sector-voisins {
-    border-color: #c9a227
-}
-.rt-sector-tiers {
-    border-color: #3a8a70
-}
-.rt-sector-orphelins {
-    border-color: #6a6ab0
-}
-.rt-sector-jeuZero {
-    border-color: #2a9a40
 }
 .rt-sector:hover:not(:disabled) {
     filter: brightness(1.12);
@@ -2026,7 +1786,7 @@
         border-width: 1px
     }
 }
-/* -- Result reveal (big number after spin � Dealer + Player) -- */
+/* -- Result reveal (big number after a Player spin) -- */
 .result-reveal {
     position: fixed;
     inset: 0;
@@ -2108,8 +1868,7 @@
 .result-reveal-card.is-lose .result-reveal-outcome {
     color: #ff8080
 }
-.result-reveal-card.is-even .result-reveal-outcome,
-.result-reveal-card.is-none .result-reveal-outcome {
+.result-reveal-card.is-even .result-reveal-outcome {
     color: #c0c8d0
 }
 .result-reveal-card.is-pay .result-reveal-outcome {
@@ -2133,8 +1892,7 @@
         opacity: 1
     }
 }
-.game-shell.is-result-reveal .player-controls,
-.game-shell.is-result-reveal .bet-actions {
+.game-shell.is-result-reveal .player-controls {
     pointer-events: none;
     opacity: 0.55
 }
@@ -2439,22 +2197,6 @@
     0 3px 0 #050302,
     inset 0 0 0 3px rgba(0, 0, 0, .38)
 }
-.mobile-first-player .bet-actions {
-    grid-area: actions;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-    overflow: visible
-}
-.mobile-first-player .bet-actions .chrome-button {
-    min-width: 88px;
-    min-height: 46px;
-    padding: 7px 10px;
-    border-color: #765d38;
-    border-radius: 7px;
-    background: #251b14;
-    font-size: .72rem
-}
 .mobile-first-player .player-spin-btn {
     grid-area: spin;
     width: 76px;
@@ -2756,15 +2498,6 @@
         height: 46px;
         min-width: 46px
     }
-    .mobile-first-player .bet-actions {
-        gap: 6px
-    }
-    .mobile-first-player .bet-actions .chrome-button {
-        min-width: 0;
-        min-height: 42px;
-        padding: 6px 8px;
-        font-size: .68rem
-    }
     .mobile-first-player .player-spin-btn {
         width: 72px;
         height: 72px;
@@ -2821,9 +2554,6 @@
     }
     .mobile-first-player .tray-label {
         display: none
-    }
-    .mobile-first-player .bet-actions .chrome-button {
-        min-width: 0
     }
     .mobile-first-player .player-spin-btn {
         justify-self: center

@@ -28,7 +28,7 @@ Choose a chip, tap the felt to place bets and press **Spin**. The table supports
 
 ## Spin engine
 
-The result is independent of score and difficulty:
+The result is independent of score and presentation settings:
 
 1. `crypto.getRandomValues` supplies cryptographically secure initial conditions.
 2. Ball and wheel movement are integrated by the spin simulation until the ball drops.

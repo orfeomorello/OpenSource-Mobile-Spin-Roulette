@@ -5,10 +5,8 @@
   "rules": {
     "sameResultWithOrWithoutAnimation": true,
     "noPocketProbabilityZeroOrOne": true,
-    "difficultyDoesNotAffectWinningNumber": true,
     "scoreDoesNotAffectWinningNumber": true,
-    "dealerSignature": false,
-    "comment": "Outcome from CSPRNG initial conditions + numerical ball/wheel dynamics. No per-dealer profile. Animation never re-rolls the pocket."
+    "comment": "Outcome from CSPRNG initial conditions plus numerical ball/wheel dynamics. Animation never re-rolls the pocket."
   },
   "variants": {
     "european": {
