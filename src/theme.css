@@ -1938,6 +1938,26 @@ textarea {
         bottom: 9px;
         pointer-events: auto
     }
+    .mobile-first-player .chip-picker-menu {
+        left: 0;
+        max-width: calc(100vw - 34px);
+        flex-direction: row;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: inline proximity;
+        scrollbar-width: none;
+        touch-action: pan-x;
+        transform: none
+    }
+    .mobile-first-player .chip-picker-menu::-webkit-scrollbar {
+        display: none
+    }
+    .mobile-first-player .chip-picker-menu .chip-btn {
+        flex: 0 0 auto;
+        scroll-snap-align: center
+    }
     .mobile-first-player .player-bet-dock .spin-cluster {
         position: absolute;
         right: 9px;

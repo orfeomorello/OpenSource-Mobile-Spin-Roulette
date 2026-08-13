@@ -116,6 +116,7 @@ h1 span {
     max-width: 36rem;
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     justify-content: center;
     gap: 4px 9px
 }
