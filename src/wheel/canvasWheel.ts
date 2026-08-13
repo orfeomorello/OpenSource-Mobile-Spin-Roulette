@@ -3,6 +3,18 @@ import type { SpinResult, TableVariant } from "../core/types.ts";
 
 const TAU = Math.PI * 2;
 const RED = new Set(["1", "3", "5", "7", "9", "12", "14", "16", "18", "19", "21", "23", "25", "27", "30", "32", "34", "36"]);
+export const MAX_WHEEL_DPR = 2;
+
+interface WheelLayerCache {
+  variant: TableVariant;
+  cssSize: number;
+  pixelSize: number;
+  scale: number;
+  base: HTMLCanvasElement;
+  ring: HTMLCanvasElement;
+}
+
+const wheelLayerCaches = new WeakMap<HTMLCanvasElement, WheelLayerCache>();
 
 export interface WheelAnimationHandle {
   cancel: () => void;
@@ -24,6 +36,11 @@ function pocketsFor(variant: TableVariant): readonly string[] {
 
 function positiveAngle(value: number): number {
   return ((value % TAU) + TAU) % TAU;
+}
+
+export function cappedWheelDpr(value: number): number {
+  const safeValue = Number.isFinite(value) && value > 0 ? value : 1;
+  return Math.min(MAX_WHEEL_DPR, safeValue);
 }
 
 export function getSpinEndAngle(fromAngle: number, variant: TableVariant, result: string, turns: number): number {
@@ -142,26 +159,51 @@ export function animateWheel(
   };
 }
 
-function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: WheelFrame): void {
-  const rect = canvas.getBoundingClientRect();
-  const cssSize = Math.max(240, Math.min(rect.width || 480, rect.height || rect.width || 480));
-  // Cap 3× for retina/HiDPI; use exact scale so buffer ↔ CSS pixels stay 1:1 (less soft stretch).
-  const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const pixelSize = Math.max(1, Math.round(cssSize * dpr));
-  const scale = pixelSize / cssSize;
-  if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
-    canvas.width = pixelSize;
-    canvas.height = pixelSize;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) return;
+function configureWheelContext(context: CanvasRenderingContext2D, scale: number): void {
   context.setTransform(scale, 0, 0, scale, 0, 0);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.clearRect(0, 0, cssSize, cssSize);
+}
 
+function prepareWheelLayers(canvas: HTMLCanvasElement, variant: TableVariant): WheelLayerCache | null {
+  const rect = canvas.getBoundingClientRect();
+  const width = rect.width || 480;
+  const height = rect.height || width;
+  const cssSize = Math.max(1, Math.round(Math.min(width, height) * 100) / 100);
+  const dpr = cappedWheelDpr(window.devicePixelRatio || 1);
+  const pixelSize = Math.max(1, Math.round(cssSize * dpr));
+  const scale = pixelSize / cssSize;
+  const cached = wheelLayerCaches.get(canvas);
+  if (cached && cached.variant === variant && cached.cssSize === cssSize && cached.pixelSize === pixelSize) {
+    return cached;
+  }
+
+  canvas.width = pixelSize;
+  canvas.height = pixelSize;
+  const base = document.createElement("canvas");
+  const ringLayer = document.createElement("canvas");
+  base.width = pixelSize;
+  base.height = pixelSize;
+  ringLayer.width = pixelSize;
+  ringLayer.height = pixelSize;
+  const baseContext = base.getContext("2d");
+  const ringContext = ringLayer.getContext("2d");
+  if (!baseContext || !ringContext) return null;
+  configureWheelContext(baseContext, scale);
+  configureWheelContext(ringContext, scale);
+  paintWheelBase(baseContext, cssSize);
+  paintNumberRing(ringContext, variant, cssSize);
+  const next = { variant, cssSize, pixelSize, scale, base, ring: ringLayer };
+  wheelLayerCaches.set(canvas, next);
+  canvas.dataset.renderDpr = String(dpr);
+  canvas.dataset.renderLayers = "cached-base-ring";
+  return next;
+}
+
+function paintWheelBase(context: CanvasRenderingContext2D, cssSize: number): void {
   const center = cssSize / 2;
   const radius = cssSize * 0.47;
+  context.clearRect(0, 0, cssSize, cssSize);
   context.save();
   context.translate(center, center);
 
@@ -189,61 +231,6 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   ring(context, radius * 0.91, radius * 0.11, "#140c08");
   ring(context, radius * 0.855, radius * 0.012, "rgba(80,42,18,.85)");
   ring(context, radius * 0.838, radius * 0.028, "#e6c36a");
-
-  const pockets = pocketsFor(variant);
-  const slice = TAU / pockets.length;
-  const outer = radius * 0.82;
-  const inner = radius * 0.60;
-  context.save();
-  context.rotate(frame.wheelAngle);
-  pockets.forEach((pocket, index) => {
-    const centerAngle = -Math.PI / 2 + index * slice;
-    const start = centerAngle - slice / 2;
-    const end = centerAngle + slice / 2;
-    context.beginPath();
-    context.arc(0, 0, outer, start, end);
-    context.arc(0, 0, inner, end, start, true);
-    context.closePath();
-    context.fillStyle = pocketColor(pocket);
-    context.fill();
-
-    // Brass fret between pockets — the detail that reads as a real wheel.
-    context.beginPath();
-    context.moveTo(Math.cos(start) * inner, Math.sin(start) * inner);
-    context.lineTo(Math.cos(start) * outer, Math.sin(start) * outer);
-    context.strokeStyle = "rgba(236, 210, 140, .92)";
-    context.lineWidth = Math.max(1.15, radius * 0.0075);
-    context.stroke();
-
-    if (frame.result === pocket && frame.settle > 0.78) {
-      context.save();
-      context.strokeStyle = `rgba(255, 233, 125, ${0.55 + 0.45 * frame.settle})`;
-      context.lineWidth = radius * 0.022;
-      context.stroke();
-      context.restore();
-    }
-
-    const labelRadius = radius * 0.715;
-    context.save();
-    context.translate(Math.cos(centerAngle) * labelRadius, Math.sin(centerAngle) * labelRadius);
-    let textAngle = centerAngle + Math.PI / 2;
-    if (Math.cos(centerAngle) < 0) textAngle += Math.PI;
-    context.rotate(textAngle);
-    const fontPx = Math.max(10, Math.round(radius * 0.058));
-    context.font = `800 ${fontPx}px system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.lineJoin = "round";
-    context.miterLimit = 2;
-    context.lineWidth = Math.max(1.25, fontPx * 0.16);
-    context.strokeStyle = "rgba(0,0,0,0.92)";
-    context.fillStyle = "#fffef6";
-    context.strokeText(pocket, 0, 0);
-    context.fillText(pocket, 0, 0);
-    context.restore();
-  });
-  context.restore();
-
   drawTrackDiamonds(context, radius * 0.875, radius * 0.026);
 
   const bowl = context.createRadialGradient(-radius * 0.16, -radius * 0.22, radius * 0.04, 0, 0, radius * 0.59);
@@ -255,6 +242,106 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   ring(context, radius * 0.575, radius * 0.026, "#d8b056");
   ring(context, radius * 0.552, radius * 0.006, "rgba(255,236,180,.45)");
   ring(context, radius * 0.49, radius * 0.01, "rgba(238,205,123,.42)");
+  context.restore();
+}
+
+function paintNumberRing(context: CanvasRenderingContext2D, variant: TableVariant, cssSize: number): void {
+  const center = cssSize / 2;
+  const radius = cssSize * 0.47;
+  const pockets = pocketsFor(variant);
+  const slice = TAU / pockets.length;
+  const outer = radius * 0.82;
+  const inner = radius * 0.60;
+  context.clearRect(0, 0, cssSize, cssSize);
+  context.save();
+  context.translate(center, center);
+  pockets.forEach((pocket, index) => {
+    const centerAngle = -Math.PI / 2 + index * slice;
+    const start = centerAngle - slice / 2;
+    const end = centerAngle + slice / 2;
+    context.beginPath();
+    context.arc(0, 0, outer, start, end);
+    context.arc(0, 0, inner, end, start, true);
+    context.closePath();
+    context.fillStyle = pocketColor(pocket);
+    context.fill();
+
+    context.beginPath();
+    context.moveTo(Math.cos(start) * inner, Math.sin(start) * inner);
+    context.lineTo(Math.cos(start) * outer, Math.sin(start) * outer);
+    context.strokeStyle = "rgba(236, 210, 140, .92)";
+    context.lineWidth = Math.max(1.15, radius * 0.0075);
+    context.stroke();
+
+    const labelRadius = radius * 0.715;
+    context.save();
+    context.translate(Math.cos(centerAngle) * labelRadius, Math.sin(centerAngle) * labelRadius);
+    let textAngle = centerAngle + Math.PI / 2;
+    if (Math.cos(centerAngle) < 0) textAngle += Math.PI;
+    context.rotate(textAngle);
+    const fontPx = Math.max(11, Math.round(radius * 0.061));
+    context.font = `900 ${fontPx}px system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineJoin = "round";
+    context.miterLimit = 2;
+    context.lineWidth = Math.max(1.2, fontPx * 0.12);
+    context.strokeStyle = "rgba(0,0,0,0.96)";
+    context.fillStyle = "#ffffff";
+    context.strokeText(pocket, 0, 0);
+    context.fillText(pocket, 0, 0);
+    context.restore();
+  });
+  context.restore();
+}
+
+function drawWinningPocketHighlight(
+  context: CanvasRenderingContext2D,
+  variant: TableVariant,
+  radius: number,
+  frame: WheelFrame,
+): void {
+  if (!frame.result || frame.settle <= 0.78) return;
+  const pockets = pocketsFor(variant);
+  const index = pockets.indexOf(frame.result);
+  if (index < 0) return;
+  const slice = TAU / pockets.length;
+  const centerAngle = -Math.PI / 2 + frame.wheelAngle + index * slice;
+  const start = centerAngle - slice / 2;
+  const end = centerAngle + slice / 2;
+  context.save();
+  context.beginPath();
+  context.arc(0, 0, radius * 0.82, start, end);
+  context.arc(0, 0, radius * 0.60, end, start, true);
+  context.closePath();
+  context.strokeStyle = `rgba(255, 233, 125, ${0.55 + 0.45 * frame.settle})`;
+  context.lineWidth = radius * 0.022;
+  context.stroke();
+  context.restore();
+}
+
+function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: WheelFrame): void {
+  const layers = prepareWheelLayers(canvas, variant);
+  if (!layers) return;
+  const { cssSize, pixelSize, scale } = layers;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  configureWheelContext(context, scale);
+  context.clearRect(0, 0, cssSize, cssSize);
+  context.drawImage(layers.base, 0, 0, pixelSize, pixelSize, 0, 0, cssSize, cssSize);
+
+  const center = cssSize / 2;
+  const radius = cssSize * 0.47;
+  context.save();
+  context.translate(center, center);
+  context.rotate(frame.wheelAngle);
+  context.drawImage(layers.ring, 0, 0, pixelSize, pixelSize, -center, -center, cssSize, cssSize);
+  context.restore();
+
+  context.save();
+  context.translate(center, center);
+
+  drawWinningPocketHighlight(context, variant, radius, frame);
 
   const showCenterResult = frame.result !== null && frame.speed <= 0.025 && frame.settle >= 0.99;
   if (showCenterResult) {

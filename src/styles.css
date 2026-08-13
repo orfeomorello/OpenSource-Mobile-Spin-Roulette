@@ -2157,7 +2157,8 @@ h1 span {
     z-index: 1
 }
 .wheel-stage.is-spinning .wheel-canvas {
-    animation: wheelCabinetHum .18s steps(2) infinite alternate
+    /* Never animate filters on the numbered bitmap: resampling softens labels. */
+    animation: none
 }
 .wheel-stage.is-spinning:after {
     content: "";
@@ -2168,12 +2169,6 @@ h1 span {
     pointer-events: none;
     background: conic-gradient(from 20deg,transparent,rgba(255,224,112,.08),transparent 22%);
     animation: trackGlint .7s linear infinite
-}
-/* Spin “hum” only tweaks brightness — avoid saturate+drop-shadow on the canvas. */
-@keyframes wheelCabinetHum {
-    to {
-        filter: brightness(1.04)
-    }
 }
 @keyframes trackGlint {
     to {

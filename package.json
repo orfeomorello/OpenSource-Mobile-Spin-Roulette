@@ -10,7 +10,7 @@
     "prebuild": "npm run prepare:audio",
     "build": "tsc -b && vite build && node scripts/stage-worker.mjs",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types src/core/game.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts"
+    "test": "node --experimental-strip-types src/core/game.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
