@@ -1435,6 +1435,100 @@ function mountWheel(): void {
 // Player mode presenter
 // ---------------------------------------------------------------------------
 
+const playerBettingStatusNoise = new Set([
+  "message.playerWelcome",
+  "message.playerBetting",
+  "message.playerChipPlaced",
+  "message.playerChipMoved",
+  "message.playerMoveUndone",
+  "message.playerUndo",
+  "message.playerCleared",
+  "message.playerStrategyApplied",
+  "message.playerRebet",
+  "message.playerDouble",
+  "message.playerCallPlaced",
+]);
+
+function showPlayerBettingFeedback(state: PlayerGameState): boolean {
+  return Boolean(state.message && !playerBettingStatusNoise.has(state.message));
+}
+
+/** Keep placed chips above magnetic snap previews on adjacent cells and rails. */
+function markPlayerFeltStackLayers(felt: HTMLElement): void {
+  felt.querySelectorAll(".has-player-stack").forEach((host) => host.classList.remove("has-player-stack"));
+  felt.querySelectorAll(".has-player-stack-cell").forEach((cell) => cell.classList.remove("has-player-stack-cell"));
+  felt.querySelectorAll<HTMLElement>("[data-chip-host]").forEach((host) => {
+    const hasDirectStack = Array.from(host.children).some((child) => child.classList.contains("player-stack"));
+    if (!hasDirectStack) return;
+    host.classList.add("has-player-stack");
+    host.closest<HTMLElement>(".felt-cell, [data-zero]")?.classList.add("has-player-stack-cell");
+  });
+}
+
+/** Update chip stacks in place so the felt cells (and keyboard focus) stay mounted. */
+function syncPlayerFeltStacks(felt: HTMLElement, state: PlayerGameState): boolean {
+  const hosts = new Map<string, HTMLElement>();
+  felt.querySelectorAll<HTMLElement>("[data-chip-host]").forEach((host) => {
+    const betId = host.dataset.chipHost;
+    if (betId && !hosts.has(betId)) hosts.set(betId, host);
+  });
+  const chips = playerChipMap(feltDisplayBets(state), state.chipHistory);
+  for (const [betId, stake] of chips.stakes) {
+    if (stake > 0 && !hosts.has(betId)) return false;
+  }
+  felt.querySelectorAll(".player-stack").forEach((stack) => stack.remove());
+  for (const [betId, stake] of chips.stakes) {
+    if (stake <= 0) continue;
+    hosts.get(betId)?.insertAdjacentHTML("beforeend", playerChipAt(betId, chips));
+  }
+  markPlayerFeltStackLayers(felt);
+  return true;
+}
+
+/** Keep the frequently changing betting UI current without rebuilding the app shell. */
+function syncPlayerBettingUi(): boolean {
+  const state = playerGame;
+  if (!state || state.phase !== "BETTING_OPEN") return false;
+  const root = app.querySelector<HTMLElement>(".mobile-first-player.is-betting");
+  const felt = root?.querySelector<HTMLElement>(".player-felt");
+  const score = root?.querySelector<HTMLElement>(".player-hud-score strong");
+  const stakedValue = root?.querySelector<HTMLElement>(".player-hud-bet strong");
+  const coverageRoot = root?.querySelector<HTMLElement>(".table-coverage");
+  const coverageTrack = root?.querySelector<HTMLElement>(".table-coverage-track");
+  const coverageFill = root?.querySelector<HTMLElement>(".table-coverage-fill");
+  const coveragePct = root?.querySelector<HTMLElement>(".table-coverage-pct");
+  const feedback = root?.querySelector<HTMLElement>(".player-phase-feedback");
+  const undo = root?.querySelector<HTMLButtonElement>("#player-undo");
+  const double = root?.querySelector<HTMLButtonElement>("#player-double");
+  const rebet = root?.querySelector<HTMLButtonElement>("#player-rebet");
+  if (!root || !felt || !score || !stakedValue || !coverageRoot || !coverageTrack || !coverageFill || !coveragePct || !feedback || !undo || !double || !rebet) {
+    return false;
+  }
+
+  const staked = totalStaked(state);
+  const free = state.tableScore;
+  const coverage = tableCoverage(state);
+  const lastCost = state.lastBets.reduce((sum, bet) => sum + bet.stake, 0);
+  score.textContent = format(free + staked);
+  stakedValue.textContent = format(staked);
+  coverageRoot.title = t("player.coverageHelp", { covered: coverage.covered, total: coverage.total });
+  coverageTrack.setAttribute("aria-valuenow", String(coverage.percent));
+  coverageTrack.setAttribute("aria-label", t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total }));
+  coverageFill.style.width = `${coverage.percent}%`;
+  coveragePct.textContent = `${coverage.percent}%`;
+  const showFeedback = showPlayerBettingFeedback(state);
+  feedback.hidden = !showFeedback;
+  feedback.textContent = showFeedback ? t(state.message, state.messageParams) : "";
+  undo.disabled = !state.chipHistory.length && !state.bets.length;
+  double.disabled = staked <= 0 || free < staked;
+  rebet.disabled = lastCost <= 0 || free + staked < lastCost;
+  return syncPlayerFeltStacks(felt, state);
+}
+
+function refreshPlayerBettingUi(): void {
+  if (!syncPlayerBettingUi()) renderPlayerTable();
+}
+
 function renderPlayerTable(): void {
   if (!playerGame) return;
   // Full Bet Creator only when not mid Racetrack “save as strategy” naming
@@ -1499,27 +1593,11 @@ function renderPlayerTable(): void {
   // Stats are read-only — open between hands and mid-bet (not during spin/reveal)
   const canOpenStats = !playerRevealing && playerGame.phase !== "SPINNING";
   // During betting: highlight live total on table; suppress routine place noise; keep fail tips
-  const bettingStatusNoise = new Set([
-    "message.playerWelcome",
-    "message.playerBetting",
-    "message.playerChipPlaced",
-    "message.playerChipMoved",
-    "message.playerMoveUndone",
-    "message.playerUndo",
-    "message.playerCleared",
-    "message.playerStrategyApplied",
-    "message.playerRebet",
-    "message.playerDouble",
-    "message.playerCallPlaced",
-  ]);
   const showBettingFeedback = betting
-    && playerGame.message
-    && !bettingStatusNoise.has(playerGame.message);
+    && showPlayerBettingFeedback(playerGame);
   // After spin: one mark only (e.g. "+30 QUESTA MANO") — do not also show "17 · hai vinto +30"
   const phaseStatusHtml = betting
-    ? (showBettingFeedback
-        ? `<b class="player-phase-feedback">${t(playerGame.message, playerGame.messageParams)}</b>`
-        : "")
+    ? `<b class="player-phase-feedback" ${showBettingFeedback ? "" : "hidden"}>${showBettingFeedback ? t(playerGame.message, playerGame.messageParams) : ""}</b>`
     : handOutcomeLabel
       ? `<mark class="player-hand-result">${handOutcomeLabel}</mark>`
       : `<b>${t(playerGame.message, playerGame.messageParams)}</b>`;
@@ -1657,6 +1735,8 @@ function renderPlayerTable(): void {
       ${buildResultRevealOverlay()}
     </main>`;
 
+  const mountedPlayerFelt = app.querySelector<HTMLElement>(".player-felt");
+  if (mountedPlayerFelt) markPlayerFeltStackLayers(mountedPlayerFelt);
   if (showWheelStage) mountWheel();
   const chipTrigger = app.querySelector<HTMLButtonElement>("#player-chip-trigger");
   let chipHoldTimer: number | null = null;
@@ -1835,7 +1915,7 @@ function renderPlayerTable(): void {
       playSound("close");
       persistPlayerScore();
       savePlayerLocal();
-      renderPlayerTable();
+      refreshPlayerBettingUi();
     }, 550);
   });
   undoButton?.addEventListener("pointerup", cancelUndoHold);
@@ -1847,12 +1927,12 @@ function renderPlayerTable(): void {
     playSound("tick");
     persistPlayerScore();
     savePlayerLocal();
-    renderPlayerTable();
+    refreshPlayerBettingUi();
   });
   app.querySelector<HTMLButtonElement>("#player-rebet")?.addEventListener("click", () => {
     if (!playerGame || !rebetLast(playerGame)) {
       playSound("error");
-      renderPlayerTable();
+      refreshPlayerBettingUi();
       return;
     }
     playerMenuOpen = false;
@@ -1860,12 +1940,12 @@ function renderPlayerTable(): void {
     playSound("bet");
     persistPlayerScore();
     savePlayerLocal();
-    renderPlayerTable();
+    refreshPlayerBettingUi();
   });
   app.querySelector<HTMLButtonElement>("#player-double")?.addEventListener("click", () => {
     if (!playerGame || !doubleBets(playerGame)) {
       playSound("error");
-      renderPlayerTable();
+      refreshPlayerBettingUi();
       return;
     }
     playerMenuOpen = false;
@@ -1873,7 +1953,7 @@ function renderPlayerTable(): void {
     playSound("bet");
     persistPlayerScore();
     savePlayerLocal();
-    renderPlayerTable();
+    refreshPlayerBettingUi();
   });
   app.querySelector<HTMLButtonElement>("#player-spin")?.addEventListener("click", () => {
     if (!playerGame || playerGame.phase !== "BETTING_OPEN") return;
@@ -1897,7 +1977,7 @@ function renderPlayerTable(): void {
         haptic(10);
         persistPlayerScore();
         savePlayerLocal();
-        renderPlayerTable();
+        refreshPlayerBettingUi();
         return true;
       },
     });
@@ -3009,8 +3089,9 @@ function insideHit(
   options?: { showChip?: boolean },
 ): string {
   // showChip false: secondary snap/display host for the same betId (avoid duplicate chip stacks).
-  const chip = options?.showChip === false ? "" : playerChipAt(betId, chips);
-  return `<i class="inside-hit ${className}" ${clickAttr}="${betId}" role="button" title="${title}" aria-label="${title}">${chip}</i>`;
+  const showChip = options?.showChip !== false;
+  const chip = showChip ? playerChipAt(betId, chips) : "";
+  return `<i class="inside-hit ${className}" ${clickAttr}="${betId}" ${showChip ? `data-chip-host="${betId}"` : ""} role="button" title="${title}" aria-label="${title}">${chip}</i>`;
 }
 
 function buildPlayerFelt(variant: TableVariant, result: string | null, bets: PlacedBet[], interactive: boolean, actions: PlayerChipAction[] = []): string {
@@ -3041,7 +3122,7 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
         }
       }
       numberCells.push(
-        `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}" style="--mobile-row:${col + 1};--mobile-col:${3 - row}" ${click}="${betId}" data-col="${col}" data-row="${row}" data-pocket="${number}" role="button" tabindex="0"><span>${number}</span>${playerChipAt(betId, chips)}${hits.join("")}</b>`,
+        `<b class="felt-cell ${isRed(number) ? "red" : "black"} ${result === number ? "hit" : ""}" style="--mobile-row:${col + 1};--mobile-col:${3 - row}" ${click}="${betId}" data-chip-host="${betId}" data-col="${col}" data-row="${row}" data-pocket="${number}" role="button" tabindex="0"><span>${number}</span>${playerChipAt(betId, chips)}${hits.join("")}</b>`,
       );
     }
   }
@@ -3081,10 +3162,10 @@ function buildPlayerFelt(variant: TableVariant, result: string | null, bets: Pla
     return "";
   };
   const zeroCells = variant === "american"
-    ? `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b><b class="green ${result === "00" ? "hit" : ""}" ${click}="straight_00" data-zero="00" role="button" tabindex="0"><span>00</span>${playerChipAt("straight_00", chips)}${zeroHits("00")}</b>`
-    : `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b>`;
+    ? `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-chip-host="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b><b class="green ${result === "00" ? "hit" : ""}" ${click}="straight_00" data-chip-host="straight_00" data-zero="00" role="button" tabindex="0"><span>00</span>${playerChipAt("straight_00", chips)}${zeroHits("00")}</b>`
+    : `<b class="green ${result === "0" ? "hit" : ""}" ${click}="straight_0" data-chip-host="straight_0" data-zero="0" role="button" tabindex="0"><span>0</span>${playerChipAt("straight_0", chips)}${zeroHits("0")}</b>`;
   const outside = (id: string, label: string, extraClass = "") =>
-    `<span class="${extraClass}" ${click}="${id}" role="button" tabindex="0">${label}${playerChipAt(id, chips)}</span>`;
+    `<span class="${extraClass}" ${click}="${id}" data-chip-host="${id}" role="button" tabindex="0">${label}${playerChipAt(id, chips)}</span>`;
   return `<div class="zero-zone">${zeroCells}</div>
     <div class="numbers player-numbers">${numberCells.join("")}</div>
     <div class="column-pays">${outside("column3", "2 TO 1")}${outside("column2", "2 TO 1")}${outside("column1", "2 TO 1")}</div>

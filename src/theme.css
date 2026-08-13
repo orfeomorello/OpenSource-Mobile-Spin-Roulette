@@ -2639,6 +2639,15 @@ body {
     top: auto;
     transform: none
 }
+/* A magnetic preview raises its hit marker. Keep existing stacks, and the
+   pocket that owns them, one layer higher so chips never sink underneath it. */
+.mobile-first-player .casino-felt.player-felt.snap-felt.interactive .felt-cell.has-player-stack-cell,
+.mobile-first-player .casino-felt.player-felt.snap-felt.interactive [data-zero].has-player-stack-cell {
+    z-index: 17
+}
+.mobile-first-player .casino-felt.player-felt.snap-felt.interactive [data-chip-host].has-player-stack {
+    z-index: 18
+}
 /* Landscape: street on the bottom rail, six-line on the street junction. */
 .mobile-first-player .player-felt .inside-hit.hit-street {
     left: 50%;
