@@ -20,6 +20,8 @@ MobileSpinRoulette is a browser-based roulette game focused on a fast, touch-fri
 - English, Italian, Spanish, Brazilian Portuguese, French, German, Korean, Japanese and Chinese interfaces.
 - Local autosave plus JSON export and import from Settings.
 
+The home screen and Settings link to the bilingual [privacy policy](./public/privacy.html). The game uses virtual points only and provides no purchases, prizes, cash-out or accounts.
+
 The game uses points only. A new profile starts with **2000000 score**, and starting a new game restores that amount when the score is zero or below.
 
 ## How to play
@@ -65,7 +67,15 @@ npm.cmd run build
 npm.cmd run preview
 ```
 
-The production build is written to `dist/`.
+The production build is written to `dist/`. It regenerates the launcher icons and injects the complete local application shell into a versioned service-worker cache. Optional music remains on-demand and is intentionally not duplicated in offline storage.
+
+PWA launcher assets can also be regenerated directly:
+
+```powershell
+npm.cmd run generate:icons
+```
+
+The manifest provides separate `any` and `maskable` PNG icons at 192 and 512 pixels, plus a 180-pixel Apple touch icon. Relative `id`, `scope` and `start_url` values preserve installability when the app is hosted in a subdirectory.
 
 To create the itch.io upload package after building:
 

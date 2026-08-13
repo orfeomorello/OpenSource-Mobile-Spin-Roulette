@@ -1,17 +1,42 @@
 {
+  "id": "./",
   "name": "MobileSpinRoulette",
-  "short_name": "MobileSpinRoulette",
-  "description": "MobileSpinRoulette open-source mobile roulette game",
+  "short_name": "MobileSpin",
+  "description": "Open-source mobile roulette with virtual points only and no real-money prizes.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#06100d",
   "theme_color": "#081611",
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "./roulette-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "./roulette-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./roulette-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./roulette-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./roulette-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

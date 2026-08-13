@@ -113,7 +113,11 @@ h1 span {
     font-size: .7rem;
     letter-spacing: .03em;
     line-height: 1.45;
-    max-width: 36rem
+    max-width: 36rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 9px
 }
 .home-footer .home-credit-link {
     color: #cfad55;

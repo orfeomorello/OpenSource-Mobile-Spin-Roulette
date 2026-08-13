@@ -19,7 +19,20 @@ if (!existsSync(path.join(dist, "index.html"))) {
 if (existsSync(out)) unlinkSync(out);
 
 // Windows tar can create zip: tar -a -c -f out.zip -C dist files
-const entries = ["index.html", "assets", "audio", "manifest.webmanifest"].filter((name) =>
+const entries = [
+  "index.html",
+  "assets",
+  "audio",
+  "manifest.webmanifest",
+  "privacy.html",
+  "sw.js",
+  "roulette-icon.svg",
+  "roulette-icon-192.png",
+  "roulette-icon-512.png",
+  "roulette-maskable-192.png",
+  "roulette-maskable-512.png",
+  "apple-touch-icon.png",
+].filter((name) =>
   existsSync(path.join(dist, name)),
 );
 

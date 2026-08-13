@@ -1,9 +1,15 @@
-const CACHE = "mobilespinroulette-v3";
+const CACHE = "mobilespinroulette-__BUILD_ID__";
+const PRECACHE = /* __MSR_PRECACHE__ */ [];
+const OFFLINE_DOCUMENT = new URL("./index.html", self.location.href).href;
 
-self.addEventListener("install", () => {
-  // Activate the new worker immediately; assets are cached after a successful
-  // network response instead of pinning an old index during installation.
-  self.skipWaiting();
+self.addEventListener("install", (event) => {
+  // The production build injects every required local shell asset here. Audio
+  // stays on-demand so an install never duplicates the multi-megabyte playlist.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -44,7 +50,8 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./"))),
+        .catch(() => caches.match(event.request, { ignoreSearch: true })
+          .then((cached) => cached || caches.match(OFFLINE_DOCUMENT))),
     );
     return;
   }

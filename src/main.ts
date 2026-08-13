@@ -196,7 +196,12 @@ let playerSpinTimer: number | null = null;
 let wheelRestAngle = 0;
 let wheelAnimation: WheelAnimationHandle | null = null;
 const t = (key: string, variables: Record<string, string | number> = {}): string => translate(locale, key, variables);
-document.documentElement.lang = locale;
+
+function syncDocumentLanguage(): void {
+  document.documentElement.lang = LOCALE_META.find((meta) => meta.id === locale)?.bcp47 ?? "en";
+}
+
+syncDocumentLanguage();
 
 /** Defaults for one-click role start — from Settings (home gear). */
 function menuDefaults(): { variant: TableVariant; animation: boolean } {
@@ -257,6 +262,8 @@ function showMenu(): void {
         <p class="home-legal">${t("menu.footer")}</p>
         <p class="home-credit">
           <a class="home-credit-link" href="${SOURCE_CODE_URL}" target="_blank" rel="noopener noreferrer">${t("menu.sourceCode")}</a>
+          <span aria-hidden="true">·</span>
+          <a class="home-credit-link" href="./privacy.html" target="_blank" rel="noopener noreferrer">${t("menu.privacy")}</a>
         </p>
       </footer>
     </main>`;
@@ -271,6 +278,7 @@ function showMenu(): void {
     if (!isLocale(selectedLocale)) return;
     locale = selectedLocale;
     storeLocale(locale);
+    syncDocumentLanguage();
     playSound("bet");
     showMenu();
   });
@@ -362,6 +370,7 @@ function showSettings(): void {
         <section class="settings-block">
           <h2>${t("settings.sectionData")}</h2>
           <p class="settings-help">${t("settings.privacyNote")}</p>
+          <p class="settings-privacy"><a href="./privacy.html" target="_blank" rel="noopener noreferrer">${t("menu.privacy")}</a></p>
           <ul class="settings-data-table">
             <li class="settings-data-row">
               <div class="settings-data-copy">
@@ -406,6 +415,7 @@ function showSettings(): void {
     button.addEventListener("click", () => {
       locale = button.dataset.setLocale as Locale;
       storeLocale(locale);
+      syncDocumentLanguage();
       playSound("bet");
       showSettings();
     });
@@ -851,12 +861,10 @@ function showPlayerBettingFeedback(state: PlayerGameState): boolean {
 /** Keep placed chips above magnetic snap previews on adjacent cells and rails. */
 function markPlayerFeltStackLayers(felt: HTMLElement): void {
   felt.querySelectorAll(".has-player-stack").forEach((host) => host.classList.remove("has-player-stack"));
-  felt.querySelectorAll(".has-player-stack-cell").forEach((cell) => cell.classList.remove("has-player-stack-cell"));
   felt.querySelectorAll<HTMLElement>("[data-chip-host]").forEach((host) => {
     const hasDirectStack = Array.from(host.children).some((child) => child.classList.contains("player-stack"));
     if (!hasDirectStack) return;
     host.classList.add("has-player-stack");
-    host.closest<HTMLElement>(".felt-cell, [data-zero]")?.classList.add("has-player-stack-cell");
   });
 }
 

@@ -444,8 +444,7 @@
 .player-felt.interactive .column-pays span:hover,
 .player-felt.interactive .dozens span:hover,
 .player-felt.interactive .even-money span:hover {
-    filter: brightness(1.18);
-    z-index: 2
+    box-shadow: inset 0 0 0 2px rgba(255, 227, 139, .66), 0 0 9px rgba(241, 204, 103, .32)
 }
 /* Inside multi-number targets: edges / corners / street / sixline */
 .player-felt .player-numbers,
@@ -504,9 +503,7 @@
 }
 .player-felt .felt-cell.snap-target,
 .player-felt .zero-zone b.snap-target {
-    filter: brightness(1.22);
-    outline: 2px solid rgba(255, 224, 100, 0.85);
-    z-index: 3
+    outline: 2px solid rgba(255, 224, 100, 0.85)
 }
 .player-felt .inside-hit.snap-target {
     background: rgba(255, 220, 90, 0.55) !important;

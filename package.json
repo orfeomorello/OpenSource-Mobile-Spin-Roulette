@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "prepare:audio": "node scripts/prepare-audio.mjs",
     "predev": "npm run prepare:audio",
     "dev": "vite",
-    "prebuild": "npm run prepare:audio",
+    "prebuild": "npm run prepare:audio && npm run generate:icons",
     "build": "tsc -b && vite build && node scripts/stage-worker.mjs",
     "preview": "vite preview",
-    "test": "node scripts/check-i18n-usage.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts"
+    "test": "node scripts/check-i18n-usage.mjs && node scripts/check-pwa.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
