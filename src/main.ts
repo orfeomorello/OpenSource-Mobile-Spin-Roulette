@@ -198,6 +198,95 @@ let wheelRestAngle = 0;
 let wheelAnimation: WheelAnimationHandle | null = null;
 const t = (key: string, variables: Record<string, string | number> = {}): string => translate(locale, key, variables);
 
+type AppMessageTone = "info" | "success" | "error" | "danger";
+
+interface AppDialogOptions {
+  message: string;
+  tone?: AppMessageTone;
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+let appNoticeTimer: number | null = null;
+let closeActiveAppDialog: ((result: boolean) => void) | null = null;
+let appDialogSequence = 0;
+
+function showAppNotice(message: string, tone: AppMessageTone = "info"): void {
+  if (appNoticeTimer !== null) window.clearTimeout(appNoticeTimer);
+  document.querySelector(".app-notice")?.remove();
+
+  const notice = document.createElement("div");
+  notice.className = `app-notice tone-${tone}`;
+  notice.setAttribute("role", tone === "error" || tone === "danger" ? "alert" : "status");
+  notice.setAttribute("aria-live", tone === "error" || tone === "danger" ? "assertive" : "polite");
+  notice.textContent = message;
+  document.body.append(notice);
+  window.requestAnimationFrame(() => notice.classList.add("is-visible"));
+
+  appNoticeTimer = window.setTimeout(() => {
+    notice.classList.remove("is-visible");
+    window.setTimeout(() => notice.remove(), 180);
+    appNoticeTimer = null;
+  }, 3200);
+}
+
+function showAppDialog({
+  message,
+  tone = "info",
+  confirmLabel = t("player.creatorConfirm"),
+  cancelLabel,
+}: AppDialogOptions): Promise<boolean> {
+  closeActiveAppDialog?.(false);
+  document.querySelector(".app-dialog-layer")?.remove();
+
+  const priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const dialogId = `app-dialog-${++appDialogSequence}`;
+  const overlay = document.createElement("div");
+  overlay.className = `app-dialog-layer tone-${tone}`;
+  overlay.innerHTML = `<section class="app-dialog-card" role="${cancelLabel ? "alertdialog" : "dialog"}" aria-modal="true" aria-labelledby="${dialogId}-title" aria-describedby="${dialogId}-message">
+    <span class="app-dialog-icon" aria-hidden="true">${tone === "success" ? "✓" : tone === "info" ? "i" : "!"}</span>
+    <h2 id="${dialogId}-title">MobileSpinRoulette</h2>
+    <p id="${dialogId}-message">${escapeHtml(message)}</p>
+    <div class="app-dialog-actions ${cancelLabel ? "" : "is-single"}">
+      ${cancelLabel ? `<button type="button" class="app-dialog-cancel">${escapeHtml(cancelLabel)}</button>` : ""}
+      <button type="button" class="app-dialog-confirm">${escapeHtml(confirmLabel)}</button>
+    </div>
+  </section>`;
+  document.body.append(overlay);
+  document.documentElement.classList.add("app-dialog-open");
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (result: boolean) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKeyDown, true);
+      overlay.remove();
+      document.documentElement.classList.remove("app-dialog-open");
+      if (closeActiveAppDialog === finish) closeActiveAppDialog = null;
+      if (priorFocus?.isConnected) priorFocus.focus({ preventScroll: true });
+      resolve(result);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      finish(cancelLabel ? false : true);
+    };
+
+    closeActiveAppDialog = finish;
+    overlay.querySelector<HTMLButtonElement>(".app-dialog-confirm")?.addEventListener("click", () => finish(true));
+    overlay.querySelector<HTMLButtonElement>(".app-dialog-cancel")?.addEventListener("click", () => finish(false));
+    overlay.addEventListener("pointerdown", (event) => {
+      if (cancelLabel && event.target === overlay) finish(false);
+    });
+    document.addEventListener("keydown", onKeyDown, true);
+    window.requestAnimationFrame(() => {
+      overlay.querySelector<HTMLButtonElement>(cancelLabel ? ".app-dialog-cancel" : ".app-dialog-confirm")?.focus({ preventScroll: true });
+    });
+  });
+}
+
 function syncDocumentLanguage(): void {
   document.documentElement.lang = LOCALE_META.find((meta) => meta.id === locale)?.bcp47 ?? "en";
 }
@@ -214,6 +303,7 @@ function menuDefaults(): { variant: TableVariant; animation: boolean } {
 }
 
 function showMenu(): void {
+  removeCreatorNameDialogLayer();
   wheelAnimation?.cancel();
   wheelAnimation = null;
   playerGame = null;
@@ -516,7 +606,7 @@ function showSettings(): void {
     anchor.click();
     URL.revokeObjectURL(url);
     playSound("settle");
-    window.alert(t("settings.exportDone"));
+    showAppNotice(t("settings.exportDone"), "success");
   });
 
   const importInput = app.querySelector<HTMLInputElement>("#settings-import-file");
@@ -570,26 +660,38 @@ function showSettings(): void {
         storeLocale(parsed.locale);
       }
       playSound("level");
-      window.alert(t("settings.importDone"));
+      await showAppDialog({ message: t("settings.importDone"), tone: "success" });
       window.location.reload();
     } catch {
       playSound("error");
-      window.alert(t("settings.importFailed"));
+      showAppNotice(t("settings.importFailed"), "error");
     }
   });
 
-  app.querySelector<HTMLButtonElement>("#settings-restore-bankroll")?.addEventListener("click", () => {
-    if (!window.confirm(t("settings.restoreBankrollConfirm"))) return;
+  app.querySelector<HTMLButtonElement>("#settings-restore-bankroll")?.addEventListener("click", async () => {
+    const accepted = await showAppDialog({
+      message: t("settings.restoreBankrollConfirm"),
+      tone: "info",
+      confirmLabel: t("settings.restoreBankrollAction"),
+      cancelLabel: t("player.creatorCancel"),
+    });
+    if (!accepted) return;
     profile = restoreStarterBankroll(profile);
     saveUserProfile(profile);
     clearStoredSession();
     playSound("level");
-    window.alert(t("settings.restoreBankrollDone"));
     showSettings();
+    showAppNotice(t("settings.restoreBankrollDone"), "success");
   });
 
-  app.querySelector<HTMLButtonElement>("#settings-reset")?.addEventListener("click", () => {
-    if (!window.confirm(t("settings.resetConfirm"))) return;
+  app.querySelector<HTMLButtonElement>("#settings-reset")?.addEventListener("click", async () => {
+    const accepted = await showAppDialog({
+      message: t("settings.resetConfirm"),
+      tone: "danger",
+      confirmLabel: t("settings.resetAction"),
+      cancelLabel: t("player.creatorCancel"),
+    });
+    if (!accepted) return;
     localStorage.removeItem(PROFILE_STORAGE_KEY);
     localStorage.removeItem(SETTINGS_STORAGE_KEY);
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -604,7 +706,7 @@ function showSettings(): void {
       `open-source-mobile-${"spin-roulette"}.profile.v1`,
     ].forEach((key) => localStorage.removeItem(key));
     playSound("error");
-    window.alert(t("settings.resetDone"));
+    await showAppDialog({ message: t("settings.resetDone"), tone: "success" });
     window.location.reload();
   });
 }
@@ -649,7 +751,7 @@ function startPlayerSession(variant: TableVariant, animationEnabled: boolean): v
   } catch (error) {
     console.error("Failed to start player", error);
     playSound("error");
-    window.alert(t("menu.startFailed"));
+    showAppNotice(t("menu.startFailed"), "error");
   }
 }
 
@@ -867,7 +969,8 @@ function mountWheel(): void {
       activeSpinPlan,
       wheelRestAngle,
       spinDurationMs,
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches || !active.animationEnabled,
+      // Keep the canvas, spin timer and audio on the same in-app animation setting.
+      active.animationEnabled,
     );
   } else {
     drawStaticWheel(canvas, active.variant, wheelRestAngle, active.result);
@@ -972,6 +1075,7 @@ function refreshPlayerBettingUi(): void {
 
 function renderPlayerTable(): void {
   if (!playerGame) return;
+  if (!creatorNameDialogOpen) removeCreatorNameDialogLayer();
   // Full Bet Creator only when not mid Racetrack “save as strategy” naming
   if (creatorDraft && !racetrackOpen) {
     renderBetCreator();
@@ -1574,7 +1678,7 @@ function openRacetrackStrategySave(): void {
   }
   if (loadBetTemplates().length >= MAX_BET_TEMPLATES) {
     playSound("error");
-    window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+    showAppNotice(t("player.strategyFull", { max: MAX_BET_TEMPLATES }), "error");
     return;
   }
   creatorDraft = createBetCreatorDraft(playerGame.variant, {
@@ -1849,7 +1953,7 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
     if (!item) return;
     if (item.variant !== playerGame.variant) {
       playSound("error");
-      window.alert(t("player.strategyWrongVariant", { variant: item.variant === "european" ? "EU" : "US" }));
+      showAppNotice(t("player.strategyWrongVariant", { variant: item.variant === "european" ? "EU" : "US" }), "error");
       return;
     }
     if (!applySavedBets(playerGame, item.bets, "strategy")) {
@@ -1876,7 +1980,7 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
       if (!item) return;
       if (loadBetTemplates().length >= MAX_BET_TEMPLATES) {
         playSound("error");
-        window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+        showAppNotice(t("player.strategyFull", { max: MAX_BET_TEMPLATES }), "error");
         return;
       }
       const copied = duplicateBetTemplate(item.id, uniqueStrategyCopyName(item.name));
@@ -1930,6 +2034,7 @@ function escapeHtml(value: string): string {
 /** Full-felt Bet Creator — wheel hidden; no score deduction. */
 function renderBetCreator(): void {
   if (!playerGame || !creatorDraft) return;
+  if (!creatorNameDialogOpen) removeCreatorNameDialogLayer();
   wheelAnimation?.cancel();
   wheelAnimation = null;
   const cfg = getPlayerModeConfig();
@@ -2053,12 +2158,12 @@ function renderBetCreator(): void {
     if (!creatorDraft) return;
     if (!creatorDraft.bets.length) {
       playSound("error");
-      window.alert(t("player.creatorNeedBets"));
+      showAppNotice(t("player.creatorNeedBets"), "error");
       return;
     }
     if (!creatorDraft.editingId && loadBetTemplates().length >= MAX_BET_TEMPLATES) {
       playSound("error");
-      window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+      showAppNotice(t("player.strategyFull", { max: MAX_BET_TEMPLATES }), "error");
       return;
     }
     // Open dialog in-place (no full re-render) so typing is never wiped by DOM rebuild.
@@ -2303,9 +2408,10 @@ function buildCreatorNameDialogHtml(): string {
   return `<div class="creator-name-dialog" role="dialog" aria-modal="true" aria-labelledby="creator-name-title">
     <div class="creator-name-card">
       <h2 id="creator-name-title">${t("player.creatorNameTitle")}</h2>
-      <p class="creator-name-help">${t("player.creatorNameHelp")}</p>
+      <p class="creator-name-help" id="creator-name-help">${t("player.creatorNameHelp")}</p>
       <label class="creator-name-label" for="creator-name">${t("player.creatorName")}</label>
-      <input id="creator-name" class="creator-name-input" type="text" maxlength="40" value="${escapeHtml(creatorNameBuffer)}" placeholder="${t("player.creatorNamePlaceholder")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <input id="creator-name" class="creator-name-input" type="text" maxlength="40" value="${escapeHtml(creatorNameBuffer)}" placeholder="${t("player.creatorNamePlaceholder")}" aria-describedby="creator-name-help creator-name-error" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <p class="creator-name-error" id="creator-name-error" role="alert" hidden></p>
       <div class="creator-name-actions">
         <button type="button" id="creator-name-cancel" class="chrome-button">${t("player.creatorCancel")}</button>
         <button type="button" id="creator-name-confirm" class="creator-confirm-btn">${t("player.creatorConfirm")}</button>
@@ -2314,19 +2420,43 @@ function buildCreatorNameDialogHtml(): string {
   </div>`;
 }
 
+function clearCreatorNameError(): void {
+  const dialog = document.querySelector<HTMLElement>(".creator-name-dialog");
+  const input = dialog?.querySelector<HTMLInputElement>("#creator-name");
+  const error = dialog?.querySelector<HTMLElement>("#creator-name-error");
+  input?.removeAttribute("aria-invalid");
+  if (!error) return;
+  error.hidden = true;
+  error.textContent = "";
+}
+
+function showCreatorNameError(message: string): void {
+  const dialog = document.querySelector<HTMLElement>(".creator-name-dialog");
+  const input = dialog?.querySelector<HTMLInputElement>("#creator-name");
+  const error = dialog?.querySelector<HTMLElement>("#creator-name-error");
+  input?.setAttribute("aria-invalid", "true");
+  if (error) {
+    error.textContent = message;
+    error.hidden = false;
+  }
+  input?.focus({ preventScroll: true });
+}
+
 /** Inject / refresh name dialog without rebuilding the whole creator (protects typed text). */
 function mountCreatorNameDialog(): void {
   if (!creatorNameDialogOpen) return;
-  const main = app.querySelector("main");
-  if (!main) return;
 
-  let dialog = app.querySelector<HTMLElement>(".creator-name-dialog");
+  let dialog = document.querySelector<HTMLElement>(".creator-name-dialog");
   if (!dialog) {
     const wrap = document.createElement("div");
     wrap.innerHTML = buildCreatorNameDialogHtml();
     dialog = wrap.firstElementChild as HTMLElement;
-    main.append(dialog);
+    // Body-level portal: the table grid applies position: relative to its direct
+    // children, which would otherwise turn this full-screen dialog into a row.
+    document.body.append(dialog);
   }
+  document.documentElement.classList.add("creator-dialog-open");
+  app.setAttribute("inert", "");
 
   const nameInput = dialog.querySelector<HTMLInputElement>("#creator-name");
   if (nameInput && nameInput.value !== creatorNameBuffer) {
@@ -2342,6 +2472,7 @@ function mountCreatorNameDialog(): void {
 
   const syncBuffer = () => {
     if (nameInput) creatorNameBuffer = nameInput.value;
+    clearCreatorNameError();
   };
 
   nameInput?.addEventListener("input", syncBuffer);
@@ -2373,8 +2504,7 @@ function mountCreatorNameDialog(): void {
 
 function closeCreatorNameDialog(): void {
   creatorNameDialogOpen = false;
-  const dialog = app.querySelector(".creator-name-dialog");
-  dialog?.remove();
+  removeCreatorNameDialogLayer();
   // Ephemeral draft from Racetrack “save as strategy” (not the full Bet Creator screen)
   if (creatorDraft && !app.querySelector("#creator-save")) {
     creatorDraft = null;
@@ -2382,26 +2512,31 @@ function closeCreatorNameDialog(): void {
   playSound("tick");
 }
 
+function removeCreatorNameDialogLayer(): void {
+  document.querySelector(".creator-name-dialog")?.remove();
+  document.documentElement.classList.remove("creator-dialog-open");
+  app.removeAttribute("inert");
+}
+
 function commitCreatorName(): void {
   if (!playerGame || !creatorDraft) return;
-  const nameInput = app.querySelector<HTMLInputElement>("#creator-name");
+  const nameInput = document.querySelector<HTMLInputElement>(".creator-name-dialog #creator-name");
   const name = (nameInput?.value ?? creatorNameBuffer).trim();
   creatorNameBuffer = name;
   if (creatorDraft) creatorDraft.name = name;
   if (!name) {
     playSound("error");
-    window.alert(t("player.creatorNeedName"));
-    nameInput?.focus();
+    showCreatorNameError(t("player.creatorNeedName"));
     return;
   }
   if (!creatorDraft.bets.length) {
     playSound("error");
-    window.alert(t("player.creatorNeedBets"));
+    showCreatorNameError(t("player.creatorNeedBets"));
     return;
   }
   if (!creatorDraft.editingId && loadBetTemplates().length >= MAX_BET_TEMPLATES) {
     playSound("error");
-    window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+    showCreatorNameError(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
     return;
   }
   const saved = upsertBetTemplate({
@@ -2418,6 +2553,7 @@ function commitCreatorName(): void {
   creatorDraft = null;
   creatorNameDialogOpen = false;
   creatorNameBuffer = "";
+  removeCreatorNameDialogLayer();
   if (fromRacetrack) {
     racetrackOpen = false;
   }

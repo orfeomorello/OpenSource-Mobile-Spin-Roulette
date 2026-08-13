@@ -43,6 +43,11 @@ export function cappedWheelDpr(value: number): number {
   return Math.min(MAX_WHEEL_DPR, safeValue);
 }
 
+export function resolveWheelAnimationDuration(durationMs: number, animationEnabled: boolean): number {
+  if (!animationEnabled) return 160;
+  return Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 160;
+}
+
 export function getSpinEndAngle(fromAngle: number, variant: TableVariant, result: string, turns: number): number {
   const pockets = pocketsFor(variant);
   const index = Math.max(0, pockets.indexOf(result));
@@ -98,7 +103,7 @@ export function animateWheel(
   plan: SpinResult,
   fromAngle: number,
   durationMs: number,
-  reducedMotion: boolean,
+  animationEnabled: boolean,
 ): WheelAnimationHandle {
   let cancelled = false;
   let requestId = 0;
@@ -108,9 +113,10 @@ export function animateWheel(
   // Ball ends in the winning pocket (same pose as drawStaticWheel after settle).
   const ballEnd = pocketWorldAngle(endAngle, winnerIndex, pockets.length);
   const ballStart = ballEnd + (Math.max(6, plan.turns * 1.65) + 5) * TAU;
-  const duration = reducedMotion ? 160 : durationMs;
+  const duration = resolveWheelAnimationDuration(durationMs, animationEnabled);
   const startedAt = performance.now();
   canvas.dataset.state = "spinning";
+  canvas.dataset.animationDuration = String(duration);
 
   const frame = (now: number): void => {
     if (cancelled) return;
