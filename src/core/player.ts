@@ -531,6 +531,13 @@ export function draftTotal(draft: BetCreatorDraft): number {
   return draft.bets.reduce((sum, bet) => sum + bet.stake, 0);
 }
 
+/** Live table layout, or the last settled hand — used to prefill the Bet Creator. */
+export function tableLayoutForStrategy(state: PlayerGameState): PlacedBet[] {
+  if (state.bets.length) return structuredClone(state.bets);
+  if (state.lastBets.length) return structuredClone(state.lastBets);
+  return [];
+}
+
 export function placeDraftChip(draft: BetCreatorDraft, betId: string, denomination?: number): boolean {
   const denom = Math.floor(denomination ?? draft.selectedChip);
   if (denom <= 0) return false;

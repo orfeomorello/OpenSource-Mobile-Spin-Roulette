@@ -1,13 +1,6 @@
 import "./styles.css";
-import "./v03.css";
-import "./v04.css";
-import "./v05.css";
-import "./v06.css";
-import "./v07.css";
-import "./v08.css";
-import "./v09.css";
-import "./v10.css";
-import "./v11.css";
+import "./player.css";
+import "./theme.css";
 import balanceConfig from "../config/game-balance.json" with { type: "json" };
 import europeanBets from "../config/bets-european.json" with { type: "json" };
 import americanBets from "../config/bets-american.json" with { type: "json" };
@@ -17,7 +10,7 @@ import {
   createBetCreatorDraft, createPlayerGame, doubleBets, draftTotal, finishPlayerRound,
   getPlayerModeConfig, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip, placeDraftChip,
   playerProfit, rebetLast, requestPlayerSpin, setDraftChip, setSelectedChip,
-  settlePlayerRound, snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip, undoDraftChip,
+  settlePlayerRound, snapshotPlayer, syncPlayerScore, tableCoverage, tableLayoutForStrategy, totalStaked, undoChip, undoDraftChip,
   type BetCreatorDraft, type PlayerGameState,
 } from "./core/player.ts";
 import {
@@ -42,10 +35,10 @@ import { AuthoredNpcDialogueProvider } from "./npc/dialogue.ts";
 import { buildHuntBoard, huntBoardClassList, huntSeedKey, renderHuntVoidCell } from "./npc/huntBoard.ts";
 import { renderSeatCard } from "./npc/presenter.ts";
 import {
-  deleteBetTemplate, loadBetTemplates, MAX_BET_TEMPLATES, saveBetTemplates, templateTotal, upsertBetTemplate,
+  deleteBetTemplate, duplicateBetTemplate, loadBetTemplates, MAX_BET_TEMPLATES, saveBetTemplates, templateTotal, upsertBetTemplate,
   type BetTemplate, BET_TEMPLATES_STORAGE_KEY,
 } from "./persist/betTemplates.ts";
-import { commitDealerRun, loadUserProfile, noteBestScore, refillEmptyProfile, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
+import { commitDealerRun, loadUserProfile, noteBestScore, refillEmptyProfile, restoreStarterBankroll, saveUserProfile, PROFILE_STORAGE_KEY } from "./persist/profile.ts";
 import { clearStoredSession, readStoredSession, writeStoredSession, SESSION_STORAGE_KEY } from "./persist/session.ts";
 import {
   asBackgroundAnimation,
@@ -71,6 +64,21 @@ import {
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const SOURCE_CODE_URL = "https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette";
+
+function syncUsableViewport(): void {
+  const viewport = window.visualViewport;
+  const usableHeight = Math.round(viewport?.height ?? window.innerHeight);
+  const usableWidth = Math.round(viewport?.width ?? window.innerWidth);
+  document.documentElement.style.setProperty("--app-height", `${usableHeight}px`);
+  document.documentElement.style.setProperty("--app-width", `${usableWidth}px`);
+}
+
+syncUsableViewport();
+window.visualViewport?.addEventListener("resize", syncUsableViewport, { passive: true });
+window.visualViewport?.addEventListener("scroll", syncUsableViewport, { passive: true });
+window.addEventListener("orientationchange", syncUsableViewport, { passive: true });
+window.addEventListener("resize", syncUsableViewport, { passive: true });
+
 /** Default English; user can switch EN/IT from home or Settings. */
 let locale: Locale = readStoredLocale() ?? "en";
 let profile = loadUserProfile();
@@ -83,6 +91,37 @@ function toggleMute(): void {
   const nextMuted = !isMuted();
   setMuted(nextMuted);
   appSettings = updateSettings({ muted: nextMuted });
+}
+
+function haptic(pattern: number | number[] = 12): void {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* vibration is optional */
+  }
+}
+
+function uniqueStrategyCopyName(sourceName: string): string {
+  const names = new Set(loadBetTemplates().map((item) => item.name));
+  const first = t("player.strategyCopyName", { name: sourceName }).slice(0, 40);
+  if (!names.has(first)) return first;
+  for (let n = 2; n < 99; n += 1) {
+    const next = t("player.strategyCopyNameN", { name: sourceName, n }).slice(0, 40);
+    if (!names.has(next)) return next;
+  }
+  return first;
+}
+
+function openBetCreatorFromTable(): void {
+  if (!playerGame) return;
+  const layout = tableLayoutForStrategy(playerGame);
+  strategyPanelOpen = false;
+  creatorNameDialogOpen = false;
+  playerChipMenuOpen = false;
+  creatorDraft = createBetCreatorDraft(playerGame.variant, {
+    selectedChip: playerGame.selectedChip,
+    bets: layout.length ? layout : undefined,
+  });
 }
 
 /** Home + Settings → menu; Dealer → jazz brass; Player → freejazz soft. */
@@ -357,11 +396,36 @@ function showSettings(): void {
         <section class="settings-block">
           <h2>${t("settings.sectionData")}</h2>
           <p class="settings-help">${t("settings.privacyNote")}</p>
-          <div class="settings-data-actions">
-            <button type="button" id="settings-export" class="chrome-button">${t("settings.export")}</button>
-            <button type="button" id="settings-import" class="chrome-button">${t("settings.import")}</button>
-            <button type="button" id="settings-reset" class="chrome-button danger">${t("settings.reset")}</button>
-          </div>
+          <ul class="settings-data-table">
+            <li class="settings-data-row">
+              <div class="settings-data-copy">
+                <b>${t("settings.export")}</b>
+                <span>${t("settings.exportHelp")}</span>
+              </div>
+              <button type="button" id="settings-export" class="chrome-button">${t("settings.exportAction")}</button>
+            </li>
+            <li class="settings-data-row">
+              <div class="settings-data-copy">
+                <b>${t("settings.import")}</b>
+                <span>${t("settings.importHelp")}</span>
+              </div>
+              <button type="button" id="settings-import" class="chrome-button">${t("settings.importAction")}</button>
+            </li>
+            <li class="settings-data-row">
+              <div class="settings-data-copy">
+                <b>${t("settings.restoreBankroll")}</b>
+                <span>${t("settings.restoreBankrollHelp")}</span>
+              </div>
+              <button type="button" id="settings-restore-bankroll" class="chrome-button settings-restore-btn">${t("settings.restoreBankrollAction")}</button>
+            </li>
+            <li class="settings-data-row is-danger">
+              <div class="settings-data-copy">
+                <b>${t("settings.reset")}</b>
+                <span>${t("settings.resetHelp")}</span>
+              </div>
+              <button type="button" id="settings-reset" class="chrome-button danger">${t("settings.resetAction")}</button>
+            </li>
+          </ul>
           <input type="file" id="settings-import-file" accept="application/json,.json" hidden />
         </section>
       </section>
@@ -501,6 +565,16 @@ function showSettings(): void {
       playSound("error");
       window.alert(t("settings.importFailed"));
     }
+  });
+
+  app.querySelector<HTMLButtonElement>("#settings-restore-bankroll")?.addEventListener("click", () => {
+    if (!window.confirm(t("settings.restoreBankrollConfirm"))) return;
+    profile = restoreStarterBankroll(profile);
+    saveUserProfile(profile);
+    clearStoredSession();
+    playSound("level");
+    window.alert(t("settings.restoreBankrollDone"));
+    showSettings();
   });
 
   app.querySelector<HTMLButtonElement>("#settings-reset")?.addEventListener("click", () => {
@@ -1013,6 +1087,7 @@ function performPlayerSpin(): void {
   activeSpinPlan = generatedPlan;
   spinDurationMs = playerGame.animationEnabled ? Math.min(6200, Math.max(5000, generatedPlan.durationMs * 0.68)) : 160;
   playSound("spin");
+  haptic([16, 40, 16]);
   triggerFx("spin", spinDurationMs);
   scheduleSpinTicks(playerGame.animationEnabled ? spinDurationMs : 0);
   renderPlayerTable();
@@ -1030,6 +1105,7 @@ function settleActivePlayerSpin(): void {
     lastPlayerNet = settle.netDelta;
     clearSpinTicks();
     playSound(settle.netDelta > 0 ? "pay" : settle.totalStaked === 0 ? "settle" : "error");
+    haptic(settle.netDelta > 0 ? [18, 30, 28] : 22);
     triggerFx(settle.netDelta > 0 ? "perfect" : "settle", 700);
     persistPlayerScore();
     savePlayerLocal();
@@ -1542,17 +1618,17 @@ function renderPlayerTable(): void {
               <button
                 type="button"
                 id="player-chip-trigger"
-                class="chip-btn chip-${selectedChip} digits-${selectedChipDigits} active"
+                class="chip-btn casino-chip chip-${selectedChip} digits-${selectedChipDigits} active"
                 aria-haspopup="menu"
                 aria-expanded="${playerChipMenuOpen}"
                 aria-label="${t("player.chipTray")}: ${selectedChip}"
                 ${betting ? "" : "disabled"}
-              ><span>${selectedChip}</span><i class="chip-menu-caret" aria-hidden="true"></i></button>
+              ><span>${selectedChip}</span></button>
               ${playerChipMenuOpen ? `<div class="chip-picker-menu" role="menu" aria-label="${t("player.chipTray")}">
                 ${cfg.chipDenominations.map((d) => {
                   const disabled = !betting || free < d;
                   const digits = String(d).length;
-                  return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${selectedChip === d}" ${disabled ? "disabled" : ""}><span>${d}</span></button>`;
+                  return `<button type="button" class="chip-btn casino-chip chip-${d} digits-${digits} ${selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${selectedChip === d}" ${disabled ? "disabled" : ""}><span>${d}</span></button>`;
                 }).join("")}
               </div>` : ""}
             </div>
@@ -1818,6 +1894,7 @@ function renderPlayerTable(): void {
           return false;
         }
         playSound("bet");
+        haptic(10);
         persistPlayerScore();
         savePlayerLocal();
         renderPlayerTable();
@@ -2065,6 +2142,7 @@ function bindRacetrackPanel(): void {
 
 /** freeScore only — strategy apply stacks (does not free staked chips first). */
 function buildStrategyPanel(templates: BetTemplate[], freeScore: number): string {
+  const listFull = templates.length >= MAX_BET_TEMPLATES;
   const rows = templates.length
     ? templates.map((item) => {
       const cost = templateTotal(item.bets);
@@ -2076,6 +2154,7 @@ function buildStrategyPanel(templates: BetTemplate[], freeScore: number): string
         </div>
         <div class="strategy-row-actions">
           <button type="button" class="chrome-button" data-strategy-apply="${item.id}" ${canApply ? "" : "disabled"} title="${t("player.strategyApplyHelp")}">${t("player.strategyApply")}</button>
+          <button type="button" class="chrome-button" data-strategy-copy="${item.id}" ${listFull ? "disabled" : ""} title="${t("player.strategyCopyHelp")}">${t("player.strategyCopy")}</button>
           <button type="button" class="chrome-button" data-strategy-edit="${item.id}">${t("player.strategyEdit")}</button>
           <button type="button" class="chrome-button danger" data-strategy-delete="${item.id}">${t("player.strategyDelete")}</button>
         </div>
@@ -2239,12 +2318,7 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
   });
   app.querySelector<HTMLButtonElement>("#strategy-open-creator")?.addEventListener("click", () => {
     if (!playerGame) return;
-    strategyPanelOpen = false;
-    creatorNameDialogOpen = false;
-    playerChipMenuOpen = false;
-    creatorDraft = createBetCreatorDraft(playerGame.variant, {
-      selectedChip: playerGame.selectedChip,
-    });
+    openBetCreatorFromTable();
     playSound("level");
     renderPlayerTable();
   });
@@ -2272,6 +2346,25 @@ function bindStrategyPanel(templates: BetTemplate[]): void {
   app.querySelectorAll<HTMLButtonElement>("[data-strategy-apply]").forEach((btn) => {
     btn.addEventListener("click", () => {
       applyStrategyById(btn.dataset.strategyApply ?? "");
+    });
+  });
+  app.querySelectorAll<HTMLButtonElement>("[data-strategy-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.strategyCopy ?? "";
+      const item = templates.find((t) => t.id === id) ?? loadBetTemplates().find((t) => t.id === id);
+      if (!item) return;
+      if (loadBetTemplates().length >= MAX_BET_TEMPLATES) {
+        playSound("error");
+        window.alert(t("player.strategyFull", { max: MAX_BET_TEMPLATES }));
+        return;
+      }
+      const copied = duplicateBetTemplate(item.id, uniqueStrategyCopyName(item.name));
+      if (!copied) {
+        playSound("error");
+        return;
+      }
+      playSound("tick");
+      renderPlayerTable();
     });
   });
   app.querySelectorAll<HTMLButtonElement>("[data-strategy-edit]").forEach((btn) => {
@@ -2337,7 +2430,7 @@ function renderBetCreator(): void {
       </header>
       <section class="phase-row player-phase-row">
         <span>${t("player.creatorTitle")}</span>
-        <b>${t("player.creatorHelp")}</b>
+        <b>${!draft.editingId && draft.bets.length ? t("player.strategyPrefillHelp") : t("player.creatorHelp")}</b>
       </section>
       <section class="table-grid player-stage table-grid-nowheel">
         <section class="felt-panel player-felt casino-felt interactive snap-felt">
@@ -2355,15 +2448,15 @@ function renderBetCreator(): void {
               <button
                 type="button"
                 id="player-chip-trigger"
-                class="chip-btn chip-${draft.selectedChip} digits-${selectedChipDigits} active"
+                class="chip-btn casino-chip chip-${draft.selectedChip} digits-${selectedChipDigits} active"
                 aria-haspopup="menu"
                 aria-expanded="${playerChipMenuOpen}"
                 aria-label="${t("player.chipTray")}: ${draft.selectedChip}"
-              ><span>${draft.selectedChip}</span><i class="chip-menu-caret" aria-hidden="true"></i></button>
+              ><span>${draft.selectedChip}</span></button>
               ${playerChipMenuOpen ? `<div class="chip-picker-menu" role="menu" aria-label="${t("player.chipTray")}">
                 ${cfg.chipDenominations.map((d) => {
                   const digits = String(d).length;
-                  return `<button type="button" class="chip-btn chip-${d} digits-${digits} ${draft.selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${draft.selectedChip === d}"><span>${d}</span></button>`;
+                  return `<button type="button" class="chip-btn casino-chip chip-${d} digits-${digits} ${draft.selectedChip === d ? "active" : ""}" data-chip="${d}" role="menuitemradio" aria-checked="${draft.selectedChip === d}"><span>${d}</span></button>`;
                 }).join("")}
               </div>` : ""}
             </div>
@@ -2543,7 +2636,7 @@ function bindFeltSnapPlacement(
     const target = el && felt.contains(el) ? el : (event.target as HTMLElement | null);
     if (!target) return null;
 
-    const portraitFelt = window.matchMedia("(max-width: 720px) and (orientation: portrait)").matches
+    const portraitFelt = window.matchMedia("(orientation: portrait)").matches
       && felt.closest(".mobile-first-player") !== null;
 
     // Portrait uses one explicit 0-1-2-3 target. It is intentionally resolved
@@ -2856,11 +2949,10 @@ function playerChipMap(bets: PlacedBet[], actions: PlayerChipAction[]): FeltChip
   return { stakes, denominations };
 }
 
-/** Digit / label length → chip shell class (circle → pill as totals grow). */
+/** Digit / label length → chip shell class (circle for 1–500, pill only for huge totals). */
 function playerChipSizeClass(label: string): string {
   const n = label.length;
-  if (n <= 2) return "chip-sz-s";
-  if (n === 3) return "chip-sz-m";
+  if (n <= 3) return "chip-sz-s";
   if (n === 4) return "chip-sz-l";
   return "chip-sz-xl";
 }
@@ -2872,7 +2964,7 @@ function playerChipAt(betId: string, chips: FeltChipMap): string {
   const size = playerChipSizeClass(label);
   const denomination = chips.denominations.get(betId);
   const denominationClass = denomination ? ` chip-${denomination}` : "";
-  return `<span class="chip-stack player-stack" data-stack-bet="${betId}" title="${stake}"><i class="felt-chip player-chip ${size}${denominationClass}" title="${stake}">${label}</i></span>`;
+  return `<span class="chip-stack player-stack" data-stack-bet="${betId}" title="${stake}"><i class="felt-chip player-chip casino-chip ${size}${denominationClass}" title="${stake}">${label}</i></span>`;
 }
 
 /** Roulette pocket at player felt grid (col 0..11 left→right, row 0..2 top→bottom). */

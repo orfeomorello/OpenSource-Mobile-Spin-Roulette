@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createNpcBehavior, reduceNpcBehavior } from "../npc/behavior.ts";
 import { buildHuntBoard, hashSeed, huntSeedKey } from "../npc/huntBoard.ts";
 import { clipForBehavior, renderSeatCard, staggerDelayMs } from "../npc/presenter.ts";
-import { commitDealerRun, createEmptyProfile, normalizeUserProfile, refillEmptyProfile, STARTER_SCORE } from "../persist/profile.ts";
+import { commitDealerRun, createEmptyProfile, normalizeUserProfile, refillEmptyProfile, restoreStarterBankroll, STARTER_SCORE } from "../persist/profile.ts";
 import {
   closeBets, createGame, finishRound, getActiveSeats, getForcedWinningNumber, markSpinning,
   openBetting, paySeat, payoutTimeout, resolveSpin, restoreFromSnapshot, snapshot,
@@ -10,7 +10,7 @@ import {
 import {
   canEnterPlayer, cashOutPlayer, clearPlayerBets, computePlayerPayout, createPlayerGame, doubleBets,
   finishPlayerRound, getPlayerModeConfig, leaveTable, openPlayerBankroll, openPlayerBetting, placeBetsPackage, placeChip,
-  applySavedBets, clearDraftBets, createBetCreatorDraft, draftTotal, placeDraftChip, movePlayerStake,
+  applySavedBets, clearDraftBets, createBetCreatorDraft, draftTotal, placeDraftChip, movePlayerStake, tableLayoutForStrategy,
   playerProfit, rebetLast, requestPlayerSpin, restorePlayerFromSnapshot, setSelectedChip, settlePlayerRound,
   snapshotPlayer, syncPlayerScore, tableCoverage, totalStaked, undoChip, undoDraftChip,
 } from "./player.ts";
@@ -749,6 +749,42 @@ test("Player Bet Creator draft does not spend score; apply strategy places on ta
 
   clearDraftBets(draft);
   assert.equal(draftTotal(draft), 0);
+});
+
+test("Bet Creator can copy the live table layout without spending more score", () => {
+  const state = createPlayerGame("european", 100, false, "en", () => 0.5);
+  openPlayerBetting(state);
+  assert.equal(placeChip(state, "red", 10), true);
+  assert.equal(placeChip(state, "straight_17", 5), true);
+  const layout = tableLayoutForStrategy(state);
+  assert.equal(layout.length, 2);
+  assert.equal(layout.reduce((sum, bet) => sum + bet.stake, 0), 15);
+
+  const draft = createBetCreatorDraft(state.variant, { bets: layout, selectedChip: 10 });
+  assert.equal(draftTotal(draft), 15);
+  assert.equal(state.tableScore, 85, "opening the creator must not spend table score again");
+  assert.equal(totalStaked(state), 15);
+});
+
+test("strategy prefill falls back to the last settled hand after chips leave the felt", () => {
+  const state = createPlayerGame("european", 100, false, "en", () => 0.5);
+  openPlayerBetting(state);
+  placeChip(state, "black", 10);
+  state.lastBets = structuredClone(state.bets);
+  state.tableScore += totalStaked(state);
+  state.bets = [];
+  state.chipHistory = [];
+  const layout = tableLayoutForStrategy(state);
+  assert.deepEqual(layout, [{ betId: "black", stake: 10 }]);
+});
+
+test("restoreStarterBankroll resets score and keeps the rest of the profile", () => {
+  const profile = { ...createEmptyProfile(), walletUnits: 12, bestServiceScore: 99 };
+  const restored = restoreStarterBankroll(profile);
+  assert.equal(restored.walletUnits, STARTER_SCORE);
+  assert.equal(restored.bestServiceScore, 99);
+  assert.equal(restored.starterScoreGranted, true);
+  assert.equal(profile.walletUnits, 12, "original profile is not mutated");
 });
 
 test("editing a saved Bet Creator strategy reconstructs undoable chip history", () => {

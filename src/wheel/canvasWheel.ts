@@ -165,21 +165,30 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   context.save();
   context.translate(center, center);
 
+  // Soft contact shadow — a scaled fill, never context.filter (blur is expensive on mobile GPUs).
+  context.save();
+  context.translate(0, radius * 0.09);
+  context.scale(1, 0.86);
   context.beginPath();
-  context.ellipse(0, radius * 0.12, radius * 1.03, radius * 0.97, 0, 0, TAU);
-  context.fillStyle = "rgba(0,0,0,.62)";
-  context.filter = "blur(10px)";
+  context.arc(0, 0, radius * 1.04, 0, TAU);
+  context.fillStyle = "rgba(0,0,0,.42)";
   context.fill();
-  context.filter = "none";
+  context.restore();
 
-  const wood = context.createRadialGradient(0, 0, radius * 0.62, 0, 0, radius);
-  wood.addColorStop(0, "#d7a64d");
-  wood.addColorStop(0.68, "#8a5127");
-  wood.addColorStop(0.86, "#3d1f12");
-  wood.addColorStop(1, "#d9ae59");
+  const wood = context.createRadialGradient(-radius * 0.18, -radius * 0.22, radius * 0.08, 0, 0, radius);
+  wood.addColorStop(0, "#f0c56a");
+  wood.addColorStop(0.22, "#c48a3d");
+  wood.addColorStop(0.58, "#8a5127");
+  wood.addColorStop(0.84, "#3d1f12");
+  wood.addColorStop(0.94, "#c9a050");
+  wood.addColorStop(1, "#6a3a16");
   disk(context, 0, 0, radius, wood);
-  ring(context, radius * 0.91, radius * 0.12, "#130c08");
-  ring(context, radius * 0.84, radius * 0.025, "#e1b95f");
+  paintWoodGrain(context, radius);
+
+  ring(context, radius * 0.985, radius * 0.02, "#f0d28a");
+  ring(context, radius * 0.91, radius * 0.11, "#140c08");
+  ring(context, radius * 0.855, radius * 0.012, "rgba(80,42,18,.85)");
+  ring(context, radius * 0.838, radius * 0.028, "#e6c36a");
 
   const pockets = pocketsFor(variant);
   const slice = TAU / pockets.length;
@@ -197,16 +206,19 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
     context.closePath();
     context.fillStyle = pocketColor(pocket);
     context.fill();
-    context.strokeStyle = "rgba(234,204,129,.72)";
-    context.lineWidth = Math.max(1, radius * 0.006);
+
+    // Brass fret between pockets — the detail that reads as a real wheel.
+    context.beginPath();
+    context.moveTo(Math.cos(start) * inner, Math.sin(start) * inner);
+    context.lineTo(Math.cos(start) * outer, Math.sin(start) * outer);
+    context.strokeStyle = "rgba(236, 210, 140, .92)";
+    context.lineWidth = Math.max(1.15, radius * 0.0075);
     context.stroke();
 
     if (frame.result === pocket && frame.settle > 0.78) {
       context.save();
-      context.shadowBlur = 18 * frame.settle;
-      context.shadowColor = "#fff088";
-      context.strokeStyle = "#ffe97d";
-      context.lineWidth = radius * 0.025;
+      context.strokeStyle = `rgba(255, 233, 125, ${0.55 + 0.45 * frame.settle})`;
+      context.lineWidth = radius * 0.022;
       context.stroke();
       context.restore();
     }
@@ -217,7 +229,6 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
     let textAngle = centerAngle + Math.PI / 2;
     if (Math.cos(centerAngle) < 0) textAngle += Math.PI;
     context.rotate(textAngle);
-    // Crisp pocket labels: integer px font, stroke outline (no shadowBlur — it softens glyphs).
     const fontPx = Math.max(10, Math.round(radius * 0.058));
     context.font = `800 ${fontPx}px system-ui, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
     context.textAlign = "center";
@@ -233,13 +244,17 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   });
   context.restore();
 
-  const bowl = context.createRadialGradient(-radius * 0.12, -radius * 0.18, radius * 0.04, 0, 0, radius * 0.59);
-  bowl.addColorStop(0, "#376f58");
-  bowl.addColorStop(0.55, "#123f30");
-  bowl.addColorStop(1, "#061710");
+  drawTrackDiamonds(context, radius * 0.875, radius * 0.026);
+
+  const bowl = context.createRadialGradient(-radius * 0.16, -radius * 0.22, radius * 0.04, 0, 0, radius * 0.59);
+  bowl.addColorStop(0, "#4a8a6c");
+  bowl.addColorStop(0.38, "#1a5640");
+  bowl.addColorStop(0.72, "#0c3224");
+  bowl.addColorStop(1, "#05140e");
   disk(context, 0, 0, radius * 0.585, bowl);
-  ring(context, radius * 0.575, radius * 0.025, "#d3a54c");
-  ring(context, radius * 0.49, radius * 0.012, "rgba(238,205,123,.5)");
+  ring(context, radius * 0.575, radius * 0.026, "#d8b056");
+  ring(context, radius * 0.552, radius * 0.006, "rgba(255,236,180,.45)");
+  ring(context, radius * 0.49, radius * 0.01, "rgba(238,205,123,.42)");
 
   const showCenterResult = frame.result !== null && frame.speed <= 0.025 && frame.settle >= 0.99;
   if (showCenterResult) {
@@ -300,15 +315,23 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
 
   const ballX = Math.cos(frame.ballAngle) * radius * frame.ballRadius;
   const ballY = Math.sin(frame.ballAngle) * radius * frame.ballRadius;
-  context.save();
-  context.shadowColor = "#fff";
-  context.shadowBlur = 10;
-  const ball = context.createRadialGradient(ballX - radius * 0.018, ballY - radius * 0.025, 1, ballX, ballY, radius * 0.042);
+  const ballRadius = radius * 0.041;
+  context.beginPath();
+  context.arc(ballX + ballRadius * 0.18, ballY + ballRadius * 0.42, ballRadius * 0.92, 0, TAU);
+  context.fillStyle = "rgba(0,0,0,.35)";
+  context.fill();
+  const ball = context.createRadialGradient(
+    ballX - radius * 0.018,
+    ballY - radius * 0.025,
+    1,
+    ballX,
+    ballY,
+    ballRadius,
+  );
   ball.addColorStop(0, "#ffffff");
-  ball.addColorStop(0.6, "#f6ebc8");
-  ball.addColorStop(1, "#8d7b55");
-  disk(context, ballX, ballY, radius * 0.041, ball);
-  context.restore();
+  ball.addColorStop(0.55, "#f4ead0");
+  ball.addColorStop(1, "#8a7860");
+  disk(context, ballX, ballY, ballRadius, ball);
 
   context.restore();
 
@@ -320,8 +343,13 @@ function drawFrame(canvas: HTMLCanvasElement, variant: TableVariant, frame: Whee
   context.lineTo(radius * 0.065, -radius * 0.91);
   context.closePath();
   context.fillStyle = "#ffe47a";
-  context.shadowColor = "#ffcf42";
-  context.shadowBlur = 12;
+  context.fill();
+  context.beginPath();
+  context.moveTo(0, -radius * 1.01);
+  context.lineTo(-radius * 0.028, -radius * 0.94);
+  context.lineTo(radius * 0.028, -radius * 0.94);
+  context.closePath();
+  context.fillStyle = "#fff6c4";
   context.fill();
   context.restore();
 }
@@ -334,6 +362,46 @@ function smoothstep(value: number): number {
 function pocketColor(pocket: string): string {
   if (pocket === "0" || pocket === "00") return "#137347";
   return RED.has(pocket) ? "#b72e27" : "#111714";
+}
+
+function paintWoodGrain(context: CanvasRenderingContext2D, radius: number): void {
+  context.save();
+  context.beginPath();
+  context.arc(0, 0, radius, 0, TAU);
+  context.arc(0, 0, radius * 0.835, 0, TAU, true);
+  context.clip();
+  context.globalAlpha = 0.22;
+  for (let i = 0; i < 20; i += 1) {
+    const r = radius * (0.845 + (i % 7) * 0.018);
+    context.beginPath();
+    context.arc(-radius * 0.06, -radius * 0.04, r, 0, TAU);
+    context.strokeStyle = i % 2 ? "rgba(48, 22, 8, .7)" : "rgba(232, 196, 118, .45)";
+    context.lineWidth = 1;
+    context.stroke();
+  }
+  context.restore();
+}
+
+/** Static bowl markers — they do not spin with the numbered ring. */
+function drawTrackDiamonds(context: CanvasRenderingContext2D, radius: number, size: number): void {
+  for (let i = 0; i < 8; i += 1) {
+    const angle = -Math.PI / 2 + (i * TAU) / 8;
+    context.save();
+    context.rotate(angle);
+    context.beginPath();
+    context.moveTo(0, -radius - size);
+    context.lineTo(size * 0.58, -radius);
+    context.lineTo(0, -radius + size);
+    context.lineTo(-size * 0.58, -radius);
+    context.closePath();
+    const gloss = context.createLinearGradient(-size, -radius, size, -radius);
+    gloss.addColorStop(0, "#7a5618");
+    gloss.addColorStop(0.45, "#fff4c8");
+    gloss.addColorStop(1, "#9a6e22");
+    context.fillStyle = gloss;
+    context.fill();
+    context.restore();
+  }
 }
 
 function disk(context: CanvasRenderingContext2D, x: number, y: number, radius: number, fill: string | CanvasGradient): void {

@@ -90,6 +90,11 @@ export function refillEmptyProfile(profile: UserProfile): UserProfile {
   return { ...profile, walletUnits: STARTER_SCORE };
 }
 
+/** Explicit restart: restore the configured starter score. Strategies and settings are unrelated. */
+export function restoreStarterBankroll(profile: UserProfile): UserProfile {
+  return { ...profile, walletUnits: STARTER_SCORE, starterScoreGranted: true };
+}
+
 export function commitDealerRun(profile: UserProfile, run: DealerRunCredit, unitsPerPoint = 1): WalletCommitResult {
   if (run.mode !== "dealer" || profile.committedDealerRuns.includes(run.runId)) {
     return { profile, earnedUnits: 0, committed: false };

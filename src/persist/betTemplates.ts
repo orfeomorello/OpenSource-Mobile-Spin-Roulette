@@ -81,6 +81,16 @@ export function upsertBetTemplate(input: {
   return created;
 }
 
+export function duplicateBetTemplate(id: string, name: string): BetTemplate | null {
+  const source = getBetTemplate(id);
+  if (!source) return null;
+  return upsertBetTemplate({
+    name,
+    variant: source.variant,
+    bets: structuredClone(source.bets),
+  });
+}
+
 export function deleteBetTemplate(id: string): boolean {
   const all = loadBetTemplates();
   const next = all.filter((t) => t.id !== id);
