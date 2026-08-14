@@ -62,10 +62,25 @@ const SOURCE_CODE_URL = "https://github.com/orfeomorello/OpenSource-Mobile-Spin-
 
 function syncUsableViewport(): void {
   const viewport = window.visualViewport;
-  const usableHeight = Math.round(viewport?.height ?? window.innerHeight);
-  const usableWidth = Math.round(viewport?.width ?? window.innerWidth);
-  document.documentElement.style.setProperty("--app-height", `${usableHeight}px`);
-  document.documentElement.style.setProperty("--app-width", `${usableWidth}px`);
+  const layoutHeight = window.innerHeight;
+  const layoutWidth = window.innerWidth;
+  const visibleHeight = Math.round(viewport?.height ?? layoutHeight);
+  const visibleWidth = Math.round(viewport?.width ?? layoutWidth);
+  const visibleTop = Math.round(viewport?.offsetTop ?? 0);
+  const visibleLeft = Math.round(viewport?.offsetLeft ?? 0);
+  const root = document.documentElement;
+  root.style.setProperty("--vv-height", `${visibleHeight}px`);
+  root.style.setProperty("--vv-width", `${visibleWidth}px`);
+  root.style.setProperty("--vv-top", `${visibleTop}px`);
+  root.style.setProperty("--vv-left", `${visibleLeft}px`);
+  // Keep the table geometry still while the keyboard is open so naming a
+  // strategy does not reflow the felt underneath the dialog.
+  const dialogOpen = root.classList.contains("creator-dialog-open");
+  const keyboardOpen = visibleHeight < layoutHeight * 0.82;
+  if (!dialogOpen && !keyboardOpen) {
+    root.style.setProperty("--app-height", `${visibleHeight}px`);
+    root.style.setProperty("--app-width", `${visibleWidth}px`);
+  }
 }
 
 syncUsableViewport();
@@ -999,6 +1014,38 @@ function showPlayerBettingFeedback(state: PlayerGameState): boolean {
   return Boolean(state.message && !playerBettingStatusNoise.has(state.message));
 }
 
+function buildTableCoverageHtml(coverage: { covered: number; total: number; percent: number }, extraClass = ""): string {
+  return `<div class="table-coverage ${extraClass}" title="${t("player.coverageHelp", { covered: coverage.covered, total: coverage.total })}">
+    <span class="table-coverage-label">${t("player.coverage")}</span>
+    <div
+      class="table-coverage-track"
+      role="progressbar"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="${coverage.percent}"
+      aria-label="${t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total })}"
+    >
+      <i class="table-coverage-fill" style="width:${coverage.percent}%"></i>
+    </div>
+    <strong class="table-coverage-pct">${coverage.percent}%</strong>
+  </div>`;
+}
+
+function paintTableCoverage(root: HTMLElement, coverage: { covered: number; total: number; percent: number }): void {
+  root.querySelectorAll<HTMLElement>(".table-coverage").forEach((el) => {
+    const track = el.querySelector<HTMLElement>(".table-coverage-track");
+    const fill = el.querySelector<HTMLElement>(".table-coverage-fill");
+    const pct = el.querySelector<HTMLElement>(".table-coverage-pct");
+    el.title = t("player.coverageHelp", { covered: coverage.covered, total: coverage.total });
+    if (track) {
+      track.setAttribute("aria-valuenow", String(coverage.percent));
+      track.setAttribute("aria-label", t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total }));
+    }
+    if (fill) fill.style.width = `${coverage.percent}%`;
+    if (pct) pct.textContent = `${coverage.percent}%`;
+  });
+}
+
 /** Keep placed chips above magnetic snap previews on adjacent cells and rails. */
 function markPlayerFeltStackLayers(felt: HTMLElement): void {
   felt.querySelectorAll(".has-player-stack").forEach((host) => host.classList.remove("has-player-stack"));
@@ -1037,15 +1084,11 @@ function syncPlayerBettingUi(): boolean {
   const felt = root?.querySelector<HTMLElement>(".player-felt");
   const score = root?.querySelector<HTMLElement>(".player-hud-score strong");
   const stakedValue = root?.querySelector<HTMLElement>(".player-hud-bet strong");
-  const coverageRoot = root?.querySelector<HTMLElement>(".table-coverage");
-  const coverageTrack = root?.querySelector<HTMLElement>(".table-coverage-track");
-  const coverageFill = root?.querySelector<HTMLElement>(".table-coverage-fill");
-  const coveragePct = root?.querySelector<HTMLElement>(".table-coverage-pct");
   const feedback = root?.querySelector<HTMLElement>(".player-phase-feedback");
   const undo = root?.querySelector<HTMLButtonElement>("#player-undo");
   const double = root?.querySelector<HTMLButtonElement>("#player-double");
   const rebet = root?.querySelector<HTMLButtonElement>("#player-rebet");
-  if (!root || !felt || !score || !stakedValue || !coverageRoot || !coverageTrack || !coverageFill || !coveragePct || !feedback || !undo || !double || !rebet) {
+  if (!root || !felt || !score || !stakedValue || !feedback || !undo || !double || !rebet) {
     return false;
   }
 
@@ -1055,11 +1098,7 @@ function syncPlayerBettingUi(): boolean {
   const lastCost = state.lastBets.reduce((sum, bet) => sum + bet.stake, 0);
   score.textContent = format(free + staked);
   stakedValue.textContent = format(staked);
-  coverageRoot.title = t("player.coverageHelp", { covered: coverage.covered, total: coverage.total });
-  coverageTrack.setAttribute("aria-valuenow", String(coverage.percent));
-  coverageTrack.setAttribute("aria-label", t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total }));
-  coverageFill.style.width = `${coverage.percent}%`;
-  coveragePct.textContent = `${coverage.percent}%`;
+  paintTableCoverage(root, coverage);
   const showFeedback = showPlayerBettingFeedback(state);
   feedback.hidden = !showFeedback;
   feedback.textContent = showFeedback ? t(state.message, state.messageParams) : "";
@@ -1197,6 +1236,7 @@ function renderPlayerTable(): void {
       <header class="player-hud">
         <div class="player-hud-brand" aria-hidden="true"><i></i><span>R</span></div>
         <div class="player-hud-metric player-hud-score"><span>${t("player.score")}</span><strong>${format(total)}</strong></div>
+        ${showCoverage ? buildTableCoverageHtml(coverage, "player-hud-coverage") : ""}
         <div class="player-hud-metric player-hud-bet"><span>${t("player.staked")}</span><strong>${format(staked)}</strong></div>
         <nav class="player-hud-actions">
           <button type="button" id="sound" class="player-hud-button hud-sound ${isMuted() ? "is-muted" : ""}" aria-label="${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}" title="${isMuted() ? t("hud.soundOff") : t("hud.soundOn")}"><i aria-hidden="true"></i></button>
@@ -1206,21 +1246,7 @@ function renderPlayerTable(): void {
       <section class="phase-row player-phase-row">
         <span>${t(phaseKey)}</span>
         ${phaseStatusHtml}
-        ${showCoverage ? `
-          <div class="table-coverage" title="${t("player.coverageHelp", { covered: coverage.covered, total: coverage.total })}">
-            <span class="table-coverage-label">${t("player.coverage")}</span>
-            <div
-              class="table-coverage-track"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow="${coverage.percent}"
-              aria-label="${t("player.coverageAria", { percent: coverage.percent, covered: coverage.covered, total: coverage.total })}"
-            >
-              <i class="table-coverage-fill" style="width:${coverage.percent}%"></i>
-            </div>
-            <strong class="table-coverage-pct">${coverage.percent}%</strong>
-          </div>` : ""}
+        ${showCoverage ? buildTableCoverageHtml(coverage, "player-phase-coverage") : ""}
       </section>
       <section class="table-grid player-stage ${showWheelStage ? "" : "table-grid-nowheel"}">
         ${showWheelStage ? `<aside class="wheel-panel">
@@ -2457,6 +2483,7 @@ function mountCreatorNameDialog(): void {
   }
   document.documentElement.classList.add("creator-dialog-open");
   app.setAttribute("inert", "");
+  syncUsableViewport();
 
   const nameInput = dialog.querySelector<HTMLInputElement>("#creator-name");
   if (nameInput && nameInput.value !== creatorNameBuffer) {
@@ -2516,6 +2543,7 @@ function removeCreatorNameDialogLayer(): void {
   document.querySelector(".creator-name-dialog")?.remove();
   document.documentElement.classList.remove("creator-dialog-open");
   app.removeAttribute("inert");
+  syncUsableViewport();
 }
 
 function commitCreatorName(): void {
@@ -2773,41 +2801,7 @@ document.addEventListener("keydown", (event) => {
   if (typing) return;
   if (creatorNameDialogOpen) return;
   if (event.code === "Escape") {
-    if (soundPanelOpen && playerGame) {
-      soundPanelOpen = false;
-      renderPlayerTable();
-      return;
-    }
-    if (playerChipMenuOpen && playerGame) {
-      playerChipMenuOpen = false;
-      renderPlayerTable();
-      return;
-    }
-    if (playerMenuOpen && playerGame) {
-      playerMenuOpen = false;
-      playSound("tick");
-      renderPlayerTable();
-      return;
-    }
-    if (statsPanelOpen && playerGame) {
-      statsPanelOpen = false;
-      playSound("tick");
-      renderPlayerTable();
-      return;
-    }
-    if (racetrackOpen && playerGame) {
-      racetrackOpen = false;
-      playSound("tick");
-      renderPlayerTable();
-      return;
-    }
-    if (strategyPanelOpen && playerGame) {
-      strategyPanelOpen = false;
-      playSound("tick");
-      renderPlayerTable();
-      return;
-    }
-    if (playerGame) showPlayerExitConfirm();
+    handleHardwareBack();
     return;
   }
   if (event.code === "KeyM") {
@@ -2816,15 +2810,81 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// Skip service worker on third-party hosts (itch.io embed) — avoids bad cache / path issues.
+function isNativeShell(): boolean {
+  const cap = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
+}
+
+function dismissExitConfirm(): boolean {
+  const overlay = app.querySelector(".exit-confirm");
+  if (!overlay) return false;
+  overlay.remove();
+  return true;
+}
+
+/** Shared by Escape and the Android back button. Returns true if the event was consumed. */
+function handleHardwareBack(): boolean {
+  if (creatorNameDialogOpen) return true;
+  if (dismissExitConfirm()) return true;
+  if (soundPanelOpen && playerGame) {
+    soundPanelOpen = false;
+    renderPlayerTable();
+    return true;
+  }
+  if (playerChipMenuOpen && playerGame) {
+    playerChipMenuOpen = false;
+    renderPlayerTable();
+    return true;
+  }
+  if (playerMenuOpen && playerGame) {
+    playerMenuOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+    return true;
+  }
+  if (statsPanelOpen && playerGame) {
+    statsPanelOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+    return true;
+  }
+  if (racetrackOpen && playerGame) {
+    racetrackOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+    return true;
+  }
+  if (strategyPanelOpen && playerGame) {
+    strategyPanelOpen = false;
+    playSound("tick");
+    renderPlayerTable();
+    return true;
+  }
+  if (playerGame) {
+    showPlayerExitConfirm();
+    return true;
+  }
+  return false;
+}
+
+// Skip the service worker in the Capacitor APK (assets are already local) and on itch embeds.
 if (
   "serviceWorker" in navigator
   && import.meta.env.PROD
+  && !isNativeShell()
   && !/\.itch\.(io|zone)$/i.test(location.hostname)
   && !/itch\.zone$/i.test(location.hostname)
 ) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register(new URL("./sw.js", document.baseURI || document.URL)).catch(() => {});
+  });
+}
+
+if (isNativeShell()) {
+  void import("@capacitor/app").then(({ App }) => {
+    App.addListener("backButton", () => {
+      if (!handleHardwareBack()) void App.exitApp();
+    });
   });
 }
 

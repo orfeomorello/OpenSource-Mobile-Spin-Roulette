@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mobile Spin Roulette">
+  <rect width="512" height="512" rx="112" fill="#081611"/>
+  <circle cx="256" cy="256" r="190" fill="#5c371b" stroke="#d6b66f" stroke-width="14"/>
+  <g transform="translate(256 256)">
+    <g fill="#8f1f20">
+      <path id="red" d="M-20-174A175 175 0 0 1 20-174L13-108A109 109 0 0 0-13-108Z"/>
+      <use href="#red" transform="rotate(40)"/><use href="#red" transform="rotate(80)"/>
+      <use href="#red" transform="rotate(120)"/><use href="#red" transform="rotate(160)"/>
+      <use href="#red" transform="rotate(200)"/><use href="#red" transform="rotate(240)"/>
+      <use href="#red" transform="rotate(280)"/><use href="#red" transform="rotate(320)"/>
+    </g>
+    <g fill="#151a18">
+      <path id="black" d="M-20-174A175 175 0 0 1 20-174L13-108A109 109 0 0 0-13-108Z" transform="rotate(20)"/>
+      <use href="#black" transform="rotate(40)"/><use href="#black" transform="rotate(80)"/>
+      <use href="#black" transform="rotate(120)"/><use href="#black" transform="rotate(160)"/>
+      <use href="#black" transform="rotate(200)"/><use href="#black" transform="rotate(240)"/>
+      <use href="#black" transform="rotate(280)"/><use href="#black" transform="rotate(320)"/>
+    </g>
+  </g>
+  <circle cx="256" cy="256" r="102" fill="#123326" stroke="#e4c680" stroke-width="14"/>
+  <circle cx="256" cy="256" r="34" fill="#5a3519" stroke="#f0d99d" stroke-width="10"/>
+  <circle cx="364" cy="138" r="19" fill="#f4ead6" stroke="#b99454" stroke-width="7"/>
+</svg>

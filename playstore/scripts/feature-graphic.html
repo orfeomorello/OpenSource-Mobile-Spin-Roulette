@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html, body {
+        margin: 0;
+        width: 1024px;
+        height: 500px;
+        overflow: hidden;
+        background: #06100d;
+      }
+      .banner {
+        position: relative;
+        width: 1024px;
+        height: 500px;
+        background: #06100d url("../shared/feature-graphic-art.jpg") 78% center / cover no-repeat;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          rgba(6, 16, 13, 0.78) 0%,
+          rgba(6, 16, 13, 0.38) 38%,
+          rgba(6, 16, 13, 0.06) 62%,
+          rgba(6, 16, 13, 0) 100%
+        );
+      }
+      .copy {
+        position: absolute;
+        left: 40px;
+        top: 58%;
+        transform: translateY(-50%);
+        width: 340px;
+        color: #f4dfaa;
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        font: 600 15px/1.2 Inter, "Segoe UI", sans-serif;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #e4c680;
+      }
+      h1 {
+        margin: 0;
+        font: 700 50px/0.95 Georgia, "Times New Roman", serif;
+        letter-spacing: -0.03em;
+      }
+      h1 span {
+        display: block;
+      }
+      .tag {
+        margin: 18px 0 0;
+        font: 500 18px/1.35 Inter, "Segoe UI", sans-serif;
+        color: #f2ead8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <div class="scrim"></div>
+      <div class="copy">
+        <p class="eyebrow">Open source</p>
+        <h1><span>MobileSpin</span><span>Roulette</span></h1>
+        <p class="tag">Virtual points only</p>
+      </div>
+    </div>
+  </body>
+</html>

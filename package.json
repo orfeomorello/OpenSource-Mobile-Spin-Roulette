@@ -7,15 +7,27 @@
   "scripts": {
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
     "generate:privacy": "node --experimental-strip-types scripts/generate-privacy-pages.mjs",
+    "generate:hosting": "node --experimental-strip-types scripts/generate-hosting.mjs",
+    "preview:hosting": "npx --yes serve hosting -l 4174",
     "prepare:audio": "node scripts/prepare-audio.mjs",
     "predev": "npm run prepare:audio",
     "dev": "vite",
-    "prebuild": "npm run prepare:audio && npm run generate:icons && npm run generate:privacy",
+    "prebuild": "npm run prepare:audio && npm run generate:icons && npm run generate:privacy && npm run generate:hosting",
     "build": "tsc -b && vite build && node scripts/stage-worker.mjs",
     "preview": "vite preview",
-    "test": "node scripts/check-i18n-usage.mjs && node scripts/check-pwa.mjs && node scripts/check-native-dialogs.mjs && node scripts/check-license.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts && node --experimental-strip-types src/legal/privacy.test.ts"
+    "apk": "node scripts/build-apk.mjs",
+    "aab": "node scripts/build-apk.mjs --bundle",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "test": "node scripts/check-i18n-usage.mjs && node scripts/check-pwa.mjs && node scripts/check-hosting.mjs && node scripts/check-android.mjs && node scripts/check-native-dialogs.mjs && node scripts/check-license.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts && node --experimental-strip-types src/legal/privacy.test.ts"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.1",
+    "@capacitor/core": "8.5.0"
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/cli": "8.5.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.1"
   }

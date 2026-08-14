@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MobileSpinRoulette</string>
+    <string name="title_activity_main">MobileSpinRoulette</string>
+    <string name="package_name">io.mobilespinroulette.app</string>
+    <string name="custom_url_scheme">io.mobilespinroulette.app</string>
+</resources>

@@ -546,6 +546,58 @@ textarea {
     background: linear-gradient(90deg, #a87b38, #ebd18d);
     box-shadow: 0 0 10px rgba(224,191,116,.28)
 }
+.player-hud-coverage {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+    max-width: none;
+    margin: 0 6px;
+    flex: 1 1 auto;
+    overflow: hidden;
+    container: hud-coverage / inline-size
+}
+.player-hud-coverage .table-coverage-label {
+    display: none
+}
+.player-hud-coverage .table-coverage-track {
+    flex: 1 1 auto;
+    min-width: 0
+}
+.player-hud-coverage .table-coverage-pct {
+    flex: 0 0 auto;
+    white-space: nowrap
+}
+@container hud-coverage (max-width: 64px) {
+    .table-coverage-track {
+        display: none
+    }
+}
+@container hud-coverage (max-width: 34px) {
+    .table-coverage-pct {
+        display: none
+    }
+}
+.mobile-first-player .player-hud-brand {
+    grid-column: 1
+}
+.mobile-first-player .player-hud-score {
+    grid-column: 2
+}
+.mobile-first-player .player-hud-coverage {
+    grid-column: 3;
+    margin-left: 0;
+    max-width: none
+}
+.mobile-first-player .player-hud-bet {
+    grid-column: 4
+}
+.mobile-first-player .player-hud-actions {
+    grid-column: 5
+}
+.mobile-first-player .player-phase-row {
+    display: none !important
+}
 .mobile-first-player .player-stage {
     overflow: hidden;
     overscroll-behavior: none;
@@ -578,10 +630,7 @@ textarea {
     pointer-events: none
 }
 .mobile-first-player .felt-heading {
-    color: #f3e2b3;
-    font-size: .66rem;
-    font-weight: 700;
-    letter-spacing: .13em
+    display: none
 }
 .mobile-first-player .felt-heading small {
     color: rgba(230, 239, 233, .58);
@@ -599,7 +648,7 @@ textarea {
     letter-spacing: .17em
 }
 .mobile-first-player .casino-felt .felt-grid {
-    filter: drop-shadow(0 6px 10px rgba(0,0,0,.22))
+    filter: none
 }
 .mobile-first-player .casino-felt .felt-grid b,
 .mobile-first-player .casino-felt .felt-grid span {
@@ -612,7 +661,7 @@ textarea {
 .mobile-first-player .casino-felt .dozens > span,
 .mobile-first-player .casino-felt .even-money > span {
     border-color: rgba(245, 236, 209, .83);
-    transition: filter .14s ease, transform .14s ease, box-shadow .14s ease
+    transition: box-shadow .14s ease
 }
 .mobile-first-player .casino-felt .numbers b.red {
     background: linear-gradient(145deg, #d2343e, #8e1921)
@@ -1129,13 +1178,24 @@ textarea {
 }
 body > .creator-name-dialog {
     position: fixed;
-    inset: 0;
+    top: var(--vv-top, 0px);
+    left: var(--vv-left, 0px);
+    right: auto;
+    bottom: auto;
     z-index: 230;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
+    width: var(--vv-width, 100%);
+    height: var(--vv-height, 100dvh);
+    max-height: var(--vv-height, 100dvh);
+    display: grid;
+    place-items: center;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
     box-sizing: border-box;
     isolation: isolate
+}
+body > .creator-name-dialog .creator-name-card {
+    width: min(420px, 100%);
+    max-height: calc(var(--vv-height, 100dvh) - 24px);
+    overflow-y: auto
 }
 html.creator-dialog-open,
 html.creator-dialog-open body {
@@ -1208,7 +1268,7 @@ html.creator-dialog-open body {
    -------------------------------------------------------------------------- */
 @media (max-width: 720px) and (orientation: portrait) {
     .mobile-first-player {
-        grid-template-rows: auto auto minmax(0, 1fr)
+        grid-template-rows: auto minmax(0, 1fr)
     }
     .mobile-first-player .player-hud {
         min-height: 60px;
@@ -1484,7 +1544,7 @@ html.creator-dialog-open body {
 @media (orientation: landscape) and (max-height: 600px) {
     .mobile-first-player {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto minmax(0, 1fr)
+        grid-template-rows: auto minmax(0, 1fr)
     }
     .mobile-first-player .player-hud {
         min-height: 50px
@@ -1493,15 +1553,12 @@ html.creator-dialog-open body {
         width: 36px;
         height: 36px
     }
-    .mobile-first-player .player-phase-row {
-        min-height: 37px
-    }
     .mobile-first-player .player-stage {
         grid-column: 1;
-        grid-row: 3;
+        grid-row: 2;
         min-height: 0;
         overflow: hidden;
-        padding: 6px
+        padding: 8px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left))
     }
     .mobile-first-player .felt-panel.casino-felt {
         width: min(100%, 1040px);
@@ -1509,7 +1566,7 @@ html.creator-dialog-open body {
         min-width: 0;
         min-height: 0;
         align-self: stretch;
-        padding: 7px 10px 8px;
+        padding: 8px 14px 12px;
         border-width: 7px;
         border-radius: 18px;
         transform-origin: top left
@@ -1788,10 +1845,10 @@ html.creator-dialog-open body {
 /* Table services stay one tap away; the former settings sheet is no longer
    needed during normal play. */
 .mobile-first-player {
-    grid-template-rows: auto auto minmax(0, 1fr) auto
+    grid-template-rows: auto minmax(0, 1fr)
 }
 .mobile-first-player .player-stage {
-    grid-row: 3
+    grid-row: 2
 }
 .mobile-first-player .player-service-bar {
     position: absolute;
@@ -2181,6 +2238,48 @@ html.creator-dialog-open body {
     border-color: #e4c678;
     box-shadow: 0 8px 24px #0009, 0 0 18px rgba(228,198,120,.25)
 }
+@media (orientation: portrait) {
+    .landing.home-clean {
+        padding-bottom: max(36px, calc(env(safe-area-inset-bottom) + 28px))
+    }
+    .landing.home-clean .home-footer {
+        padding-bottom: 10px
+    }
+    .landing.home-clean .home-credit-link {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 6px
+    }
+    .mobile-first-player .player-hud {
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        grid-template-rows: auto;
+        grid-auto-flow: column;
+        grid-auto-rows: 0;
+        align-items: center
+    }
+    .mobile-first-player .player-hud-brand {
+        display: none
+    }
+    .mobile-first-player .player-hud-score {
+        grid-column: 1
+    }
+    .mobile-first-player .player-hud-coverage {
+        grid-column: 2;
+        margin: 0 8px;
+        max-width: none;
+        min-width: 0;
+        width: auto;
+        flex-wrap: nowrap;
+        overflow: hidden
+    }
+    .mobile-first-player .player-hud-bet {
+        grid-column: 3
+    }
+    .mobile-first-player .player-hud-actions {
+        grid-column: 4
+    }
+}
 @media (max-height: 690px) and (orientation: portrait) {
     .home-table-emblem {
         width: 98px
@@ -2201,7 +2300,7 @@ html.creator-dialog-open body {
         min-height: 35px
     }
     .mobile-first-player .casino-felt .felt-grid {
-        --portrait-cell: clamp(23px, calc((100dvh - 290px) / 12), 31px);
+        --portrait-cell: clamp(23px, calc((100dvh - 250px) / 12), 31px);
         --portrait-cap: clamp(28px, 5dvh, 34px)
     }
 }
@@ -2746,11 +2845,22 @@ body {
 }
 .mobile-first-player .casino-felt .felt-grid,
 .mobile-first-player .casino-felt .numbers.player-numbers,
-.mobile-first-player .casino-felt .zero-zone {
+.mobile-first-player .casino-felt .zero-zone,
+.mobile-first-player .casino-felt .dozens,
+.mobile-first-player .casino-felt .even-money,
+.mobile-first-player .casino-felt .column-pays {
     overflow: visible
 }
+.mobile-first-player .casino-felt .dozens,
+.mobile-first-player .casino-felt .even-money,
+.mobile-first-player .casino-felt .column-pays {
+    z-index: 3
+}
 .mobile-first-player .casino-felt .numbers.player-numbers {
-    z-index: 4
+    z-index: 20
+}
+.mobile-first-player .casino-felt .zero-zone {
+    z-index: 22
 }
 .mobile-first-player .felt-cell > .chip-stack,
 .mobile-first-player .zero-zone b > .chip-stack,
@@ -2774,7 +2884,8 @@ body {
 .mobile-first-player .player-felt .inside-hit {
     display: grid;
     place-items: center;
-    z-index: 12
+    z-index: 12;
+    overflow: visible
 }
 .mobile-first-player .player-felt .inside-hit .chip-stack {
     position: static;
@@ -2794,8 +2905,17 @@ body {
 /* All chip hosts must paint in the shared numbers stacking context. Raising
    their owner cells created one stacking context per pocket; later cells then
    painted their backgrounds over corner chips crossing a grid line. */
-.mobile-first-player .casino-felt.player-felt.snap-felt.interactive [data-chip-host].has-player-stack {
+.mobile-first-player .casino-felt.player-felt [data-chip-host].has-player-stack {
     z-index: 18
+}
+.mobile-first-player .casino-felt .dozens [data-chip-host].has-player-stack,
+.mobile-first-player .casino-felt .even-money [data-chip-host].has-player-stack,
+.mobile-first-player .casino-felt .column-pays [data-chip-host].has-player-stack {
+    z-index: 6
+}
+.mobile-first-player .player-stack {
+    z-index: 30;
+    overflow: visible
 }
 /* Landscape: street on the bottom rail, six-line on the street junction. */
 .mobile-first-player .player-felt .inside-hit.hit-street {
@@ -3099,7 +3219,7 @@ body {
 @media (orientation: portrait) {
     .mobile-first-player {
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto minmax(0, 1fr)
+        grid-template-rows: auto minmax(0, 1fr)
     }
     .mobile-first-player .player-stage {
         position: relative;
@@ -3107,7 +3227,7 @@ body {
         min-height: 0;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        grid-row: 3;
+        grid-row: 2;
         align-items: stretch;
         overflow: hidden;
         padding: 6px
@@ -3130,10 +3250,10 @@ body {
         border-width: clamp(6px, 1.5vw, 11px)
     }
     .mobile-first-player .player-felt .felt-grid {
-        --portrait-cell: clamp(26px, calc((var(--app-height, 100dvh) - 420px) / 12), 78px);
-        --portrait-cap: clamp(30px, calc((var(--app-height, 100dvh) - 355px) / 14), 68px);
-        --portrait-cell: clamp(26px, calc((100dvh - 420px) / 12), 78px);
-        --portrait-cap: clamp(30px, calc((100dvh - 355px) / 14), 68px);
+        --portrait-cell: clamp(26px, calc((var(--app-height, 100dvh) - 380px) / 12), 78px);
+        --portrait-cap: clamp(30px, calc((var(--app-height, 100dvh) - 315px) / 14), 68px);
+        --portrait-cell: clamp(26px, calc((100dvh - 380px) / 12), 78px);
+        --portrait-cap: clamp(30px, calc((100dvh - 315px) / 14), 68px);
         position: absolute;
         left: 50%;
         top: calc(50% - 20px);
@@ -3370,19 +3490,64 @@ body {
     }
 }
 @media (orientation: landscape) {
+    .mobile-first-player {
+        grid-template-rows: auto minmax(0, 1fr)
+    }
+    .mobile-first-player .player-hud {
+        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+        grid-template-rows: auto;
+        grid-auto-flow: column;
+        align-items: center
+    }
+    .mobile-first-player .player-hud-brand {
+        display: grid;
+        grid-column: 1
+    }
+    .mobile-first-player .player-hud-score {
+        grid-column: 2
+    }
+    .mobile-first-player .player-hud-coverage {
+        display: flex;
+        flex-wrap: nowrap;
+        grid-column: 3;
+        min-width: 0;
+        max-width: none;
+        margin: 0 6px;
+        flex: 1 1 auto;
+        overflow: hidden
+    }
+    .mobile-first-player .player-hud-bet {
+        grid-column: 4
+    }
+    .mobile-first-player .player-hud-actions {
+        grid-column: 5
+    }
+    .mobile-first-player .player-hud-coverage .table-coverage-label {
+        display: none
+    }
+    .mobile-first-player .player-hud-score {
+        min-width: 0
+    }
+    .mobile-first-player .player-phase-row {
+        display: none !important
+    }
     .mobile-first-player .player-stage {
         min-width: 0;
         min-height: 0;
-        overflow: hidden
+        grid-row: 2;
+        overflow: hidden;
+        padding: 8px max(18px, env(safe-area-inset-right)) 14px max(18px, env(safe-area-inset-left))
     }
     .mobile-first-player .felt-panel.player-felt {
-        max-height: 100%
+        max-height: 100%;
+        margin-inline: auto
     }
     .mobile-first-player .casino-felt .felt-grid {
-        --classic-row: clamp(28px, calc((var(--app-height, 100dvh) - 270px) / 3), 68px);
-        --classic-outside: clamp(24px, calc((var(--app-height, 100dvh) - 270px) / 6), 44px);
-        --classic-row: clamp(28px, calc((100dvh - 270px) / 3), 68px);
-        --classic-outside: clamp(24px, calc((100dvh - 270px) / 6), 44px);
+        --classic-row: clamp(28px, calc((var(--app-height, 100dvh) - 230px) / 3), 68px);
+        --classic-outside: clamp(24px, calc((var(--app-height, 100dvh) - 230px) / 6), 44px);
+        --classic-row: clamp(28px, calc((100dvh - 230px) / 3), 68px);
+        --classic-outside: clamp(24px, calc((100dvh - 230px) / 6), 44px);
+        padding: 0.25rem 0.85rem 0.9rem 0.55rem;
         --felt-row: var(--classic-row);
         width: 100%;
         max-width: 100%;

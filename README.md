@@ -20,7 +20,7 @@ MobileSpinRoulette is a browser-based roulette game focused on a fast, touch-fri
 - English, Italian, Spanish, Brazilian Portuguese, French, German, Korean, Japanese and Chinese interfaces.
 - Local autosave plus JSON export and import from Settings.
 
-The in-app Privacy screen uses the current language and never opens a URL. Store listings should link the standalone page for that language under [`public/privacy/`](./public/privacy/), for example [English](./public/privacy/en.html) or [Italian](./public/privacy/it.html). The [index](./public/privacy.html) lists every language. The game uses virtual points only and provides no purchases, prizes, cash-out or accounts.
+The in-app Privacy screen uses the current language and never opens a URL. Play Console must use the single hosted index [`https://mobilespinroulette.pages.dev/privacy.html`](https://mobilespinroulette.pages.dev/privacy.html). The same pages also live under [`public/privacy/`](./public/privacy/) for the itch zip and under [`hosting/privacy/`](./hosting/privacy/) for Cloudflare Pages. The game uses virtual points only and provides no purchases, prizes, cash-out or accounts.
 
 The game uses points only. A new profile starts with **2000000 score**, and starting a new game restores that amount when the score is zero or below.
 
@@ -85,6 +85,8 @@ node scripts/zip-itch.mjs
 
 This creates `mobilespinroulette-itch.zip`. The recommended itch.io embed size is **1024 × 600**, with fullscreen and mobile-friendly options enabled.
 
+The public product site lives in [`hosting/`](./hosting/). It is the Cloudflare Pages origin `https://mobilespinroulette.pages.dev/` (landing, GitHub, itch link, Play privacy pages). It does not serve the game. Refresh it with `npm.cmd run generate:privacy` and `npm.cmd run generate:hosting`, then deploy that folder as the Pages root.
+
 ## Project structure
 
 | Path | Purpose |
@@ -96,10 +98,44 @@ This creates `mobilespinroulette-itch.zip`. The recommended itch.io embed size i
 | `src/i18n/` | Translation catalogs and locale metadata |
 | `config/` | Game balance, controls, bets and wheel configuration |
 | `public/` | PWA files, icon and optional audio assets |
+| `hosting/` | Cloudflare Pages vetrina + store privacy (not the game) |
+| `playstore/` | Play Console listing kit |
+| `android/` | Capacitor Android project. Application ID `io.mobilespinroulette.app` |
+| `capacitor.config.ts` | Capacitor config: packages `dist/`, no remote URL |
 | `LICENSE` | GNU GPLv3 text for the software |
 | `NOTICE` | Copyright notice and third-party license map |
 
-The application is built with TypeScript and Vite. It has no backend and does not include analytics.
+The application is built with TypeScript and Vite. It has no backend and does not include analytics. The Play package embeds that same `dist/` folder so the APK does not depend on Cloudflare Pages.
+
+## Android APK / Play bundle
+
+The game files live inside the APK. Recreate the sideload package after any game change:
+
+```powershell
+npm.cmd run apk
+```
+
+This runs the production web build, copies it into `android/`, and writes `android-dist/MobileSpinRoulette-debug.apk`.
+
+Requirements: Android SDK platform 36 (Android Studio installs the SDK under `%LOCALAPPDATA%\Android\Sdk`) and **JDK 21**. The JBR 25 bundled with current Android Studio is too new for this Gradle wrapper. `npm run apk` prefers `C:\Program Files\Microsoft\jdk-21.0.12.8-hotspot` when present.
+
+Play Console wants a signed Android App Bundle, not the debug APK:
+
+```powershell
+$env:MOBILESPINROULETTE_KEYSTORE = "C:\path\to\upload-keystore.jks"
+$env:MOBILESPINROULETTE_KEY_ALIAS = "upload"
+$env:MOBILESPINROULETTE_STORE_PASSWORD = "..."
+$env:MOBILESPINROULETTE_KEY_PASSWORD = "..."
+npm.cmd run aab
+```
+
+That writes `android-dist/MobileSpinRoulette.aab`. Do not commit the keystore. Do not change the application ID after the first Play upload.
+
+```powershell
+npm.cmd run android:open
+```
+
+opens the native project in Android Studio.
 
 ## Local data and migration
 

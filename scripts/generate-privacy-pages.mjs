@@ -85,39 +85,39 @@ ${PAGE_CSS}
 `;
 }
 
-const publicDir = path.join("public");
-const privacyDir = path.join(publicDir, "privacy");
-mkdirSync(privacyDir, { recursive: true });
-
 const documents = allPrivacyDocuments();
-for (const doc of documents) {
-  const others = documents
-    .filter((item) => item.locale !== doc.locale)
-    .map((item) => `<a href="./${item.locale === "pt-BR" ? "pt-BR" : item.locale}.html" lang="${item.htmlLang}">${item.title}</a>`)
-    .join("\n        ");
-  const html = pageShell({
-    lang: doc.htmlLang,
-    title: doc.title,
-    description: `${doc.noticeLead} ${doc.noticeRest}`,
-    nav: `
+
+function writePrivacyTree(rootDir) {
+  const privacyDir = path.join(rootDir, "privacy");
+  mkdirSync(privacyDir, { recursive: true });
+
+  for (const doc of documents) {
+    const others = documents
+      .filter((item) => item.locale !== doc.locale)
+      .map((item) => `<a href="./${item.locale === "pt-BR" ? "pt-BR" : item.locale}.html" lang="${item.htmlLang}">${item.title}</a>`)
+      .join("\n        ");
+    const html = pageShell({
+      lang: doc.htmlLang,
+      title: doc.title,
+      description: `${doc.noticeLead} ${doc.noticeRest}`,
+      nav: `
         <a href="../">← MobileSpinRoulette</a>
         <a href="../privacy.html">All languages</a>
         ${others}`,
-    body: `<article>
+      body: `<article>
         <h1>${doc.title}</h1>
         ${privacyArticleMarkup(doc, { issuesUrl: PRIVACY_ISSUES_URL })}
       </article>`,
-  });
-  const file = path.join(publicDir, privacyStorePath(doc.locale));
-  writeFileSync(file, html);
-}
+    });
+    writeFileSync(path.join(rootDir, privacyStorePath(doc.locale)), html);
+  }
 
-const indexNav = documents.map((doc) => {
-  const meta = LOCALE_META.find((item) => item.id === doc.locale);
-  return `        <a href="./${privacyStorePath(doc.locale)}" lang="${doc.htmlLang}"><strong>${doc.title}</strong><small>${meta?.native ?? doc.locale}</small></a>`;
-}).join("\n");
+  const indexNav = documents.map((doc) => {
+    const meta = LOCALE_META.find((item) => item.id === doc.locale);
+    return `        <a href="./${privacyStorePath(doc.locale)}" lang="${doc.htmlLang}"><strong>${doc.title}</strong><small>${meta?.native ?? doc.locale}</small></a>`;
+  }).join("\n");
 
-const index = `<!doctype html>
+  const index = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -149,6 +149,10 @@ ${indexNav}
   </body>
 </html>
 `;
-writeFileSync(path.join(publicDir, "privacy.html"), index);
+  writeFileSync(path.join(rootDir, "privacy.html"), index);
+}
 
-console.log(`Wrote privacy index and ${documents.length} locale pages`);
+writePrivacyTree("public");
+writePrivacyTree("hosting");
+
+console.log(`Wrote privacy index and ${documents.length} locale pages to public/ and hosting/`);

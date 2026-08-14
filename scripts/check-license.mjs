@@ -41,4 +41,8 @@ assert(zip.includes('"LICENSE"'), "itch zip must include LICENSE");
 assert(zip.includes('"NOTICE"'), "itch zip must include NOTICE");
 assert(zip.includes('"OFL.txt"'), "itch zip must include the Inter OFL");
 
+const capacitor = readFileSync("capacitor.config.ts", "utf8");
+assert(capacitor.includes("io.mobilespinroulette.app"), "Capacitor appId must stay io.mobilespinroulette.app");
+assert(existsSync("scripts/build-apk.mjs"), "the apk rebuild command must remain in the tree");
+
 console.log("✓ license split, NOTICE, package.json and distribution copies are valid");

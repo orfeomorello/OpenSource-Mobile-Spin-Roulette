@@ -43,13 +43,15 @@ test("English privacy keeps Play / PWA legal phrases", () => {
 });
 
 test("each language has a standalone generated store page", () => {
-  for (const locale of LOCALE_IDS) {
-    const file = `public/${privacyStorePath(locale)}`;
-    assert.equal(existsSync(file), true, file);
-    const html = readFileSync(file, "utf8");
-    const doc = privacyDocument(locale);
-    assert.match(html, new RegExp(`lang="${doc.htmlLang}"`));
-    assert.ok(html.includes(doc.noticeLead));
-    assert.ok(!html.includes('id="italiano"'), file);
+  for (const root of ["public", "hosting"]) {
+    for (const locale of LOCALE_IDS) {
+      const file = `${root}/${privacyStorePath(locale)}`;
+      assert.equal(existsSync(file), true, file);
+      const html = readFileSync(file, "utf8");
+      const doc = privacyDocument(locale);
+      assert.match(html, new RegExp(`lang="${doc.htmlLang}"`));
+      assert.ok(html.includes(doc.noticeLead));
+      assert.ok(!html.includes('id="italiano"'), file);
+    }
   }
 });
