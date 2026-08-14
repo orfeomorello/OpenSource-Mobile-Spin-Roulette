@@ -119,17 +119,23 @@ This runs the production web build, copies it into `android/`, and writes `andro
 
 Requirements: Android SDK platform 36 (Android Studio installs the SDK under `%LOCALAPPDATA%\Android\Sdk`) and **JDK 21**. The JBR 25 bundled with current Android Studio is too new for this Gradle wrapper. `npm run apk` prefers `C:\Program Files\Microsoft\jdk-21.0.12.8-hotspot` when present.
 
-Play Console wants a signed Android App Bundle, not the debug APK:
+A public sideload build (GitHub Releases) must be a signed release APK, not the debug package:
 
 ```powershell
 $env:MOBILESPINROULETTE_KEYSTORE = "C:\path\to\upload-keystore.jks"
 $env:MOBILESPINROULETTE_KEY_ALIAS = "upload"
 $env:MOBILESPINROULETTE_STORE_PASSWORD = "..."
 $env:MOBILESPINROULETTE_KEY_PASSWORD = "..."
+npm.cmd run apk:release
+```
+
+That writes `android-dist/MobileSpinRoulette.apk`. Play Console still wants the Android App Bundle:
+
+```powershell
 npm.cmd run aab
 ```
 
-That writes `android-dist/MobileSpinRoulette.aab`. Do not commit the keystore. Do not change the application ID after the first Play upload.
+That writes `android-dist/MobileSpinRoulette.aab`. Do not commit the keystore. Do not change the application ID after the first Play upload. A Play install and a GitHub APK cannot update each other: Play re-signs the app.
 
 ```powershell
 npm.cmd run android:open

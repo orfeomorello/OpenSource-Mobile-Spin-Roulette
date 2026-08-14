@@ -58,7 +58,7 @@ Use `https://mobilespinroulette.pages.dev/privacy.html`.
 5. Complete `CHECKLIST.md` (IARC, Data safety, ads, Capacitor APK).
    Application ID is **`io.mobilespinroulette.app`**. Public HTTPS host:
    `https://mobilespinroulette.pages.dev/` (must not contain `orfeomorello`).
-   Recreate the debug APK with `npm.cmd run apk`. Play wants `npm.cmd run aab` and a release keystore.
+   Recreate the debug APK with `npm.cmd run apk`. GitHub Releases want `npm.cmd run apk:release`. Play wants `npm.cmd run aab` and a release keystore.
 
 Regenerate the markdown after editing `copy.mjs`:
 

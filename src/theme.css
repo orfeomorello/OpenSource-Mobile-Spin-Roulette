@@ -925,7 +925,9 @@ textarea {
     font-family: var(--ui-sans);
     text-shadow: 0 1px rgba(255,255,255,.5);
     box-shadow: inset 0 0 0 4px #9a6d2c, inset 0 0 0 6px #efd58f, 0 6px 0 #4f2f10, 0 13px 22px #0008;
-    image-rendering: auto
+    image-rendering: auto;
+    padding: 9px 7px;
+    letter-spacing: 0.02em
 }
 .mobile-first-player .player-spin-btn:not(:disabled) {
     animation: premiumSpinPulse 2.4s ease-in-out infinite
@@ -1508,7 +1510,7 @@ html.creator-dialog-open body {
         min-height: 62px;
         max-width: 62px;
         max-height: 62px;
-        font-size: .68rem
+        font-size: .6rem
     }
     .player-more-sheet {
         width: calc(100% - 12px);
@@ -1602,7 +1604,7 @@ html.creator-dialog-open body {
         min-height: 58px;
         max-width: 58px;
         max-height: 58px;
-        font-size: .65rem
+        font-size: .58rem
     }
     .mobile-first-player .quick-action {
         width: 44px;

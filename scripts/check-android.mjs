@@ -20,6 +20,7 @@ assert(main.includes("@capacitor/app"), "the Android back button must use @capac
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 assert(pkg.scripts?.apk === "node scripts/build-apk.mjs", "package.json must expose npm run apk");
+assert(pkg.scripts?.["apk:release"] === "node scripts/build-apk.mjs --release", "package.json must expose npm run apk:release");
 assert(pkg.scripts?.aab === "node scripts/build-apk.mjs --bundle", "package.json must expose npm run aab");
 assert(existsSync(path.join("scripts", "build-apk.mjs")), "missing scripts/build-apk.mjs");
 

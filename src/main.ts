@@ -1014,6 +1014,11 @@ function showPlayerBettingFeedback(state: PlayerGameState): boolean {
   return Boolean(state.message && !playerBettingStatusNoise.has(state.message));
 }
 
+function goldButtonLabel(key: "player.spin" | "player.creatorSaveShort"): string {
+  const label = t(key);
+  return `<span class="spin-label" data-chars="${[...label].length}">${label}</span>`;
+}
+
 function buildTableCoverageHtml(coverage: { covered: number; total: number; percent: number }, extraClass = ""): string {
   return `<div class="table-coverage ${extraClass}" title="${t("player.coverageHelp", { covered: coverage.covered, total: coverage.total })}">
     <span class="table-coverage-label">${t("player.coverage")}</span>
@@ -1286,7 +1291,7 @@ function renderPlayerTable(): void {
               <button type="button" id="player-double" class="quick-action quick-double" ${canDouble ? "" : "disabled"} title="${t("player.doubleHelp")}" aria-label="${t("player.double")}"><i aria-hidden="true">2&times;</i></button>
               <button type="button" id="player-rebet" class="quick-action quick-rebet" ${canRebet ? "" : "disabled"} title="${t("player.rebetHelp")}" aria-label="${t("player.rebet")}"><i aria-hidden="true"></i></button>
               <button type="button" id="player-spin" class="player-spin-btn" ${canSpin ? "" : "disabled"} aria-label="${t("player.spin")}">
-                <span class="spin-label">${t("player.spin")}</span>
+                ${goldButtonLabel("player.spin")}
               </button>
             </div>
           </section>
@@ -2114,7 +2119,7 @@ function renderBetCreator(): void {
             </div>
             <div class="spin-cluster creator-standard-actions">
               <button type="button" id="creator-undo" class="quick-action action-clear" ${!draft.chipHistory.length && !draft.bets.length ? "disabled" : ""} aria-label="${t("player.undoClearHelp")}" title="${t("player.undoClearHelp")}"><i aria-hidden="true"></i></button>
-              <button type="button" id="creator-save" class="player-spin-btn creator-save-action" ${cost > 0 ? "" : "disabled"} aria-label="${t("player.creatorSave")}"><span class="spin-label">${t("player.creatorSaveShort")}</span></button>
+              <button type="button" id="creator-save" class="player-spin-btn creator-save-action" ${cost > 0 ? "" : "disabled"} aria-label="${t("player.creatorSave")}">${goldButtonLabel("player.creatorSaveShort")}</button>
             </div>
           </section>
         </section>

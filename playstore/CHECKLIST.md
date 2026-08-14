@@ -59,8 +59,9 @@ Do these after the listing texts. They are **not** repeated per language.
 
 - [x] Build a Capacitor Android app that embeds the local game `dist/` (the APK must play if Pages is down)
 - [x] Recreate the package with `npm.cmd run apk` (debug APK built 2026-08-14)
-- [ ] `npm.cmd run aab` for Play (needs a release keystore)
-- [ ] Application ID: `io.mobilespinroulette.app` (do not change after first upload)
+- [x] GitHub sideload: `npm.cmd run apk:release` → `android-dist/MobileSpinRoulette.apk`
+- [x] `npm.cmd run aab` for Play (signed 2026-08-14 → `android-dist/MobileSpinRoulette.aab`; upload key in `%USERPROFILE%\.mobilespinroulette\`)
+- [x] Application ID: `io.mobilespinroulette.app` (do not change after first upload)
 - [ ] Target current API, 64-bit
 - [ ] Upload AAB to an internal or closed test track first
 - [ ] Paste first-release notes from each `listing.md`

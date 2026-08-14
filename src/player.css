@@ -1227,15 +1227,15 @@
     min-height: 5.4rem;
     max-width: 5.4rem;
     max-height: 5.4rem;
-    padding: 0.35rem;
+    padding: 0.48rem 0.38rem;
     border-radius: 50%;
     border: 4px solid #1a1000;
     background: radial-gradient(circle at 32% 28%, #fff6b0 0%, #ffe06b 28%, #f0c040 58%, #c88810 100%);
     color: #120c00;
     font: inherit;
     font-weight: 900;
-    font-size: 0.92rem;
-    letter-spacing: 0.06em;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     text-shadow: 0 1px 0 #fff9;
     line-height: 1.05;
@@ -1258,16 +1258,26 @@
 .player-spin-btn .spin-label {
     display: block;
     width: 100%;
-    max-width: 4.4rem;
+    max-width: 100%;
     color: #120c00;
     font-weight: 900;
-    font-size: inherit;
-    letter-spacing: 0.04em;
-    line-height: 1.1;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    line-height: 1;
     text-align: center;
     word-break: keep-all;
     overflow-wrap: normal;
-    hyphens: none
+    hyphens: none;
+    overflow: hidden
+}
+.player-spin-btn .spin-label[data-chars="5"] {
+    font-size: 0.62rem;
+    letter-spacing: 0.02em
+}
+.player-spin-btn .spin-label[data-chars="6"],
+.player-spin-btn .spin-label[data-chars="7"] {
+    font-size: 0.54rem;
+    letter-spacing: 0
 }
 .player-spin-btn:hover:not(:disabled) {
     filter: brightness(1.07)
@@ -1395,14 +1405,13 @@
         min-height: 4.85rem;
         max-width: 4.85rem;
         max-height: 4.85rem;
-        font-size: 0.78rem;
-        letter-spacing: 0.03em;
+        font-size: 0.7rem;
+        letter-spacing: 0.02em;
         border-width: 3px;
         justify-self: end
     }
     .player-spin-btn .spin-label {
-        max-width: 3.9rem;
-        font-size: 0.78rem;
+        max-width: 100%;
         font-weight: 900;
         color: #100a00;
         text-shadow: 0 1px 0 #fffc
@@ -1426,11 +1435,10 @@
         min-height: 4.4rem;
         max-width: 4.4rem;
         max-height: 4.4rem;
-        font-size: 0.7rem
+        font-size: 0.64rem
     }
     .player-spin-btn .spin-label {
-        max-width: 3.5rem;
-        font-size: 0.7rem
+        max-width: 100%
     }
 }
 /* -- Racetrack / French call bets -- */
@@ -2517,7 +2525,7 @@
         min-height: 72px;
         max-width: 72px;
         max-height: 72px;
-        font-size: .72rem
+        font-size: .66rem
     }
 }
 /* Landscape phones use the width: table left, permanent betting rail right. */

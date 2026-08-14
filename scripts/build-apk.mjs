@@ -3,8 +3,12 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const bundle = process.argv.includes("--bundle");
+const releaseApk = process.argv.includes("--release");
 const skipWeb = process.argv.includes("--skip-web");
 const root = process.cwd();
+if (bundle && releaseApk) {
+  fail("use --bundle or --release, not both");
+}
 
 function fail(message) {
   console.error(message);
@@ -99,14 +103,15 @@ const env = {
 };
 
 const gradle = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-const task = bundle ? "bundleRelease" : "assembleDebug";
-if (bundle) {
+const signed = bundle || releaseApk;
+if (signed) {
   const keystore = process.env.MOBILESPINROULETTE_KEYSTORE;
   if (!keystore || !existsSync(keystore)) {
-    fail("npm run aab needs MOBILESPINROULETTE_KEYSTORE (and alias / passwords) for a Play-signed bundle.");
+    fail("npm run aab / apk:release needs MOBILESPINROULETTE_KEYSTORE (and alias / passwords).");
   }
 }
 
+const task = bundle ? "bundleRelease" : releaseApk ? "assembleRelease" : "assembleDebug";
 run(gradle, [task, "--quiet"], { cwd: path.join(root, "android"), env });
 
 const outputDir = path.join(root, "android-dist");
@@ -118,11 +123,18 @@ if (bundle) {
   if (!existsSync(from)) fail(`Expected bundle missing: ${from}`);
   copyFileSync(from, to);
   console.log(`Wrote ${to}`);
+} else if (releaseApk) {
+  const from = path.join("android", "app", "build", "outputs", "apk", "release", "app-release.apk");
+  const to = path.join(outputDir, "MobileSpinRoulette.apk");
+  if (!existsSync(from)) fail(`Expected release APK missing: ${from}`);
+  copyFileSync(from, to);
+  console.log(`Wrote ${to}`);
+  console.log("Release APK is for GitHub Releases / sideload. Play Console still wants the AAB.");
 } else {
   const from = path.join("android", "app", "build", "outputs", "apk", "debug", "app-debug.apk");
   const to = path.join(outputDir, "MobileSpinRoulette-debug.apk");
   if (!existsSync(from)) fail(`Expected APK missing: ${from}`);
   copyFileSync(from, to);
   console.log(`Wrote ${to}`);
-  console.log("Debug APK is for sideload / internal tests. Play Console wants npm run aab with a release keystore.");
+  console.log("Debug APK is for local tests. GitHub Releases want npm run apk:release. Play wants npm run aab.");
 }
