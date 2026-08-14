@@ -1,0 +1,52 @@
+MobileSpinRoulette
+Copyright (C) 2026 Orfeo
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program (the LICENSE file). If not, see
+<https://www.gnu.org/licenses/>.
+
+SPDX-License-Identifier for the software: GPL-3.0-or-later
+
+The GNU GPL covers the MobileSpinRoulette software: source under src/,
+config/ and scripts/, plus the built application scripts and styles.
+It does not relicense third-party fonts or music bundled with the game.
+Those files keep the licenses below. Do not treat this repository as a
+single GPL work.
+
+Third-party material
+--------------------
+
+Inter variable Latin font (src/assets/fonts/inter-latin-wght.woff2)
+  Copyright (c) 2016 The Inter Project Authors
+  SIL Open Font License 1.1
+  Full text: src/assets/fonts/OFL.txt
+  The font files must remain under the OFL. They are not GPL.
+
+Menu loop (public/audio/mus_menu_loop.mp3)
+  Title: 8bit Bossa / Bossa Nova
+  Author: Joth, via OpenGameArt
+  CC0 1.0 Universal (public-domain dedication)
+
+Player playlist (public/audio/andriih-*.mp3)
+  Artist: Andrii H, via Pixabay
+  Pixabay Content License
+  Commercial use is allowed as part of this game.
+  Do not sell or redistribute the tracks as standalone audio files.
+  These tracks are not licensed under the GNU GPL.
+
+Synthesized sound effects (src/audio.ts)
+  Original program code. GPL-3.0-or-later.
+
+Source URLs and attribution for the audio files are in
+public/audio/CREDITS.md. Keep CREDITS.md with any redistributed build
+that includes those files.

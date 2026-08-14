@@ -2,6 +2,7 @@
   "name": "mobilespinroulette",
   "version": "0.1.0",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "generate:icons": "node scripts/generate-pwa-icons.mjs",
@@ -12,7 +13,7 @@
     "prebuild": "npm run prepare:audio && npm run generate:icons && npm run generate:privacy",
     "build": "tsc -b && vite build && node scripts/stage-worker.mjs",
     "preview": "vite preview",
-    "test": "node scripts/check-i18n-usage.mjs && node scripts/check-pwa.mjs && node scripts/check-native-dialogs.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts && node --experimental-strip-types src/legal/privacy.test.ts"
+    "test": "node scripts/check-i18n-usage.mjs && node scripts/check-pwa.mjs && node scripts/check-native-dialogs.mjs && node scripts/check-license.mjs && node --experimental-strip-types src/core/player.test.ts && node --experimental-strip-types src/spin/spinEngine.test.ts && node --experimental-strip-types src/wheel/canvasWheel.test.ts && node --experimental-strip-types src/audio.test.ts && node --experimental-strip-types src/legal/privacy.test.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

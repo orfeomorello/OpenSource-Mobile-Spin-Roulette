@@ -96,6 +96,8 @@ This creates `mobilespinroulette-itch.zip`. The recommended itch.io embed size i
 | `src/i18n/` | Translation catalogs and locale metadata |
 | `config/` | Game balance, controls, bets and wheel configuration |
 | `public/` | PWA files, icon and optional audio assets |
+| `LICENSE` | GNU GPLv3 text for the software |
+| `NOTICE` | Copyright notice and third-party license map |
 
 The application is built with TypeScript and Vite. It has no backend and does not include analytics.
 
@@ -124,7 +126,23 @@ $env:MOBILESPINROULETTE_AUDIO_BASE_URL = "https://your-authorized-host.example/m
 npm.cmd run prepare:audio
 ```
 
-The host must expose each file using the name listed in `public/audio-manifest.json`. Source links, attribution and licensing notes are documented in [`public/audio/CREDITS.md`](./public/audio/CREDITS.md).
+The host must expose each file using the name listed in `public/audio-manifest.json`. Source links, attribution and licensing notes are documented in [`public/audio/CREDITS.md`](./public/audio/CREDITS.md). The playlist files keep the Pixabay Content License; they are not relicensed under the GPL.
+
+## License
+
+The MobileSpinRoulette **software** is licensed under the [GNU General Public License v3.0 or later](./LICENSE) (`GPL-3.0-or-later`). You may redistribute and modify the program under those terms.
+
+Bundled fonts and music keep their **original** licenses. They are not placed under the GPL. The map is in [`NOTICE`](./NOTICE).
+
+| Material | License |
+| --- | --- |
+| Software (`src/`, `config/`, `scripts/`, built JS and CSS) | GPL-3.0-or-later |
+| Synthesized sound effects in `src/audio.ts` | GPL-3.0-or-later |
+| Inter font (`src/assets/fonts/`) | [SIL Open Font License 1.1](./src/assets/fonts/OFL.txt) |
+| Menu loop `mus_menu_loop.mp3` | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Player playlist `andriih-*.mp3` | [Pixabay Content License](https://pixabay.com/service/license-summary/) |
+
+The Pixabay tracks may be used commercially as part of this game. Do not sell or redistribute them as standalone audio files.
 
 ## Disclaimer
 

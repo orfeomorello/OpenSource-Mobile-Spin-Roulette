@@ -33,6 +33,9 @@ const entries = [
   "roulette-maskable-192.png",
   "roulette-maskable-512.png",
   "apple-touch-icon.png",
+  "LICENSE",
+  "NOTICE",
+  "OFL.txt",
 ].filter((name) =>
   existsSync(path.join(dist, name)),
 );

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 await mkdir("dist/server", { recursive: true });
@@ -8,6 +8,14 @@ await writeFile("dist/server/index.js", worker);
 
 const distDirectory = path.resolve("dist");
 const serviceWorkerPath = path.join(distDirectory, "sw.js");
+
+for (const [from, to] of [
+  ["LICENSE", "LICENSE"],
+  ["NOTICE", "NOTICE"],
+  [path.join("src", "assets", "fonts", "OFL.txt"), "OFL.txt"],
+]) {
+  await copyFile(from, path.join(distDirectory, to));
+}
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

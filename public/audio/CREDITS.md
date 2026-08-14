@@ -1,6 +1,6 @@
 # MobileSpinRoulette audio credits
 
-The tracks listed below may be used commercially in the game under their respective licenses. Keep this file with redistributed builds that contain these audio assets.
+The tracks listed below may be used commercially in the game under their respective licenses. They are **not licensed under the GNU GPL** that covers the MobileSpinRoulette software. See [`NOTICE`](../../NOTICE) at the repository root. Keep this file with redistributed builds that contain these audio assets.
 
 ## `mus_menu_loop.mp3`
 
