@@ -5,7 +5,7 @@ Do these after the listing texts. They are **not** repeated per language.
 ## 1. Developer account and app
 
 - [ ] Paid Play developer account
-- [ ] Create app: name `MobileSpinRoulette`, type **Game**, free
+- [ ] Create app: name `Mobile Roulette – No cash`, type **Game**, free
 - [ ] Application ID (closed): `io.mobilespinroulette.app` — do not put `orfeomorello` in the Play id or in the public HTTPS host
 - [ ] Default language: English (United States)
 

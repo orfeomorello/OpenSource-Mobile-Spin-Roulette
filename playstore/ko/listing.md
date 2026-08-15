@@ -1,4 +1,4 @@
-# MobileSpinRoulette — Korean
+# Mobile Roulette – No cash — Korean
 
 Play Console → **Grow users → Store presence → Main store listing**  
 Language to add: **Korean** (`ko-KR`)  
@@ -6,10 +6,10 @@ Translation. If a graphic is missing here, Play reuses the default-language grap
 
 Do not edit the fenced blocks below. Copy the inner text only.
 
-## App name (max 30 · 18 used)
+## App name (max 30 · 25 used)
 
 ```
-MobileSpinRoulette
+Mobile Roulette – No cash
 ```
 
 ## Short description (max 80 · 40 used)
@@ -18,10 +18,10 @@ MobileSpinRoulette
 오픈소스 모바일 룰렛. 가상 점수만. 유럽·미국 테이블, 실제 돈 없음.
 ```
 
-## Full description (max 4000 · 718 used)
+## Full description (max 4000 · 725 used)
 
 ```
-MobileSpinRoulette은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.
+Mobile Roulette – No cash은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.
 
 할 수 있는 일
 • 유럽식 테이블(0 하나, 37칸)과 미국식 테이블(0과 00, 38칸)

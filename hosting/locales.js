@@ -6,7 +6,7 @@ window.MSR_HOSTING = {
     "en": {
       "htmlLang": "en-US",
       "native": "English",
-      "title": "MobileSpinRoulette · Virtual points only",
+      "title": "Mobile Roulette – No cash · Virtual points only",
       "description": "Open-source mobile roulette. Virtual points only. EU & US tables, no real money.",
       "chrome": {
         "play": "Play online",
@@ -24,7 +24,7 @@ window.MSR_HOSTING = {
         "skip": "Skip to content",
         "chooseLang": "Choose language"
       },
-      "intro": "MobileSpinRoulette is a free, open-source roulette game for phones, tablets and desktop. It uses virtual points only. There is no real-money gambling, no purchases, no cash-out and no prizes.",
+      "intro": "Mobile Roulette – No cash is a free, open-source roulette game for phones, tablets and desktop. It uses virtual points only. There is no real-money gambling, no purchases, no cash-out and no prizes.",
       "featuresHeading": "WHAT YOU CAN DO",
       "features": [
         "European table (single 0, 37 pockets) and American table (0 and 00, 38 pockets)",
@@ -55,7 +55,7 @@ window.MSR_HOSTING = {
     "it": {
       "htmlLang": "it-IT",
       "native": "Italiano",
-      "title": "MobileSpinRoulette · Solo punti virtuali",
+      "title": "Mobile Roulette – No cash · Solo punti virtuali",
       "description": "Roulette open source su mobile. Solo punti virtuali. Tavoli EU e US.",
       "chrome": {
         "play": "Gioca online",
@@ -73,7 +73,7 @@ window.MSR_HOSTING = {
         "skip": "Vai al contenuto",
         "chooseLang": "Scegli la lingua"
       },
-      "intro": "MobileSpinRoulette è una roulette gratis e open source per telefono, tablet e computer. Usa solo punti virtuali. Non c’è gioco d’azzardo con soldi veri, non ci sono acquisti, prelievi o premi.",
+      "intro": "Mobile Roulette – No cash è una roulette gratis e open source per telefono, tablet e computer. Usa solo punti virtuali. Non c’è gioco d’azzardo con soldi veri, non ci sono acquisti, prelievi o premi.",
       "featuresHeading": "COSA PUOI FARE",
       "features": [
         "Tavolo europeo (un solo 0, 37 caselle) e tavolo americano (0 e 00, 38 caselle)",
@@ -104,7 +104,7 @@ window.MSR_HOSTING = {
     "es": {
       "htmlLang": "es-ES",
       "native": "Español",
-      "title": "MobileSpinRoulette · Solo puntos virtuales",
+      "title": "Mobile Roulette – No cash · Solo puntos virtuales",
       "description": "Ruleta open source para móvil. Solo puntos virtuales. Mesas EU y US.",
       "chrome": {
         "play": "Jugar en línea",
@@ -122,7 +122,7 @@ window.MSR_HOSTING = {
         "skip": "Saltar al contenido",
         "chooseLang": "Elegir idioma"
       },
-      "intro": "MobileSpinRoulette es una ruleta gratis y de código abierto para teléfono, tableta y escritorio. Usa solo puntos virtuales. No hay juego de azar con dinero real, ni compras, ni retiros ni premios.",
+      "intro": "Mobile Roulette – No cash es una ruleta gratis y de código abierto para teléfono, tableta y escritorio. Usa solo puntos virtuales. No hay juego de azar con dinero real, ni compras, ni retiros ni premios.",
       "featuresHeading": "QUÉ PUEDES HACER",
       "features": [
         "Mesa europea (un solo 0, 37 casillas) y mesa americana (0 y 00, 38 casillas)",
@@ -153,7 +153,7 @@ window.MSR_HOSTING = {
     "pt-BR": {
       "htmlLang": "pt-BR",
       "native": "Português (BR)",
-      "title": "MobileSpinRoulette · Só pontos virtuais",
+      "title": "Mobile Roulette – No cash · Só pontos virtuais",
       "description": "Roleta open source no celular. Só pontos virtuais. Mesas EU e US.",
       "chrome": {
         "play": "Jogar online",
@@ -171,7 +171,7 @@ window.MSR_HOSTING = {
         "skip": "Ir ao conteúdo",
         "chooseLang": "Escolher idioma"
       },
-      "intro": "MobileSpinRoulette é uma roleta grátis e de código aberto para celular, tablet e computador. Usa apenas pontos virtuais. Não há jogo de azar com dinheiro de verdade, nem compras, saques ou prêmios.",
+      "intro": "Mobile Roulette – No cash é uma roleta grátis e de código aberto para celular, tablet e computador. Usa apenas pontos virtuais. Não há jogo de azar com dinheiro de verdade, nem compras, saques ou prêmios.",
       "featuresHeading": "O QUE VOCÊ PODE FAZER",
       "features": [
         "Mesa europeia (um único 0, 37 casas) e mesa americana (0 e 00, 38 casas)",
@@ -202,7 +202,7 @@ window.MSR_HOSTING = {
     "fr": {
       "htmlLang": "fr-FR",
       "native": "Français",
-      "title": "MobileSpinRoulette · Points virtuels uniquement",
+      "title": "Mobile Roulette – No cash · Points virtuels uniquement",
       "description": "Roulette open source pour mobile. Points virtuels seulement. Tables EU et US.",
       "chrome": {
         "play": "Jouer en ligne",
@@ -220,7 +220,7 @@ window.MSR_HOSTING = {
         "skip": "Aller au contenu",
         "chooseLang": "Choisir la langue"
       },
-      "intro": "MobileSpinRoulette est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.",
+      "intro": "Mobile Roulette – No cash est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.",
       "featuresHeading": "CE QUE VOUS POUVEZ FAIRE",
       "features": [
         "Table européenne (un seul 0, 37 cases) et table américaine (0 et 00, 38 cases)",
@@ -251,7 +251,7 @@ window.MSR_HOSTING = {
     "de": {
       "htmlLang": "de-DE",
       "native": "Deutsch",
-      "title": "MobileSpinRoulette · Nur virtuelle Punkte",
+      "title": "Mobile Roulette – No cash · Nur virtuelle Punkte",
       "description": "Open-Source-Roulette fürs Handy. Nur virtuelle Punkte. EU- und US-Tische.",
       "chrome": {
         "play": "Online spielen",
@@ -269,7 +269,7 @@ window.MSR_HOSTING = {
         "skip": "Zum Inhalt",
         "chooseLang": "Sprache wählen"
       },
-      "intro": "MobileSpinRoulette ist ein kostenloses Open-Source-Roulette für Handy, Tablet und Desktop. Es verwendet ausschließlich virtuelle Punkte. Es gibt kein Echtgeldspiel, keine Käufe, keine Auszahlungen und keine Preise.",
+      "intro": "Mobile Roulette – No cash ist ein kostenloses Open-Source-Roulette für Handy, Tablet und Desktop. Es verwendet ausschließlich virtuelle Punkte. Es gibt kein Echtgeldspiel, keine Käufe, keine Auszahlungen und keine Preise.",
       "featuresHeading": "WAS DU TUN KANNST",
       "features": [
         "Europäischer Tisch (eine 0, 37 Fächer) und amerikanischer Tisch (0 und 00, 38 Fächer)",
@@ -300,7 +300,7 @@ window.MSR_HOSTING = {
     "ko": {
       "htmlLang": "ko-KR",
       "native": "한국어",
-      "title": "MobileSpinRoulette · 가상 점수만",
+      "title": "Mobile Roulette – No cash · 가상 점수만",
       "description": "오픈소스 모바일 룰렛. 가상 점수만. 유럽·미국 테이블, 실제 돈 없음.",
       "chrome": {
         "play": "온라인으로 플레이",
@@ -318,7 +318,7 @@ window.MSR_HOSTING = {
         "skip": "본문으로",
         "chooseLang": "언어 선택"
       },
-      "intro": "MobileSpinRoulette은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.",
+      "intro": "Mobile Roulette – No cash은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.",
       "featuresHeading": "할 수 있는 일",
       "features": [
         "유럽식 테이블(0 하나, 37칸)과 미국식 테이블(0과 00, 38칸)",
@@ -349,7 +349,7 @@ window.MSR_HOSTING = {
     "ja": {
       "htmlLang": "ja-JP",
       "native": "日本語",
-      "title": "MobileSpinRoulette · 仮想ポイントのみ",
+      "title": "Mobile Roulette – No cash · 仮想ポイントのみ",
       "description": "オープンソースのモバイルルーレット。仮想ポイントのみ。EU/US卓、現金なし。",
       "chrome": {
         "play": "オンラインで遊ぶ",
@@ -367,7 +367,7 @@ window.MSR_HOSTING = {
         "skip": "本文へ",
         "chooseLang": "言語を選択"
       },
-      "intro": "MobileSpinRouletteは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。",
+      "intro": "Mobile Roulette – No cashは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。",
       "featuresHeading": "できること",
       "features": [
         "欧州式テーブル（0が1つ、37ポケット）と米国式テーブル（0と00、38ポケット）",
@@ -398,7 +398,7 @@ window.MSR_HOSTING = {
     "zh": {
       "htmlLang": "zh-CN",
       "native": "中文",
-      "title": "MobileSpinRoulette · 仅虚拟积分",
+      "title": "Mobile Roulette – No cash · 仅虚拟积分",
       "description": "开源手机轮盘。仅虚拟积分。欧式与美式桌，无真钱交易。",
       "chrome": {
         "play": "在线游玩",
@@ -416,7 +416,7 @@ window.MSR_HOSTING = {
         "skip": "跳到正文",
         "chooseLang": "选择语言"
       },
-      "intro": "MobileSpinRoulette 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。",
+      "intro": "Mobile Roulette – No cash 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。",
       "featuresHeading": "你可以做什么",
       "features": [
         "欧式桌（单个 0，37 格）和美式桌（0 与 00，38 格）",

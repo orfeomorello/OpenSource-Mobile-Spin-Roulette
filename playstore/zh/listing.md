@@ -1,4 +1,4 @@
-# MobileSpinRoulette — Chinese (Simplified)
+# Mobile Roulette – No cash — Chinese (Simplified)
 
 Play Console → **Grow users → Store presence → Main store listing**  
 Language to add: **Chinese (Simplified)** (`zh-CN`)  
@@ -6,10 +6,10 @@ Translation. If a graphic is missing here, Play reuses the default-language grap
 
 Do not edit the fenced blocks below. Copy the inner text only.
 
-## App name (max 30 · 18 used)
+## App name (max 30 · 25 used)
 
 ```
-MobileSpinRoulette
+Mobile Roulette – No cash
 ```
 
 ## Short description (max 80 · 26 used)
@@ -18,10 +18,10 @@ MobileSpinRoulette
 开源手机轮盘。仅虚拟积分。欧式与美式桌，无真钱交易。
 ```
 
-## Full description (max 4000 · 511 used)
+## Full description (max 4000 · 518 used)
 
 ```
-MobileSpinRoulette 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。
+Mobile Roulette – No cash 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。
 
 你可以做什么
 • 欧式桌（单个 0，37 格）和美式桌（0 与 00，38 格）

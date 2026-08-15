@@ -1,7 +1,7 @@
 # Google Play Store pack
 
 Copy-paste texts, shared graphics and per-language screenshots for
-[MobileSpinRoulette](https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette).
+[Mobile Roulette – No cash](https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette).
 
 This folder is a **Console kit**, not part of the game runtime. The software
 stays `GPL-3.0-or-later`; these listing texts are written for Play Console.

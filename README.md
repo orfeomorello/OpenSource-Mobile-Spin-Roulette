@@ -1,12 +1,12 @@
-# MobileSpinRoulette
+# Mobile Roulette – No cash
 
-![MobileSpinRoulette cover](./mobilespinroulette-itch-cover.png)
+![Mobile Roulette – No cash cover](./mobilespinroulette-itch-cover.png)
 
 **Open-source roulette built for mobile and desktop.**
 
 [Play on itch.io](https://bitcroupier.itch.io/mobile-roulette)
 
-MobileSpinRoulette is a browser-based roulette game focused on a fast, touch-friendly table experience. It is designed for small mobile displays, tablets and desktop browsers, with no backend, account or real-money transactions.
+Mobile Roulette – No cash is a browser-based roulette game focused on a fast, touch-friendly table experience. It is designed for small mobile displays, tablets and desktop browsers, with no backend, account or real-money transactions.
 
 ## Features
 
@@ -172,7 +172,7 @@ The host must expose each file using the name listed in `public/audio-manifest.j
 
 ## License
 
-The MobileSpinRoulette **software** is licensed under the [GNU General Public License v3.0 or later](./LICENSE) (`GPL-3.0-or-later`). You may redistribute and modify the program under those terms.
+The Mobile Roulette – No cash **software** is licensed under the [GNU General Public License v3.0 or later](./LICENSE) (`GPL-3.0-or-later`). You may redistribute and modify the program under those terms.
 
 Bundled fonts and music keep their **original** licenses. They are not placed under the GPL. The map is in [`NOTICE`](./NOTICE).
 
@@ -188,4 +188,4 @@ The Pixabay tracks may be used commercially as part of this game. Do not sell or
 
 ## Disclaimer
 
-MobileSpinRoulette is intended for entertainment and educational purposes. It uses virtual points only and does not offer real-money gambling, purchases or prizes.
+Mobile Roulette – No cash is intended for entertainment and educational purposes. It uses virtual points only and does not offer real-money gambling, purchases or prizes.

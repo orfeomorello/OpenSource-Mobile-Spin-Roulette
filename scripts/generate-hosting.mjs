@@ -138,7 +138,7 @@ ${hreflang}
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="${HOSTING_ORIGIN}/" />
-    <meta property="og:title" content="MobileSpinRoulette" />
+    <meta property="og:title" content="Mobile Roulette – No cash" />
     <meta property="og:description" content="${escapeHtml(en.description)}" />
     <meta property="og:image" content="${HOSTING_ORIGIN}/images/feature-graphic.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -147,7 +147,7 @@ ${hreflang}
       {
         "@context": "https://schema.org",
         "@type": "VideoGame",
-        "name": "MobileSpinRoulette",
+        "name": "Mobile Roulette – No cash",
         "url": "${HOSTING_ORIGIN}/",
         "description": ${JSON.stringify(en.description)},
         "applicationCategory": "GameApplication",
@@ -164,7 +164,7 @@ ${hreflang}
     <header class="top">
       <a class="brand" href="./">
         <img src="./roulette-icon.svg" width="40" height="40" alt="" />
-        <span>MobileSpinRoulette</span>
+        <span>Mobile Roulette – No cash</span>
       </a>
       <nav class="top-nav" aria-label="Site">
         <a href="${ITCH_URL}" rel="noopener noreferrer" data-i18n="play">${escapeHtml(en.chrome.play)}</a>
@@ -175,10 +175,10 @@ ${hreflang}
 
     <main id="content">
       <section class="hero">
-        <img class="hero-art" src="./images/feature-graphic.jpg" width="1024" height="500" alt="MobileSpinRoulette — open source, virtual points only" />
+        <img class="hero-art" src="./images/feature-graphic.jpg" width="1024" height="500" alt="Mobile Roulette – No cash — open source, virtual points only" />
         <div class="hero-copy">
           <p class="kicker">Open source</p>
-          <h1>MobileSpinRoulette</h1>
+          <h1>Mobile Roulette – No cash</h1>
           <p class="lede" data-field="intro">${escapeHtml(en.intro)}</p>
           <p class="notice"><strong data-field="short">${escapeHtml(en.description)}</strong></p>
           <div class="cta">
@@ -257,7 +257,7 @@ const notFound = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#081611" />
-    <title>Page not found · MobileSpinRoulette</title>
+    <title>Page not found · Mobile Roulette – No cash</title>
     <link rel="icon" href="./roulette-icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./site.css" />
   </head>
@@ -266,7 +266,7 @@ const notFound = `<!doctype html>
       <h1>Page not found</h1>
       <p>This host is the product site and the Play Store privacy pages. The game is not served from here.</p>
       <p>
-        <a href="./">MobileSpinRoulette</a>
+        <a href="./">Mobile Roulette – No cash</a>
         ·
         <a href="./privacy.html">Privacy</a>
         ·

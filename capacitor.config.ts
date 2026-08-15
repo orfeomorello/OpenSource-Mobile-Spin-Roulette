@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "io.mobilespinroulette.app",
-  appName: "MobileSpinRoulette",
+  appName: "Mobile Roulette – No cash",
   webDir: "dist",
   android: {
     allowMixedContent: false,

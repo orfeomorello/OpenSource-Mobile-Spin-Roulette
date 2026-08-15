@@ -21,7 +21,7 @@ const settings = {
   backgroundAnimation: "none",
 };
 
-const shots = [
+const allShots = [
   { file: "01-phone-home-1080x1920.png", width: 360, height: 640, dpr: 3, scene: "home" },
   { file: "02-phone-settings-1080x1920.png", width: 360, height: 640, dpr: 3, scene: "settings" },
   { file: "03-phone-table-1080x1920.png", width: 360, height: 640, dpr: 3, scene: "table" },
@@ -29,6 +29,12 @@ const shots = [
   { file: "05-tablet7-table-1200x1920.png", width: 600, height: 960, dpr: 2, scene: "table" },
   { file: "06-tablet10-landscape-1920x1200.png", width: 960, height: 600, dpr: 2, scene: "table" },
 ];
+
+const sceneFilter = process.env.PLAYSTORE_CAPTURE_SCENE;
+const shots = sceneFilter ? allShots.filter((shot) => shot.scene === sceneFilter) : allShots;
+if (!shots.length) {
+  throw new Error(`No screenshots match PLAYSTORE_CAPTURE_SCENE=${sceneFilter}`);
+}
 
 async function waitVisible(page, selector, timeout = 15000) {
   await page.waitForSelector(selector, { visible: true, timeout });

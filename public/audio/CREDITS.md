@@ -1,6 +1,6 @@
-# MobileSpinRoulette audio credits
+# Mobile Roulette – No cash audio credits
 
-The tracks listed below may be used commercially in the game under their respective licenses. They are **not licensed under the GNU GPL** that covers the MobileSpinRoulette software. See [`NOTICE`](../../NOTICE) at the repository root. Keep this file with redistributed builds that contain these audio assets.
+The tracks listed below may be used commercially in the game under their respective licenses. They are **not licensed under the GNU GPL** that covers the Mobile Roulette – No cash software. See [`NOTICE`](../../NOTICE) at the repository root. Keep this file with redistributed builds that contain these audio assets.
 
 ## `mus_menu_loop.mp3`
 
@@ -8,7 +8,7 @@ The tracks listed below may be used commercially in the game under their respect
 - **Source:** [OpenGameArt](https://opengameart.org/content/bossa-nova)
 - **Author:** Joth, as listed on the source page
 - **License:** [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), public-domain dedication
-- **Use in MobileSpinRoulette:** looping music for the home screen and Settings
+- **Use in Mobile Roulette – No cash:** looping music for the home screen and Settings
 
 ## Player playlist - Andrii H (Pixabay)
 
@@ -19,7 +19,7 @@ All tracks in this section are published by **Andrii H** on Pixabay under the sa
 - **Permitted use:** commercial use as part of a larger creative work, such as this game
 - **Restriction:** do not sell or redistribute the tracks as standalone audio files
 - **Attribution:** not required by the license, but included here for transparency
-- **Use in MobileSpinRoulette:** randomized Player-mode playlist with an approximately two-second gap and no immediate repetition
+- **Use in Mobile Roulette – No cash:** randomized Player-mode playlist with an approximately two-second gap and no immediate repetition
 
 | Local file | Official source page |
 |------------|----------------------|

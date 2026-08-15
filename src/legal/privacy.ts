@@ -73,7 +73,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "en",
     title: "Privacy Policy",
     updated: "Last updated: 13 August 2026",
-    noticeLead: "MobileSpinRoulette uses virtual points only.",
+    noticeLead: "Mobile Roulette – No cash uses virtual points only.",
     noticeRest: "It offers no real-money gambling, purchases, cash-out, prizes or accounts.",
     issuesPhrase: "GitHub issue tracker",
     sections: [
@@ -108,7 +108,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "it",
     title: "Informativa sulla privacy",
     updated: "Ultimo aggiornamento: 13 agosto 2026",
-    noticeLead: "MobileSpinRoulette usa esclusivamente punti virtuali.",
+    noticeLead: "Mobile Roulette – No cash usa esclusivamente punti virtuali.",
     noticeRest: "Non offre gioco con denaro reale, acquisti, conversione in denaro, premi o account.",
     issuesPhrase: "issue tracker GitHub",
     sections: [
@@ -143,7 +143,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "es",
     title: "Política de privacidad",
     updated: "Última actualización: 13 de agosto de 2026",
-    noticeLead: "MobileSpinRoulette usa únicamente puntos virtuales.",
+    noticeLead: "Mobile Roulette – No cash usa únicamente puntos virtuales.",
     noticeRest: "No ofrece juego con dinero real, compras, cobros, premios ni cuentas.",
     issuesPhrase: "sistema de incidencias de GitHub",
     sections: [
@@ -178,7 +178,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "pt-BR",
     title: "Política de privacidade",
     updated: "Última atualização: 13 de agosto de 2026",
-    noticeLead: "O MobileSpinRoulette usa apenas pontos virtuais.",
+    noticeLead: "O Mobile Roulette – No cash usa apenas pontos virtuais.",
     noticeRest: "Não oferece jogo com dinheiro real, compras, saques, prêmios ou contas.",
     issuesPhrase: "rastreador de issues do GitHub",
     sections: [
@@ -213,7 +213,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "fr",
     title: "Politique de confidentialité",
     updated: "Dernière mise à jour : 13 août 2026",
-    noticeLead: "MobileSpinRoulette utilise uniquement des points virtuels.",
+    noticeLead: "Mobile Roulette – No cash utilise uniquement des points virtuels.",
     noticeRest: "Il n’offre ni jeu d’argent réel, ni achats, ni retrait, ni prix, ni comptes.",
     issuesPhrase: "suivi des tickets GitHub",
     sections: [
@@ -248,7 +248,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "de",
     title: "Datenschutzerklärung",
     updated: "Zuletzt aktualisiert: 13. August 2026",
-    noticeLead: "MobileSpinRoulette verwendet ausschließlich virtuelle Punkte.",
+    noticeLead: "Mobile Roulette – No cash verwendet ausschließlich virtuelle Punkte.",
     noticeRest: "Es gibt kein Echtgeldspiel, keine Käufe, keine Auszahlung, keine Preise und keine Konten.",
     issuesPhrase: "GitHub-Issue-Tracker",
     sections: [
@@ -283,7 +283,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "ko",
     title: "개인정보 처리방침",
     updated: "최종 업데이트: 2026년 8월 13일",
-    noticeLead: "MobileSpinRoulette는 가상 점수만 사용합니다.",
+    noticeLead: "Mobile Roulette – No cash는 가상 점수만 사용합니다.",
     noticeRest: "실제 돈 도박, 구매, 현금화, 경품, 계정은 제공하지 않습니다.",
     issuesPhrase: "GitHub 이슈 트래커",
     sections: [
@@ -318,7 +318,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "ja",
     title: "プライバシーポリシー",
     updated: "最終更新: 2026年8月13日",
-    noticeLead: "MobileSpinRoulette は仮想ポイントのみを使用します。",
+    noticeLead: "Mobile Roulette – No cash は仮想ポイントのみを使用します。",
     noticeRest: "現金ギャンブル、購入、換金、賞品、アカウントはありません。",
     issuesPhrase: "GitHub の Issue トラッカー",
     sections: [
@@ -353,7 +353,7 @@ const PRIVACY_BY_LOCALE: Record<Locale, PrivacyDocument> = {
     htmlLang: "zh-CN",
     title: "隐私政策",
     updated: "最近更新：2026年8月13日",
-    noticeLead: "MobileSpinRoulette 仅使用虚拟积分。",
+    noticeLead: "Mobile Roulette – No cash 仅使用虚拟积分。",
     noticeRest: "不提供真钱赌博、内购、提现、奖品或账户。",
     issuesPhrase: "GitHub 议题跟踪器",
     sections: [

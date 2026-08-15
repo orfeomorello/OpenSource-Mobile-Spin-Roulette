@@ -67,7 +67,7 @@ function pageShell({ lang, title, description, nav, body }) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#081611" />
     <meta name="description" content="${description}" />
-    <title>${title} · MobileSpinRoulette</title>
+    <title>${title} · Mobile Roulette – No cash</title>
     <link rel="icon" href="../roulette-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="../apple-touch-icon.png" sizes="180x180" />
     <style>
@@ -78,7 +78,7 @@ ${PAGE_CSS}
     <main>
       <nav aria-label="Page navigation">${nav}</nav>
       ${body}
-      <footer>MobileSpinRoulette · Open source · Virtual points only</footer>
+      <footer>Mobile Roulette – No cash · Open source · Virtual points only</footer>
     </main>
   </body>
 </html>
@@ -101,7 +101,7 @@ function writePrivacyTree(rootDir) {
       title: doc.title,
       description: `${doc.noticeLead} ${doc.noticeRest}`,
       nav: `
-        <a href="../">← MobileSpinRoulette</a>
+        <a href="../">← Mobile Roulette – No cash</a>
         <a href="../privacy.html">All languages</a>
         ${others}`,
       body: `<article>
@@ -123,8 +123,8 @@ function writePrivacyTree(rootDir) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#081611" />
-    <meta name="description" content="MobileSpinRoulette privacy policy. Virtual points only. No personal data collection." />
-    <title>Privacy Policy · MobileSpinRoulette</title>
+    <meta name="description" content="Mobile Roulette – No cash privacy policy. Virtual points only. No personal data collection." />
+    <title>Privacy Policy · Mobile Roulette – No cash</title>
     <link rel="icon" href="./roulette-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
     <style>
@@ -134,17 +134,17 @@ ${PAGE_CSS}
   <body>
     <main>
       <nav aria-label="Page navigation">
-        <a href="./">← MobileSpinRoulette</a>
+        <a href="./">← Mobile Roulette – No cash</a>
       </nav>
       <article>
         <h1>Privacy Policy</h1>
         <p class="privacy-updated">Choose a language. Each page below is a standalone privacy policy for that locale.</p>
-        <p class="privacy-notice"><strong>MobileSpinRoulette uses virtual points only.</strong> The app does not collect personal data.</p>
+        <p class="privacy-notice"><strong>Mobile Roulette – No cash uses virtual points only.</strong> The app does not collect personal data.</p>
       </article>
       <div class="locale-list">
 ${indexNav}
       </div>
-      <footer>MobileSpinRoulette · Open source · Virtual points only</footer>
+      <footer>Mobile Roulette – No cash · Open source · Virtual points only</footer>
     </main>
   </body>
 </html>

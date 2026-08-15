@@ -260,7 +260,7 @@ function showAppDialog({
   overlay.className = `app-dialog-layer tone-${tone}`;
   overlay.innerHTML = `<section class="app-dialog-card" role="${cancelLabel ? "alertdialog" : "dialog"}" aria-modal="true" aria-labelledby="${dialogId}-title" aria-describedby="${dialogId}-message">
     <span class="app-dialog-icon" aria-hidden="true">${tone === "success" ? "✓" : tone === "info" ? "i" : "!"}</span>
-    <h2 id="${dialogId}-title">MobileSpinRoulette</h2>
+    <h2 id="${dialogId}-title">Mobile Roulette – No cash</h2>
     <p id="${dialogId}-message">${escapeHtml(message)}</p>
     <div class="app-dialog-actions ${cancelLabel ? "" : "is-single"}">
       ${cancelLabel ? `<button type="button" class="app-dialog-cancel">${escapeHtml(cancelLabel)}</button>` : ""}

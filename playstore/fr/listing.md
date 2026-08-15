@@ -1,4 +1,4 @@
-# MobileSpinRoulette — French
+# Mobile Roulette – No cash — French
 
 Play Console → **Grow users → Store presence → Main store listing**  
 Language to add: **French** (`fr-FR`)  
@@ -6,10 +6,10 @@ Translation. If a graphic is missing here, Play reuses the default-language grap
 
 Do not edit the fenced blocks below. Copy the inner text only.
 
-## App name (max 30 · 18 used)
+## App name (max 30 · 25 used)
 
 ```
-MobileSpinRoulette
+Mobile Roulette – No cash
 ```
 
 ## Short description (max 80 · 77 used)
@@ -18,10 +18,10 @@ MobileSpinRoulette
 Roulette open source pour mobile. Points virtuels seulement. Tables EU et US.
 ```
 
-## Full description (max 4000 · 1508 used)
+## Full description (max 4000 · 1515 used)
 
 ```
-MobileSpinRoulette est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.
+Mobile Roulette – No cash est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.
 
 CE QUE VOUS POUVEZ FAIRE
 • Table européenne (un seul 0, 37 cases) et table américaine (0 et 00, 38 cases)

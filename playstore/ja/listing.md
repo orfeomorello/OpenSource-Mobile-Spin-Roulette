@@ -1,4 +1,4 @@
-# MobileSpinRoulette — Japanese
+# Mobile Roulette – No cash — Japanese
 
 Play Console → **Grow users → Store presence → Main store listing**  
 Language to add: **Japanese** (`ja-JP`)  
@@ -6,10 +6,10 @@ Translation. If a graphic is missing here, Play reuses the default-language grap
 
 Do not edit the fenced blocks below. Copy the inner text only.
 
-## App name (max 30 · 18 used)
+## App name (max 30 · 25 used)
 
 ```
-MobileSpinRoulette
+Mobile Roulette – No cash
 ```
 
 ## Short description (max 80 · 39 used)
@@ -18,10 +18,10 @@ MobileSpinRoulette
 オープンソースのモバイルルーレット。仮想ポイントのみ。EU/US卓、現金なし。
 ```
 
-## Full description (max 4000 · 732 used)
+## Full description (max 4000 · 739 used)
 
 ```
-MobileSpinRouletteは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。
+Mobile Roulette – No cashは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。
 
 できること
 • 欧州式テーブル（0が1つ、37ポケット）と米国式テーブル（0と00、38ポケット）

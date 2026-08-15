@@ -1,5 +1,7 @@
 /** Store-listing copy for Play Console. Limits: name 30, short 80, full 4000. */
 
+export const DISPLAY_NAME = "Mobile Roulette – No cash";
+
 export const PUBLIC_HTTPS_ORIGIN = "https://mobilespinroulette.pages.dev";
 
 export const LISTING_LIMITS = {
@@ -21,10 +23,10 @@ export const listings = [
     playLanguage: "English (United States)",
     playCode: "en-US",
     isDefault: true,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Open-source mobile roulette. Virtual points only. EU & US tables, no real money.",
     releaseNotes: "First Play Store release. Free European and American roulette with virtual points only. No ads and no purchases.",
-    full: `MobileSpinRoulette is a free, open-source roulette game for phones, tablets and desktop. It uses virtual points only. There is no real-money gambling, no purchases, no cash-out and no prizes.
+    full: `Mobile Roulette – No cash is a free, open-source roulette game for phones, tablets and desktop. It uses virtual points only. There is no real-money gambling, no purchases, no cash-out and no prizes.
 
 WHAT YOU CAN DO
 • European table (single 0, 37 pockets) and American table (0 and 00, 38 pockets)
@@ -51,10 +53,10 @@ Entertainment and practice only. You cannot receive cash, withdraw funds or buy 
     playLanguage: "Italian",
     playCode: "it-IT",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Roulette open source su mobile. Solo punti virtuali. Tavoli EU e US.",
     releaseNotes: "Prima pubblicazione su Play Store. Roulette europea e americana gratis, solo punti virtuali. Niente ads e niente acquisti.",
-    full: `MobileSpinRoulette è una roulette gratis e open source per telefono, tablet e computer. Usa solo punti virtuali. Non c’è gioco d’azzardo con soldi veri, non ci sono acquisti, prelievi o premi.
+    full: `Mobile Roulette – No cash è una roulette gratis e open source per telefono, tablet e computer. Usa solo punti virtuali. Non c’è gioco d’azzardo con soldi veri, non ci sono acquisti, prelievi o premi.
 
 COSA PUOI FARE
 • Tavolo europeo (un solo 0, 37 caselle) e tavolo americano (0 e 00, 38 caselle)
@@ -81,10 +83,10 @@ Solo intrattenimento e allenamento. Non si vincono soldi, non si preleva e non s
     playLanguage: "Spanish (Spain)",
     playCode: "es-ES",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Ruleta open source para móvil. Solo puntos virtuales. Mesas EU y US.",
     releaseNotes: "Primera publicación en Play Store. Ruleta europea y americana gratis, solo puntos virtuales. Sin anuncios ni compras.",
-    full: `MobileSpinRoulette es una ruleta gratis y de código abierto para teléfono, tableta y escritorio. Usa solo puntos virtuales. No hay juego de azar con dinero real, ni compras, ni retiros ni premios.
+    full: `Mobile Roulette – No cash es una ruleta gratis y de código abierto para teléfono, tableta y escritorio. Usa solo puntos virtuales. No hay juego de azar con dinero real, ni compras, ni retiros ni premios.
 
 QUÉ PUEDES HACER
 • Mesa europea (un solo 0, 37 casillas) y mesa americana (0 y 00, 38 casillas)
@@ -111,10 +113,10 @@ Solo entretenimiento y práctica. No se gana dinero, no se retira y no se compra
     playLanguage: "Portuguese (Brazil)",
     playCode: "pt-BR",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Roleta open source no celular. Só pontos virtuais. Mesas EU e US.",
     releaseNotes: "Primeira publicação na Play Store. Roleta europeia e americana grátis, só pontos virtuais. Sem anúncios e sem compras.",
-    full: `MobileSpinRoulette é uma roleta grátis e de código aberto para celular, tablet e computador. Usa apenas pontos virtuais. Não há jogo de azar com dinheiro de verdade, nem compras, saques ou prêmios.
+    full: `Mobile Roulette – No cash é uma roleta grátis e de código aberto para celular, tablet e computador. Usa apenas pontos virtuais. Não há jogo de azar com dinheiro de verdade, nem compras, saques ou prêmios.
 
 O QUE VOCÊ PODE FAZER
 • Mesa europeia (um único 0, 37 casas) e mesa americana (0 e 00, 38 casas)
@@ -141,10 +143,10 @@ Só entretenimento e treino. Não se ganha dinheiro, não se saca e não se comp
     playLanguage: "French",
     playCode: "fr-FR",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Roulette open source pour mobile. Points virtuels seulement. Tables EU et US.",
     releaseNotes: "Première publication sur le Play Store. Roulette européenne et américaine gratuite, points virtuels uniquement. Sans pubs ni achats.",
-    full: `MobileSpinRoulette est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.
+    full: `Mobile Roulette – No cash est une roulette gratuite et open source pour téléphone, tablette et ordinateur. Elle utilise uniquement des points virtuels. Il n’y a ni jeu d’argent réel, ni achats, ni retrait, ni lots.
 
 CE QUE VOUS POUVEZ FAIRE
 • Table européenne (un seul 0, 37 cases) et table américaine (0 et 00, 38 cases)
@@ -171,10 +173,10 @@ Divertissement et entraînement uniquement. On ne gagne pas d’argent, on ne re
     playLanguage: "German",
     playCode: "de-DE",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "Open-Source-Roulette fürs Handy. Nur virtuelle Punkte. EU- und US-Tische.",
     releaseNotes: "Erste Play-Store-Veröffentlichung. Kostenloses Europa- und USA-Roulette, nur virtuelle Punkte. Keine Werbung, keine Käufe.",
-    full: `MobileSpinRoulette ist ein kostenloses Open-Source-Roulette für Handy, Tablet und Desktop. Es verwendet ausschließlich virtuelle Punkte. Es gibt kein Echtgeldspiel, keine Käufe, keine Auszahlungen und keine Preise.
+    full: `Mobile Roulette – No cash ist ein kostenloses Open-Source-Roulette für Handy, Tablet und Desktop. Es verwendet ausschließlich virtuelle Punkte. Es gibt kein Echtgeldspiel, keine Käufe, keine Auszahlungen und keine Preise.
 
 WAS DU TUN KANNST
 • Europäischer Tisch (eine 0, 37 Fächer) und amerikanischer Tisch (0 und 00, 38 Fächer)
@@ -201,10 +203,10 @@ Nur Unterhaltung und Übung. Man gewinnt kein Geld, hebt nichts ab und kauft kei
     playLanguage: "Korean",
     playCode: "ko-KR",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "오픈소스 모바일 룰렛. 가상 점수만. 유럽·미국 테이블, 실제 돈 없음.",
     releaseNotes: "플레이 스토어 첫 출시. 유럽식·미국식 룰렛, 가상 점수만. 광고 없음, 인앱 결제 없음.",
-    full: `MobileSpinRoulette은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.
+    full: `Mobile Roulette – No cash은 휴대폰, 태블릿, 데스크톱용 무료 오픈소스 룰렛입니다. 가상 점수만 사용합니다. 실제 돈 도박, 구매, 출금, 상품이 없습니다.
 
 할 수 있는 일
 • 유럽식 테이블(0 하나, 37칸)과 미국식 테이블(0과 00, 38칸)
@@ -231,10 +233,10 @@ Nur Unterhaltung und Übung. Man gewinnt kein Geld, hebt nichts ab und kauft kei
     playLanguage: "Japanese",
     playCode: "ja-JP",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "オープンソースのモバイルルーレット。仮想ポイントのみ。EU/US卓、現金なし。",
     releaseNotes: "Playストア初公開。欧州式・米国式ルーレット。仮想ポイントのみ。広告なし、購入なし。",
-    full: `MobileSpinRouletteは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。
+    full: `Mobile Roulette – No cashは、スマホ・タブレット・デスクトップ向けの無料オープンソースルーレットです。仮想ポイントのみを使います。現金ギャンブル、購入、払い出し、賞品はありません。
 
 できること
 • 欧州式テーブル（0が1つ、37ポケット）と米国式テーブル（0と00、38ポケット）
@@ -261,10 +263,10 @@ Nur Unterhaltung und Übung. Man gewinnt kein Geld, hebt nichts ab und kauft kei
     playLanguage: "Chinese (Simplified)",
     playCode: "zh-CN",
     isDefault: false,
-    name: "MobileSpinRoulette",
+    name: "Mobile Roulette – No cash",
     short: "开源手机轮盘。仅虚拟积分。欧式与美式桌，无真钱交易。",
     releaseNotes: "首次登陆 Play 商店。免费欧式与美式轮盘，仅虚拟积分。无广告、无内购。",
-    full: `MobileSpinRoulette 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。
+    full: `Mobile Roulette – No cash 是一款面向手机、平板和电脑的免费开源轮盘游戏。只使用虚拟积分。没有真钱赌博、购买、提现或奖品。
 
 你可以做什么
 • 欧式桌（单个 0，37 格）和美式桌（0 与 00，38 格）

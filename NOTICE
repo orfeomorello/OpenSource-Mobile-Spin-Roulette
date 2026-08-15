@@ -1,4 +1,4 @@
-MobileSpinRoulette
+Mobile Roulette – No cash
 Copyright (C) 2026 Orfeo
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ along with this program (the LICENSE file). If not, see
 
 SPDX-License-Identifier for the software: GPL-3.0-or-later
 
-The GNU GPL covers the MobileSpinRoulette software: source under src/,
+The GNU GPL covers the Mobile Roulette – No cash software: source under src/,
 config/ and scripts/, plus the built application scripts and styles.
 It does not relicense third-party fonts or music bundled with the game.
 Those files keep the licenses below. Do not treat this repository as a

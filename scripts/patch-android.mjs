@@ -72,8 +72,8 @@ writeIfDifferent(
 
 const stringsPath = path.join("android", "app", "src", "main", "res", "values", "strings.xml");
 let strings = readFileSync(stringsPath, "utf8");
-strings = strings.replace(/<string name="app_name">[^<]*<\/string>/, '<string name="app_name">MobileSpinRoulette</string>');
-strings = strings.replace(/<string name="title_activity_main">[^<]*<\/string>/, '<string name="title_activity_main">MobileSpinRoulette</string>');
+strings = strings.replace(/<string name="app_name">[^<]*<\/string>/, '<string name="app_name">Mobile Roulette – No cash</string>');
+strings = strings.replace(/<string name="title_activity_main">[^<]*<\/string>/, '<string name="title_activity_main">Mobile Roulette – No cash</string>');
 strings = strings.replace(/<string name="package_name">[^<]*<\/string>/, `<string name="package_name">${APP_ID}</string>`);
 strings = strings.replace(/<string name="custom_url_scheme">[^<]*<\/string>/, `<string name="custom_url_scheme">${APP_ID}</string>`);
 writeIfDifferent(stringsPath, strings);
