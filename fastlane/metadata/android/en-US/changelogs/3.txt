@@ -1,0 +1,1 @@
+Secures the Gradle wrapper by pinning the official Gradle 8.14.3 distribution checksum. Gameplay is unchanged.

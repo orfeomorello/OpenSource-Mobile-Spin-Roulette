@@ -3,24 +3,24 @@
 This directory contains the proposed `fdroiddata` metadata for the official
 F-Droid repository. It is a submission recipe, not a private F-Droid repo.
 
-## Before submitting version 1.0.1
+## Before submitting version 1.0.2
 
 1. Commit these changes and push them to the public GitHub repository.
 2. Create and push the exact release tag referenced by the recipe:
 
    ```powershell
-   git tag -a v1.0.1 -m "Mobile Roulette 1.0.1"
-   git push origin v1.0.1
+   git tag -a v1.0.2 -m "Mobile Roulette 1.0.2"
+   git push origin v1.0.2
    ```
 
-3. Confirm that `versionCode` is `2` and `versionName` is `1.0.1` in
+3. Confirm that `versionCode` is `3` and `versionName` is `1.0.2` in
    `android/app/build.gradle`. Every later Android release must increment
    `versionCode` and have its own public source tag.
 4. Test the recipe with `fdroid lint` and `fdroid build` in an fdroidserver
    environment, or submit a Request For Packaging if that environment is not
    available.
 5. Copy `io.mobilespinroulette.app.yml` to the `metadata/` directory of a fork
-   of `fdroid/fdroiddata`, replace `commit: v1.0.1` with the tag's full commit
+   of `fdroid/fdroiddata`, replace `commit: v1.0.2` with the tag's full commit
    hash if requested during review, and open a merge request.
 
 ## Free-software compliance

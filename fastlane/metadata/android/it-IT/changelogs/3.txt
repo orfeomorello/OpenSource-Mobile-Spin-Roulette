@@ -1,0 +1,1 @@
+Protegge il wrapper Gradle fissando il checksum ufficiale della distribuzione Gradle 8.14.3. Il gioco non cambia.
