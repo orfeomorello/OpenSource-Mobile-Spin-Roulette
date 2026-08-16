@@ -143,6 +143,22 @@ npm.cmd run android:open
 
 opens the native project in Android Studio.
 
+## F-Droid
+
+The repository includes a proposed official F-Droid build recipe in
+[`fdroid/io.mobilespinroulette.app.yml`](./fdroid/io.mobilespinroulette.app.yml)
+and the submission checklist in [`fdroid/README.md`](./fdroid/README.md).
+The recipe builds the web application from source, syncs it into the Capacitor
+Android project and produces an unsigned release APK for F-Droid to sign.
+Localized store text, the icon and screenshots are maintained under
+[`fastlane/metadata/android/`](./fastlane/metadata/android/) so F-Droid can
+import them directly from each tagged release.
+
+The optional Pixabay playlist is not part of the source repository or the
+F-Droid build. This keeps the package free-software compliant; synthesized
+sound effects remain available. The Android project has no Google Services,
+analytics, ads, purchases or proprietary runtime dependencies.
+
 ## Local data and migration
 
 Progress is saved automatically in browser `localStorage`:

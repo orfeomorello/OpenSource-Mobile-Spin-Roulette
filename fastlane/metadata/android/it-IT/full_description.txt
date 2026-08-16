@@ -1,0 +1,16 @@
+Mobile Roulette – No cash è una roulette gratuita e open source per telefoni e tablet. Usa esclusivamente punti virtuali. Non contiene gioco con denaro reale, pubblicità, analytics, acquisti, prelievi o premi.
+
+Funzionalità:
+• Tavolo europeo con 37 caselle
+• Tavolo americano con 38 caselle
+• Puntate interne ed esterne
+• Call del racetrack europeo
+• Ripeti, Raddoppia e Annulla
+• Fino a 24 strategie di puntata salvate
+• Statistiche di sessione e andamento del punteggio
+• Interfaccia in nove lingue
+• Gioco locale offline e senza account
+
+Scegli un gettone, tocca il feltro e premi Spin. Punteggio, impostazioni e strategie restano sul dispositivo.
+
+Il software è distribuito sotto GNU GPL v3 o successiva. L’edizione F-Droid esclude la playlist musicale opzionale non libera; il gioco e gli effetti sonori sintetizzati restano disponibili.

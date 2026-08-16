@@ -1,0 +1,1 @@
+First F-Droid release. European and American roulette with virtual points only, no advertisements, analytics, purchases, or prizes.

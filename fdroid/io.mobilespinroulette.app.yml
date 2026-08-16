@@ -1,0 +1,52 @@
+Categories:
+  - Casual Game
+License: GPL-3.0-or-later
+AuthorName: Orfeo
+WebSite: https://mobilespinroulette.pages.dev/
+SourceCode: https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette
+IssueTracker:
+  https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette/issues
+Changelog:
+  https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette/releases
+
+AutoName: Mobile Roulette – No cash
+Summary: Open-source roulette with virtual points only
+Description: |-
+  A touch-friendly European and American roulette game using virtual points.
+
+  Place inside and outside bets, use racetrack calls, save betting strategies,
+  and inspect session statistics. There are no accounts, advertisements,
+  analytics, purchases, prizes, cash-out, or real-money transactions.
+
+  The F-Droid build excludes the optional Pixabay-licensed music playlist.
+  Sound effects and all gameplay remain available offline.
+
+RepoType: git
+Repo: https://github.com/orfeomorello/OpenSource-Mobile-Spin-Roulette.git
+
+Builds:
+  - versionName: 1.0.1
+    versionCode: 2
+    commit: v1.0.1
+    subdir: android
+    sudo:
+      - apt-get update
+      - apt-get install -y npm
+    init: cd .. && npm ci --ignore-scripts
+    scanignore:
+      - node_modules/@capacitor/cli/assets/capacitor-cordova-android-plugins.tar.gz
+      - node_modules/@esbuild/linux-x64/bin/esbuild
+    prebuild:
+      - cd .. && npx --no-install tsc -b
+      - cd .. && npx --no-install vite build
+      - cd .. && node scripts/stage-worker.mjs
+      - cd .. && npx --no-install cap sync android
+      - cd .. && node scripts/patch-android.mjs
+      - find ../node_modules -type f -name '*.node' -delete
+    gradle:
+      - yes
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
+CurrentVersion: 1.0.1
+CurrentVersionCode: 2

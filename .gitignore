@@ -17,6 +17,8 @@ mobilespinroulette-itch.zip
 !/public/audio/CREDITS.md
 !/playstore/**/*.md
 !/hosting/**/*.md
+!/fdroid/**/*.md
+!/fastlane/metadata/android/**/*.txt
 
 # Local Codex/OpenAI hosting configuration.
 .openai/

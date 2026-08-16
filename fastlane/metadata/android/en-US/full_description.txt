@@ -1,0 +1,16 @@
+Mobile Roulette – No cash is a free, open-source roulette game for phones and tablets. It uses virtual points only. There is no real-money gambling, no advertising, no analytics, no purchases, no cash-out, and no prizes.
+
+Features:
+• European table with 37 pockets
+• American table with 38 pockets
+• Inside and outside bets
+• European racetrack calls
+• Rebet, Double, and Undo
+• Up to 24 saved betting strategies
+• Session statistics and score trend
+• Nine interface languages
+• Local offline play with no account
+
+Choose a chip, tap the felt, and press Spin. Score, settings, and strategies remain on your device.
+
+The software is licensed under GNU GPL v3 or later. The F-Droid edition excludes the optional non-free music playlist; gameplay and synthesized sound effects remain available.
